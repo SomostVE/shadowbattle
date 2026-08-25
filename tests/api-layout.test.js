@@ -82,3 +82,19 @@ test("API page is a compact public JSON endpoint directory", async () => {
   assert.doesNotMatch(html, /No shared raw card pool/);
   assert.doesNotMatch(html, /Local endpoints/);
 });
+
+test("API page publishes absolute URLs and practical usage examples", async () => {
+  const html = await fs.readFile(new URL("../api/index.html", import.meta.url), "utf8");
+  const js = await fs.readFile(new URL("../src/ui/api-page.js", import.meta.url), "utf8");
+  assert.match(html, /https:\/\/somostve\.github\.io\/shadowbattle\/api\/v1\//);
+  assert.match(html, /Use the data directly/);
+  assert.match(html, />JavaScript</);
+  assert.match(html, />Python</);
+  assert.match(html, />curl</);
+  assert.match(html, /Forestcraft/);
+  assert.match(html, /requests\.get/);
+  assert.match(html, /champions-battle-cards\.json/);
+  assert.match(html, /data-copy-text/);
+  assert.match(js, /copyValue/);
+  assert.match(js, /navigator\.clipboard\.writeText/);
+});
