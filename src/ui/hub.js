@@ -1,6 +1,7 @@
 const DECK_KEY = "shadowbattle:decks:v1";
 const RULESET_KEY = "shadowbattle:hub-ruleset:v1";
 const CPU_DIFFICULTY_KEY = "shadowbattle:cpu-difficulty:v1";
+const PVP_SETTINGS_KEY = "shadowbattle:pvp-private-settings:v1";
 
 const CCG_BACKGROUND_ROOT = "./assets/fankits/shadowverse-ccg/extracted/Backgrounds/Backgrounds/";
 const CCG_BACKGROUNDS = [
@@ -28,6 +29,7 @@ renderCpuDeckCount();
 applyRandomFanKitBackground();
 bindGameProfileButtons();
 bindCpuDifficulty();
+bindPrivateMatchSetup();
 
 function renderDeckCounts() {
   const library = readLibrary();
@@ -128,6 +130,76 @@ function selectCpuDifficulty(button, buttons, persist) {
   const difficulty = String(button.dataset.cpuDifficulty || "intermediate");
   document.body.dataset.cpuDifficulty = difficulty;
   if (persist) localStorage.setItem(CPU_DIFFICULTY_KEY, difficulty);
+}
+
+function bindPrivateMatchSetup() {
+  const openButton = document.getElementById("open-private-match");
+  const closeButton = document.getElementById("close-private-match");
+  const dialog = document.getElementById("private-match-dialog");
+  const gameSelect = document.getElementById("private-match-game");
+  const spectators = document.getElementById("private-match-spectators");
+  const revealHands = document.getElementById("private-match-reveal-hands");
+
+  if (!openButton || !closeButton || !dialog || !gameSelect || !spectators || !revealHands) return;
+
+  const saved = readPrivateMatchSettings();
+  if (saved.game && [...gameSelect.options].some(option => option.value === saved.game)) {
+    gameSelect.value = saved.game;
+  }
+  spectators.checked = Boolean(saved.spectators);
+  revealHands.checked = Boolean(saved.spectators && saved.revealHands);
+  updateSpectatorOptions();
+
+  openButton.addEventListener("click", () => {
+    const activeRuleset = document.body.dataset.ruleset;
+    if (activeRuleset && [...gameSelect.options].some(option => option.value === activeRuleset)) {
+      gameSelect.value = activeRuleset;
+    }
+
+    if (typeof dialog.showModal === "function") dialog.showModal();
+    else dialog.setAttribute("open", "");
+  });
+
+  closeButton.addEventListener("click", () => closePrivateMatchDialog(dialog));
+  dialog.addEventListener("click", event => {
+    if (event.target === dialog) closePrivateMatchDialog(dialog);
+  });
+
+  gameSelect.addEventListener("change", persistPrivateMatchSettings);
+  spectators.addEventListener("change", () => {
+    if (!spectators.checked) revealHands.checked = false;
+    updateSpectatorOptions();
+    persistPrivateMatchSettings();
+  });
+  revealHands.addEventListener("change", persistPrivateMatchSettings);
+
+  function updateSpectatorOptions() {
+    revealHands.disabled = !spectators.checked;
+    setText("private-match-spectator-code-state", spectators.checked ? "Generated later" : "Disabled");
+  }
+
+  function persistPrivateMatchSettings() {
+    const payload = {
+      game: gameSelect.value,
+      spectators: spectators.checked,
+      revealHands: spectators.checked && revealHands.checked
+    };
+    localStorage.setItem(PVP_SETTINGS_KEY, JSON.stringify(payload));
+  }
+}
+
+function closePrivateMatchDialog(dialog) {
+  if (typeof dialog.close === "function" && dialog.open) dialog.close();
+  else dialog.removeAttribute("open");
+}
+
+function readPrivateMatchSettings() {
+  try {
+    const value = JSON.parse(localStorage.getItem(PVP_SETTINGS_KEY) || "null");
+    return value && typeof value === "object" ? value : {};
+  } catch {
+    return {};
+  }
 }
 
 async function applyRandomFanKitBackground() {
