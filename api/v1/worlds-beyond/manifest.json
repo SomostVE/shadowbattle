@@ -8,5 +8,8 @@
   "upstreamCardsEndpoint": "https://somostve.github.io/beyond_codex/api/v1/cards.json",
   "materializedCardsEndpoint": "./cards.json",
   "materialized": false,
-  "notes": "ShadowBattle will materialize a namespaced copy here when the API sync pipeline is enabled. Beyond Codex remains the validated acquisition/normalization source for Worlds Beyond."
+  "botDecksEndpoint": "./bot-decks.json",
+  "botDecksNamespace": "svwb",
+  "botDecksSource": "SomostVE/beyond_decks:data/custom/reference-decks.json",
+  "notes": "Beyond Codex remains the validated acquisition/normalization source for Worlds Beyond card data. ShadowBattle vendors the Beyond Decks AI reference pool locally under the svwb namespace."
 }
