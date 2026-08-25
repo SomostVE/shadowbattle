@@ -17,7 +17,7 @@ const ACTION = Object.freeze({
 const DEFAULT_RULESETS = new Map([[WORLDS_BEYOND_RULESET.gameId, WORLDS_BEYOND_RULESET]]);
 
 export class GameSession {
-  constructor({ gameId, players, seed = "shadowbattle", firstPlayer = "random", ruleset = null } = {}) {
+  constructor({ gameId, players, seed = "shadowbattle", firstPlayer = "random", ruleset = null, cardCatalog = [] } = {}) {
     this.ruleset = ruleset ?? DEFAULT_RULESETS.get(gameId);
     if (!this.ruleset) throw new Error(`No playable ruleset registered for ${gameId}`);
     if (!Array.isArray(players) || players.length !== 2) throw new Error("GameSession requires exactly two players");
@@ -27,6 +27,10 @@ export class GameSession {
     this.rng = createRng(this.seed);
     this.requestedFirstPlayer = firstPlayer;
     this.players = players.map((player, index) => makePlayerShell(player, index));
+    this.cardCatalogById = new Map();
+    this.cardCatalogByName = new Map();
+    this.registerCardDefinitions(cardCatalog);
+    this.registerCardDefinitions(this.players.flatMap(player => player.deck));
     this.phase = PHASE.CREATED;
     this.activePlayer = null;
     this.turn = 0;
@@ -261,6 +265,26 @@ export class GameSession {
     return this.getPlayer(playerIndex).hand.find(card => card.instanceId === instanceId) ?? null;
   }
 
+  registerCardDefinitions(cards = []) {
+    for (const card of cards ?? []) {
+      if (!card || typeof card !== "object") continue;
+      const id = card.id ?? card.cardId ?? card.sourceCardId;
+      if (id != null) this.cardCatalogById.set(String(id), card);
+      const name = normalizeCardName(card.name);
+      if (name) this.cardCatalogByName.set(name, card);
+    }
+    return this;
+  }
+
+  findCardDefinition({ id = null, name = null } = {}) {
+    if (id != null) {
+      const byId = this.cardCatalogById.get(String(id));
+      if (byId) return byId;
+    }
+    if (name != null) return this.cardCatalogByName.get(normalizeCardName(name)) ?? null;
+    return null;
+  }
+
   cardView(instance) {
     return publicCard(instance);
   }
@@ -315,6 +339,7 @@ function makePlayerShell(input, index) {
     board: [],
     cemetery: [],
     banished: [],
+    fusedCards: [],
     resources: {},
     hp: 0,
     maxHp: 0,
@@ -361,6 +386,7 @@ function snapshotPlayer(player, viewer, revealHands) {
     board: player.board.map(publicCard),
     cemeteryCount: player.cemetery.length,
     banishedCount: player.banished.length,
+    fusedCount: player.fusedCards.length,
     mulliganDone: player.mulliganDone,
     deckOut: player.deckOut,
     evolutionActionUsed: player.evolutionActionUsed
@@ -385,6 +411,7 @@ function publicCard(instance) {
     canAttackFollowers: Boolean(instance.canAttackFollowers),
     canAttackLeader: Boolean(instance.canAttackLeader),
     countdown: instance.countdown ?? null,
+    fusedCount: Array.isArray(instance.fusedCards) ? instance.fusedCards.length : 0,
     keywords: [...(instance.card?.keywords ?? [])]
   };
 }
@@ -401,6 +428,10 @@ function resolveFirstPlayer(value, rng) {
   if (value === 1 || value === "second" || value === "player-1") return 1;
   if (value !== "random") throw new Error(`Invalid firstPlayer value: ${value}`);
   return rng() < 0.5 ? 0 : 1;
+}
+
+function normalizeCardName(value) {
+  return String(value ?? "").trim().toLowerCase();
 }
 
 function clone(value) {
