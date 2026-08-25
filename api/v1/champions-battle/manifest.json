@@ -6,10 +6,11 @@
   "status": "base-pool-ready",
   "materialized": true,
   "runtimeSource": "local",
-  "generatedAt": "2026-08-25T07:18:11.310Z",
-  "cardCount": 634,
+  "generatedAt": "2026-08-25T07:26:08.524Z",
+  "cardCount": 623,
   "basePoolComplete": true,
   "exclusiveCardsComplete": false,
+  "portalcraftIncluded": false,
   "sourceSets": [
     {
       "id": 10000,
@@ -32,5 +33,5 @@
     "cards": "./cards.json",
     "catalog": "./catalog.json"
   },
-  "notes": "The shared launch-era card pool is materialized locally. Champion's Battle-exclusive cards must be added as a dedicated svcb-only layer after their dataset is audited."
+  "notes": "The shared launch-era card pool is materialized locally without Portalcraft. Champion's Battle-exclusive cards must be added as a dedicated svcb-only layer after their dataset is audited."
 }
