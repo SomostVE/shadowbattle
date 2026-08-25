@@ -18,13 +18,13 @@ export function modes(inst, player) {
     if (!canUseFieldSlot) return out;
     const cost = enhance[0];
     const enhancedText = [baseText(text), section(text, `enhance ${cost}`)].filter(Boolean).join(" ");
-    for (const choice of expandModes(enhancedText, player)) out.push({ kind: choice.i ? "mode" : "enhance", cost, text: choice.text, modeIndex: choice.i, selectedModeCount: choice.selectedModeCount ?? 0, scoreBonus: 5, enhanced: true });
+    for (const choice of expandModes(enhancedText, player)) out.push({ kind: choice.i ? "mode" : "enhance", cost, text: choice.text, modeIndex: choice.i, selectedModeCount: choice.selectedModeCount ?? 0, selectedModeIndices: [...(choice.selectedModeIndices ?? [])], scoreBonus: 5, enhanced: true });
     return out;
   }
 
   if (base <= player.pp) {
     if (canUseFieldSlot) {
-      for (const choice of expandModes(baseText(text), player)) out.push({ kind: choice.i ? "mode" : "base", cost: base, text: choice.text, modeIndex: choice.i, selectedModeCount: choice.selectedModeCount ?? 0, scoreBonus: 0 });
+      for (const choice of expandModes(baseText(text), player)) out.push({ kind: choice.i ? "mode" : "base", cost: base, text: choice.text, modeIndex: choice.i, selectedModeCount: choice.selectedModeCount ?? 0, selectedModeIndices: [...(choice.selectedModeIndices ?? [])], scoreBonus: 0 });
     }
     return out;
   }
@@ -39,11 +39,11 @@ export function modes(inst, player) {
   if (highestAlternativeCost < 0) return out;
 
   if (player.board.length < 5 && crystallizeCosts.includes(highestAlternativeCost)) {
-    out.push({ kind: "crystallize", cost: highestAlternativeCost, text: crystallizeText(text, highestAlternativeCost), modeIndex: 0, scoreBonus: 5, crystallized: true });
+    out.push({ kind: "crystallize", cost: highestAlternativeCost, text: crystallizeText(text, highestAlternativeCost), modeIndex: 0, selectedModeCount: 0, selectedModeIndices: [], scoreBonus: 5, crystallized: true });
   }
   if (accelerateCosts.includes(highestAlternativeCost)) {
     for (const choice of expandModes(section(text, `accelerate ${highestAlternativeCost}`), player)) {
-      out.push({ kind: choice.i ? "mode" : "accelerate", cost: highestAlternativeCost, text: choice.text, modeIndex: choice.i, selectedModeCount: choice.selectedModeCount ?? 0, scoreBonus: 4, accelerated: true });
+      out.push({ kind: choice.i ? "mode" : "accelerate", cost: highestAlternativeCost, text: choice.text, modeIndex: choice.i, selectedModeCount: choice.selectedModeCount ?? 0, selectedModeIndices: [...(choice.selectedModeIndices ?? [])], scoreBonus: 4, accelerated: true });
     }
   }
   return out;
