@@ -6,7 +6,7 @@
   "status": "base-pool-ready",
   "materialized": true,
   "runtimeSource": "local",
-  "generatedAt": "2026-08-25T07:26:08.524Z",
+  "generatedAt": "2026-08-25T07:29:17.658Z",
   "cardCount": 623,
   "basePoolComplete": true,
   "exclusiveCardsComplete": false,

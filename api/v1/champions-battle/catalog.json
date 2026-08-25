@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "gameId": "champions-battle",
   "dataNamespace": "svcb",
-  "generatedAt": "2026-08-25T07:26:08.524Z",
+  "generatedAt": "2026-08-25T07:29:17.658Z",
   "source": "./cards.json",
   "basePoolComplete": true,
   "exclusiveCardsComplete": false,
