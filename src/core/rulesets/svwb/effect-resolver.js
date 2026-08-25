@@ -1,6 +1,7 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
 import { banishBoardCard, returnBoardCardToHand } from "../../zone-actions.js";
 import { evaluateWorldsBeyondClassCondition } from "./class-conditions.js";
+import { gainWorldsBeyondCrest } from "./crests.js";
 import { getWorldsBeyondEngageInfo } from "./engage.js";
 import { preprocessWorldsBeyondFuseText } from "./fuse.js";
 import { baseText, section } from "./v5/battle-engine-v5-text.js";
@@ -136,12 +137,20 @@ function hasUnsupportedChoiceOrCondition(text, { targetSpec = null } = {}) {
       .replace(/\bbanish (?:an|a|the) enemy follower\b/gi, "")
       .replace(/\breturn (?:an|a|the) enemy follower to (?:its owner'?s|their) hand\b/gi, "");
   }
+  // Gain Crest is a resolved primitive. Keep all other Crest wording guarded so
+  // advance/delay/destroy and named Crest effects are not falsely marked Full.
+  inspect = inspect.replace(/\bGain Crest\s*:\s*[^.;\n]+[.;]?/gi, "");
   return /\b(?:select|choose)\b|\bif\b|\bunless\b|\bfor each\b|\bwhenever\b|\bwhen(?:ever)?\b|\brandomly select\b|\bX\b|\b(?:Earth Rite|Engage|Fuse|Transmute|Crest|Faith|Reanimate)\b/i.test(inspect);
 }
 
 function executeSimpleEffects(session, { text, playerIndex, source, targetSpec = null, target = null, notes = [] }) {
   const enemyIndex = 1 - playerIndex;
   let applied = false;
+
+  for (const match of text.matchAll(/\bGain Crest\s*:\s*([^.;\n]+)/gi)) {
+    const result = gainWorldsBeyondCrest(session, playerIndex, match[1].trim(), source?.card ?? null);
+    applied ||= result.gained;
+  }
 
   if (targetSpec && target) {
     if (targetSpec.kind === "damage") {
