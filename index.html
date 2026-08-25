@@ -5,10 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#141d28">
   <title>ShadowBattle</title>
-  <link rel="stylesheet" href="./src/ui/hub.css?v=0.4.19">
-  <link rel="stylesheet" href="./src/ui/hub-beyond.css?v=0.4.19">
-  <link rel="stylesheet" href="./src/ui/hub-visibility.css?v=0.4.19">
-  <script type="module" src="./src/ui/version-guard.js?v=0.4.19"></script>
+  <link rel="stylesheet" href="./src/ui/hub.css?v=0.4.20">
+  <link rel="stylesheet" href="./src/ui/hub-beyond.css?v=0.4.20">
+  <link rel="stylesheet" href="./src/ui/hub-visibility.css?v=0.4.20">
+  <link rel="stylesheet" href="./src/ui/hub-pvp.css?v=0.4.20">
+  <script type="module" src="./src/ui/version-guard.js?v=0.4.20"></script>
 </head>
 <body class="hub-page">
   <main class="hub-shell">
@@ -18,7 +19,7 @@
           <div class="hub-brand-inline">
             <span class="hub-brand-mark">✦</span>
             <strong>ShadowBattle</strong>
-            <span id="hub-version" class="hub-version">v0.4.19</span>
+            <span id="hub-version" class="hub-version">v0.4.20</span>
           </div>
           <div class="hub-battle-flags">
             <span>Human vs CPU</span>
@@ -43,7 +44,10 @@
                 <button type="button" data-cpu-difficulty="expert">Expert</button>
               </div>
             </div>
-            <span class="hub-primary" aria-disabled="true">Battle — in development</span>
+            <div class="hub-battle-actions">
+              <span class="hub-primary" aria-disabled="true">CPU Match — in development</span>
+              <button id="open-private-match" class="hub-primary hub-pvp-button" type="button">PvP Private Match <small>planned</small></button>
+            </div>
           </div>
 
           <div class="hub-board-preview" aria-label="Battle board preview">
@@ -138,6 +142,47 @@
     </footer>
   </main>
 
-  <script type="module" src="./src/ui/hub.js?v=0.4.19"></script>
+  <dialog id="private-match-dialog" class="hub-pvp-dialog" aria-labelledby="private-match-title">
+    <div class="hub-pvp-head">
+      <div>
+        <span>Future PvP</span>
+        <h2 id="private-match-title">Private Match</h2>
+      </div>
+      <button id="close-private-match" class="hub-pvp-close" type="button" aria-label="Close private match setup">×</button>
+    </div>
+
+    <div class="hub-pvp-body">
+      <label class="hub-pvp-field">
+        <span>Game version</span>
+        <select id="private-match-game">
+          <option value="shadowverse-ccg">Shadowverse CCG</option>
+          <option value="champions-battle">Champion's Battle</option>
+          <option value="worlds-beyond">Shadowverse: Worlds Beyond</option>
+        </select>
+      </label>
+
+      <label class="hub-pvp-toggle">
+        <span><strong>Allow spectators</strong><small>Creates a separate read-only spectator code.</small></span>
+        <input id="private-match-spectators" type="checkbox">
+      </label>
+
+      <label class="hub-pvp-toggle">
+        <span><strong>Show hands to spectators</strong><small>Off = spectators only receive public match information.</small></span>
+        <input id="private-match-reveal-hands" type="checkbox" disabled>
+      </label>
+
+      <div class="hub-pvp-codes" aria-label="Future match codes">
+        <div><small>Player invite code</small><strong>Generated later</strong></div>
+        <div><small>Spectator code</small><strong id="private-match-spectator-code-state">Disabled</strong></div>
+      </div>
+    </div>
+
+    <div class="hub-pvp-foot">
+      <span>WebRTC private rooms are planned for a later version.</span>
+      <button type="button" disabled>Create private match — later</button>
+    </div>
+  </dialog>
+
+  <script type="module" src="./src/ui/hub.js?v=0.4.20"></script>
 </body>
 </html>
