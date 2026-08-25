@@ -121,8 +121,8 @@ function compactCard(card, gameId, dataNamespace) {
     trait: String(card.tribe_name ?? "").trim(),
     text: String(card.skill_disc ?? "").trim(),
     evolvedText: String(card.evo_skill_disc ?? "").trim(),
-    image: `https://shadowverse-portal.com/image/card/en/C_${id}.png`,
-    evolvedImage: typeId === 1 ? `https://shadowverse-portal.com/image/card/en/E_${id}.png` : null
+    image: `https://shadowverse-portal.com/image/card/phase2/common/C/C_${id}.png`,
+    evolvedImage: typeId === 1 ? `https://shadowverse-portal.com/image/card/phase2/sp/common/E/E_${id}.png` : null
   };
 }
 
