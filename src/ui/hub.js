@@ -1,4 +1,6 @@
 const DECK_KEY = "shadowbattle:decks:v1";
+const RULESET_KEY = "shadowbattle:hub-ruleset:v1";
+const CPU_DIFFICULTY_KEY = "shadowbattle:cpu-difficulty:v1";
 
 const CCG_BACKGROUND_ROOT = "./assets/fankits/shadowverse-ccg/extracted/Backgrounds/Backgrounds/";
 const CCG_BACKGROUNDS = [
@@ -22,9 +24,10 @@ const CCG_BACKGROUNDS = [
 
 renderDeckCounts();
 renderDatasetCounts();
-renderBotDeckCount();
+renderCpuDeckCount();
 applyRandomFanKitBackground();
 bindGameProfileButtons();
+bindCpuDifficulty();
 
 function renderDeckCounts() {
   const library = readLibrary();
@@ -55,30 +58,76 @@ async function renderDatasetCounts() {
       const count = Number(readCount(payload));
       if (Number.isFinite(count)) setText(targetId, formatCount(count));
     } catch {
-      // Keep the static fallback when a dataset manifest is temporarily unavailable.
+      // Static counters stay visible if a manifest is temporarily unavailable.
     }
   }));
 }
 
-async function renderBotDeckCount() {
+async function renderCpuDeckCount() {
   try {
     const response = await fetch("./api/v1/worlds-beyond/bot-decks.json", { cache: "no-store" });
     if (!response.ok) return;
     const payload = await response.json();
     setText("hub-wb-bot-count", payload.decks?.length ?? 0);
   } catch {
-    // Keep the static fallback when the synchronized pool is temporarily unavailable.
+    // Static counter stays visible if the synchronized pool is unavailable.
   }
 }
 
 function bindGameProfileButtons() {
   const buttons = [...document.querySelectorAll(".hub-game[data-game]")];
+  if (buttons.length === 0) return;
+
+  const saved = localStorage.getItem(RULESET_KEY);
+  const selected = buttons.find(button => button.dataset.game === saved)
+    ?? buttons.find(button => button.dataset.game === "worlds-beyond")
+    ?? buttons[0];
+
+  selectRuleset(selected, buttons, false);
+
   buttons.forEach(button => {
-    button.addEventListener("click", () => {
-      if (button.classList.contains("muted")) return;
-      buttons.forEach(item => item.classList.toggle("active", item === button));
-    });
+    button.addEventListener("click", () => selectRuleset(button, buttons, true));
   });
+}
+
+function selectRuleset(button, buttons, persist) {
+  buttons.forEach(item => {
+    const active = item === button;
+    item.classList.toggle("active", active);
+    item.setAttribute("aria-pressed", String(active));
+  });
+
+  const game = String(button.dataset.game || "worlds-beyond");
+  document.body.dataset.ruleset = game;
+  if (persist) localStorage.setItem(RULESET_KEY, game);
+}
+
+function bindCpuDifficulty() {
+  const buttons = [...document.querySelectorAll("[data-cpu-difficulty]")];
+  if (buttons.length === 0) return;
+
+  const saved = localStorage.getItem(CPU_DIFFICULTY_KEY);
+  const selected = buttons.find(button => button.dataset.cpuDifficulty === saved)
+    ?? buttons.find(button => button.dataset.cpuDifficulty === "intermediate")
+    ?? buttons[0];
+
+  selectCpuDifficulty(selected, buttons, false);
+
+  buttons.forEach(button => {
+    button.addEventListener("click", () => selectCpuDifficulty(button, buttons, true));
+  });
+}
+
+function selectCpuDifficulty(button, buttons, persist) {
+  buttons.forEach(item => {
+    const active = item === button;
+    item.classList.toggle("active", active);
+    item.setAttribute("aria-pressed", String(active));
+  });
+
+  const difficulty = String(button.dataset.cpuDifficulty || "intermediate");
+  document.body.dataset.cpuDifficulty = difficulty;
+  if (persist) localStorage.setItem(CPU_DIFFICULTY_KEY, difficulty);
 }
 
 async function applyRandomFanKitBackground() {
