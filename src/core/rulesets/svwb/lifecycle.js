@@ -11,6 +11,8 @@ import {
   resolveWorldsBeyondForestCrestTurnEnd,
   resolveWorldsBeyondForestCrestTurnStart
 } from "./forest-crest-effects.js";
+import { resolveWorldsBeyondPortalCrestTurnEnd } from "./portal-crest-effects.js";
+import { resolveWorldsBeyondSwordCrestTurnEnd } from "./sword-crest-effects.js";
 
 export function runWorldsBeyondTurnStart(session, playerIndex) {
   const player = session.getPlayer(playerIndex);
@@ -48,9 +50,13 @@ export function runWorldsBeyondTurnEnd(session, playerIndex) {
   // follower/amulet turn-end effects and in Crest acquisition order.
   for (const crest of [...getWorldsBeyondCrests(player)]) {
     if (!getWorldsBeyondCrests(player).includes(crest)) continue;
-    resolveWorldsBeyondCrestTurnEnd(session, playerIndex, crest);
-    if (session.phase !== "main") return;
     resolveWorldsBeyondForestCrestTurnEnd(session, playerIndex, crest);
+    if (session.phase !== "main") return;
+    resolveWorldsBeyondSwordCrestTurnEnd(session, playerIndex, crest);
+    if (session.phase !== "main") return;
+    resolveWorldsBeyondPortalCrestTurnEnd(session, playerIndex, crest);
+    if (session.phase !== "main") return;
+    resolveWorldsBeyondCrestTurnEnd(session, playerIndex, crest);
     if (session.phase !== "main") return;
   }
 
