@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#090b14">
+  <title>ShadowBattle</title>
+  <link rel="stylesheet" href="./src/ui/shadowbattle.css">
+</head>
+<body data-game="shadowverse-ccg">
+  <main class="sb-shell">
+    <header class="sb-topbar">
+      <a class="sb-brand" href="./">
+        <span class="sb-mark">✦</span>
+        <span>ShadowBattle</span>
+      </a>
+      <nav class="sb-nav" aria-label="Main navigation">
+        <a href="./api/">API</a>
+        <a href="./test/">AI Test Lab</a>
+      </nav>
+    </header>
+
+    <section class="sb-hero">
+      <div class="sb-eyebrow">Human vs AI Shadowverse sandbox</div>
+      <h1>ShadowBattle</h1>
+      <p>One interactive battle platform for Shadowverse, Shadowverse: Champion's Battle and Shadowverse: Worlds Beyond, with game-specific rules, data and visual profiles kept strictly separated.</p>
+    </section>
+
+    <section class="sb-grid" aria-label="Project areas">
+      <a class="sb-card sb-card-link" href="./api/">
+        <div class="sb-eyebrow">Data layer</div>
+        <h2>/api</h2>
+        <p>Namespaced ShadowBattle API. Each game owns its own card IDs, source manifest and normalization boundary.</p>
+      </a>
+      <a class="sb-card sb-card-link" href="./test/">
+        <div class="sb-eyebrow">Development lab</div>
+        <h2>/test</h2>
+        <p>AI logic sandbox for deterministic scenarios, candidate scoring, hidden-information experiments and the intermediate skill profile.</p>
+      </a>
+      <article class="sb-card">
+        <div class="sb-eyebrow">Next</div>
+        <h2>Interactive Battle</h2>
+        <p>The production play surface will run one action at a time: human input, legal-action resolution, then a visible AI turn instead of simulating the whole match at once.</p>
+      </article>
+    </section>
+
+    <section class="sb-section sb-panel">
+      <div class="sb-section-title">
+        <div>
+          <div class="sb-eyebrow">Supported universes</div>
+          <h2>Three isolated game profiles</h2>
+        </div>
+      </div>
+      <div class="sb-grid">
+        <article>
+          <h3>Shadowverse</h3>
+          <p><code>sv1</code> · legacy CCG data + official fan-kit atmosphere.</p>
+        </article>
+        <article>
+          <h3>Champion's Battle</h3>
+          <p><code>svcb</code> · Switch rules/content kept separate from the original CCG.</p>
+        </article>
+        <article>
+          <h3>Worlds Beyond</h3>
+          <p><code>svwb</code> · Beyond Codex remains the validated upstream data source.</p>
+        </article>
+      </div>
+    </section>
+
+    <footer class="sb-fankit-notice">
+      ShadowBattle is an independent fan project and is not affiliated with or endorsed by Cygames. Shadowverse and related intellectual property are © Cygames, Inc. Official fan-kit material, when enabled, is used subject to the Shadowverse Fan Kit Agreement.
+    </footer>
+  </main>
+</body>
+</html>
