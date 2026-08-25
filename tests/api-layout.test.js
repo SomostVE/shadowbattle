@@ -68,3 +68,17 @@ test("Champion's Battle base deckbuilding pool is local and excludes Portalcraft
   assert.equal(catalog.cards.some(card => card.craft === "Portalcraft"), false);
   assert.equal(catalog.cards.every(card => allowedSets.has(card.setId)), true);
 });
+
+test("API page is a compact public JSON endpoint directory", async () => {
+  const html = await fs.readFile(new URL("../api/index.html", import.meta.url), "utf8");
+  assert.match(html, /JSON datasets/);
+  assert.match(html, /v1\/shadowverse-ccg\/cards\.json/);
+  assert.match(html, /v1\/shadowverse-ccg\/catalog\.json/);
+  assert.match(html, /v1\/shadowverse-ccg\/image-index\.json/);
+  assert.match(html, /v1\/champions-battle\/cards\.json/);
+  assert.match(html, /v1\/champions-battle\/catalog\.json/);
+  assert.match(html, /cards\.fr\.json/);
+  assert.match(html, /data-copy-endpoint/);
+  assert.doesNotMatch(html, /No shared raw card pool/);
+  assert.doesNotMatch(html, /Local endpoints/);
+});
