@@ -98,3 +98,12 @@ test("API page publishes absolute URLs and practical usage examples", async () =
   assert.match(js, /copyValue/);
   assert.match(js, /navigator\.clipboard\.writeText/);
 });
+
+test("Worlds Beyond points to the real Beyond Codex documentation and cards endpoint", async () => {
+  const html = await fs.readFile(new URL("../api/index.html", import.meta.url), "utf8");
+  const manifest = await readJson("api/v1/worlds-beyond/manifest.json");
+  assert.match(html, /href="https:\/\/somostve\.github\.io\/beyond_codex\/"[^>]*>Open Beyond Codex/);
+  assert.match(html, /https:\/\/somostve\.github\.io\/beyond_codex\/api\/v1\/cards\.json/);
+  assert.equal(manifest.source, "https://somostve.github.io/beyond_codex/");
+  assert.equal(manifest.upstreamCardsEndpoint, "https://somostve.github.io/beyond_codex/api/v1/cards.json");
+});
