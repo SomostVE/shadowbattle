@@ -1,0 +1,58 @@
+name: Sync Beyond Bot Decks
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/sync-beyond-bot-decks.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+      - name: Fetch Beyond Decks reference pool
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p api/v1/worlds-beyond
+          curl -fsSL \
+            https://raw.githubusercontent.com/SomostVE/beyond_decks/main/data/custom/reference-decks.json \
+            -o api/v1/worlds-beyond/bot-decks.json
+          node - <<'NODE'
+          const fs = require('fs');
+          const path = 'api/v1/worlds-beyond/bot-decks.json';
+          const data = JSON.parse(fs.readFileSync(path, 'utf8'));
+          if (data.format !== 'svwb-reference-decks') throw new Error('Unexpected Beyond Decks reference format');
+          if (!Array.isArray(data.decks) || data.decks.length < 7) throw new Error('Reference deck pool is incomplete');
+          for (const deck of data.decks) {
+            const total = (deck.cards || []).reduce((sum, card) => sum + Number(card.qty || 0), 0);
+            if (total !== 40) throw new Error(`${deck.id} has ${total} cards instead of 40`);
+          }
+          data.shadowBattle = {
+            namespace: 'svwb',
+            gameId: 'worlds-beyond',
+            purpose: 'ai-reference-decks',
+            sourceRepository: 'SomostVE/beyond_decks',
+            sourcePath: 'data/custom/reference-decks.json'
+          };
+          fs.writeFileSync(path, `${JSON.stringify(data, null, 2)}\n`);
+          NODE
+      - name: Commit synchronized deck pool
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add api/v1/worlds-beyond/bot-decks.json
+          if git diff --cached --quiet; then
+            echo "Bot deck pool already current."
+            exit 0
+          fi
+          git commit -m "data: sync Beyond Decks AI reference decks"
+          git push
