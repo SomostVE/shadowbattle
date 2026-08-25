@@ -20,9 +20,14 @@
     Havencraft: "H",
     Portalcraft: "P"
   });
+  const CARD_SIZE_KEY = "shadowbattle:card-size";
+  const CARD_SIZE_MODE_KEY = "shadowbattle:card-size-mode";
+  const BEYOND_CARD_SIZE_KEY = "svwb-card-size";
+  const BEYOND_CARD_SIZE_MODE_KEY = "svwb-card-size-mode";
 
   upgradeOfficialCraftButtons();
   installDeferredCardArtLoader();
+  installBeyondDecksSizing();
 
   function officialCraftIcon(craft) {
     const classId = CRAFT_CLASS_IDS[craft];
@@ -150,5 +155,104 @@
     image.decoding = "async";
     image.loading = immediate ? "eager" : "lazy";
     if ("fetchPriority" in image) image.fetchPriority = immediate ? "auto" : "low";
+  }
+
+  function installBeyondDecksSizing() {
+    const content = document.querySelector(".db-content");
+    const slider = document.getElementById("deck-card-size");
+    const presets = document.querySelector(".db-card-size-presets");
+    if (!content || !slider || !presets) return;
+
+    slider.min = "74";
+    slider.max = "190";
+    slider.step = "2";
+
+    const fixedSizes = { S: 90, M: 118, L: 154 };
+    for (const button of presets.querySelectorAll("[data-card-size-preset]")) {
+      if (fixedSizes[button.textContent]) button.dataset.cardSizePreset = String(fixedSizes[button.textContent]);
+    }
+
+    if (!localStorage.getItem(CARD_SIZE_MODE_KEY)) {
+      const beyondMode = localStorage.getItem(BEYOND_CARD_SIZE_MODE_KEY);
+      const beyondSize = Number(localStorage.getItem(BEYOND_CARD_SIZE_KEY));
+      localStorage.setItem(CARD_SIZE_MODE_KEY, beyondMode || "fit");
+      if (Number.isFinite(beyondSize) && beyondSize >= 74 && beyondSize <= 190) {
+        localStorage.setItem(CARD_SIZE_KEY, String(beyondSize));
+      }
+    }
+
+    const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+
+    const updatePresetState = (value, mode) => {
+      for (const button of presets.querySelectorAll("[data-card-size-preset]")) {
+        const isFit = button.dataset.cardSizePreset === "fit";
+        const active = isFit
+          ? mode === "fit"
+          : mode !== "fit" && Number(button.dataset.cardSizePreset) === Number(value);
+        button.classList.toggle("active", active);
+      }
+    };
+
+    const setFixed = value => {
+      const size = clamp(Number(value) || 118, 74, 190);
+      document.documentElement.style.setProperty("--db-card-width", `${size}px`);
+      slider.value = String(size);
+      localStorage.setItem(CARD_SIZE_KEY, String(size));
+      localStorage.setItem(CARD_SIZE_MODE_KEY, "manual");
+      updatePresetState(size, "manual");
+    };
+
+    const applyFit = () => {
+      const style = getComputedStyle(content);
+      const padding = (Number.parseFloat(style.paddingLeft) || 0) + (Number.parseFloat(style.paddingRight) || 0);
+      const usable = Math.max(220, content.clientWidth - padding);
+      const gap = 5;
+      const target = 156;
+      const columns = clamp(Math.round(usable / target), 2, 12);
+      const fitted = clamp(Math.floor((usable - gap * (columns - 1)) / columns), 108, 190);
+
+      document.documentElement.style.setProperty("--db-card-width", `${fitted}px`);
+      slider.value = String(fitted);
+      localStorage.setItem(CARD_SIZE_KEY, String(fitted));
+      localStorage.setItem(CARD_SIZE_MODE_KEY, "fit");
+      updatePresetState(fitted, "fit");
+    };
+
+    const applySaved = () => {
+      if (localStorage.getItem(CARD_SIZE_MODE_KEY) === "fit") {
+        applyFit();
+        return;
+      }
+      setFixed(Number(localStorage.getItem(CARD_SIZE_KEY)) || 118);
+    };
+
+    document.addEventListener("click", event => {
+      const button = event.target instanceof Element ? event.target.closest("[data-card-size-preset]") : null;
+      if (!button || !presets.contains(button)) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (button.dataset.cardSizePreset === "fit") applyFit();
+      else setFixed(Number(button.dataset.cardSizePreset));
+    }, true);
+
+    slider.addEventListener("input", () => {
+      const size = clamp(Number(slider.value) || 118, 74, 190);
+      localStorage.setItem(CARD_SIZE_KEY, String(size));
+      localStorage.setItem(CARD_SIZE_MODE_KEY, "manual");
+      updatePresetState(size, "manual");
+    }, true);
+
+    if (typeof ResizeObserver === "function") {
+      const observer = new ResizeObserver(() => {
+        if (localStorage.getItem(CARD_SIZE_MODE_KEY) === "fit") requestAnimationFrame(applyFit);
+      });
+      observer.observe(content);
+    } else {
+      window.addEventListener("resize", () => {
+        if (localStorage.getItem(CARD_SIZE_MODE_KEY) === "fit") applyFit();
+      }, { passive: true });
+    }
+
+    window.addEventListener("load", () => requestAnimationFrame(applySaved), { once: true });
   }
 })();
