@@ -28,7 +28,7 @@ export function getWorldsBeyondFuseActions(session, playerIndex) {
   return actions;
 }
 
-export function resolveWorldsBeyondFuse(session, action) {
+export function resolveWorldsBeyondFuse(session, action, { afterMaterials = null } = {}) {
   const playerIndex = assertMainActor(session, action.player);
   const player = session.getPlayer(playerIndex);
   const target = player.hand.find(item => item.instanceId === action.targetInstanceId);
@@ -67,6 +67,8 @@ export function resolveWorldsBeyondFuse(session, action) {
       fusedZoneCount: player.fusedCards.length
     }
   });
+
+  if (typeof afterMaterials === "function") afterMaterials({ session, playerIndex, target, materials });
 
   const nextName = projectedTransformName(target, materials);
   let transformed = false;
