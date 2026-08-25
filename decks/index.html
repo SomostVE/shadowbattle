@@ -7,11 +7,11 @@
   <title>ShadowBattle Decks</title>
   <link rel="dns-prefetch" href="//shadowverse-portal.com">
   <link rel="preconnect" href="https://shadowverse-portal.com">
-  <link rel="stylesheet" href="../src/ui/deckbuilder.css?v=0.4.7">
-  <link rel="stylesheet" href="../src/ui/deck-enhancements.css?v=0.4.7">
-  <link rel="stylesheet" href="../src/ui/beyond-decks-v2.css?v=0.4.7">
-  <link rel="stylesheet" href="../src/ui/deck-assistant.css?v=0.4.7">
-  <script type="module" src="../src/ui/version-guard.js?v=0.4.7"></script>
+  <link rel="stylesheet" href="../src/ui/deckbuilder.css?v=0.4.8">
+  <link rel="stylesheet" href="../src/ui/deck-enhancements.css?v=0.4.8">
+  <link rel="stylesheet" href="../src/ui/beyond-decks-v2.css?v=0.4.8">
+  <link rel="stylesheet" href="../src/ui/deck-assistant.css?v=0.4.8">
+  <script type="module" src="../src/ui/version-guard.js?v=0.4.8"></script>
 </head>
 <body class="db-page" data-game="shadowverse-ccg">
   <header class="db-app-header">
@@ -28,7 +28,6 @@
         <a class="db-button" href="../">Home</a>
         <a class="db-button" href="../api/">API</a>
         <a class="db-button" href="../test/">AI Test</a>
-        <button id="save-deck" class="db-button db-primary" type="button">Save</button>
         <button id="export-shadowbattle-deck" class="db-button" type="button">Export</button>
         <button id="new-deck" class="db-button db-danger" type="button">Clear deck</button>
       </div>
@@ -111,11 +110,6 @@
         </div>
         <div id="deck-keyword-filter" class="db-assistant-filter-list" aria-label="Keyword filters"></div>
       </section>
-
-      <section class="db-sidebar-note">
-        <h2>Card assistant</h2>
-        <p>Hover a card to inspect traits, keywords, effect text, cards it creates or summons, and deckbuilding cards that reference it. Pin the panel to browse linked cards.</p>
-      </section>
     </aside>
 
     <section class="db-content" aria-label="Card catalog">
@@ -137,10 +131,7 @@
           <strong id="current-deck-count">0 / 40</strong>
         </div>
 
-        <div class="db-deck-name-row">
-          <input id="deck-name" class="db-input" type="text" maxlength="80" placeholder="Deck name">
-          <span id="deck-legality" data-legal="false">40 cards remaining</span>
-        </div>
+        <span id="deck-legality" data-legal="false" hidden>40 cards remaining</span>
 
         <div class="db-deck-toolbar">
           <select id="deck-sort" aria-label="Deck sort">
@@ -162,7 +153,11 @@
 
       <section class="db-tab-content" data-db-panel="saved" hidden>
         <div class="db-deck-header">
-          <h2>Saved decks</h2>
+          <h2>Deck variants</h2>
+        </div>
+        <div class="db-saved-compose">
+          <input id="deck-name" class="db-input" type="text" maxlength="80" placeholder="Variant name">
+          <button id="save-deck" class="db-button db-primary" type="button">Save</button>
         </div>
         <div id="saved-decks" class="db-saved-list"></div>
       </section>
@@ -213,8 +208,8 @@
     </div>
   </dialog>
 
-  <script src="../src/ui/deck-ui-enhancements.js?v=0.4.7"></script>
-  <script type="module" src="../src/decks/deckbuilder-page.js?v=0.4.7"></script>
-  <script type="module" src="../src/decks/deck-assistant-page.js?v=0.4.7"></script>
+  <script src="../src/ui/deck-ui-enhancements.js?v=0.4.8"></script>
+  <script type="module" src="../src/decks/deckbuilder-page.js?v=0.4.8"></script>
+  <script type="module" src="../src/decks/deck-assistant-page.js?v=0.4.8"></script>
 </body>
 </html>
