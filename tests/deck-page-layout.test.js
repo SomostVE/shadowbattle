@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 
 const html = await fs.readFile(new URL("../decks/index.html", import.meta.url), "utf8");
 const pageJs = await fs.readFile(new URL("../src/decks/deckbuilder-page.js", import.meta.url), "utf8");
+const enhancementsJs = await fs.readFile(new URL("../src/ui/deck-ui-enhancements.js", import.meta.url), "utf8");
 
 test("deckbuilder exposes OG and Champion's Battle editors", () => {
   assert.match(html, /value="shadowverse-ccg"/);
@@ -26,6 +27,16 @@ test("deckbuilder mirrors the Beyond Decks card-first working layout", () => {
   assert.match(html, /id="card-preview-dialog"/);
   assert.match(html, /id="card-preview-normal"/);
   assert.match(html, /id="card-preview-evolved"/);
+});
+
+test("deckbuilder uses the Beyond Decks adaptive card sizing model", () => {
+  assert.match(html, /min="74" max="190"/);
+  assert.match(html, /data-card-size-preset="90">S/);
+  assert.match(html, /data-card-size-preset="118">M/);
+  assert.match(html, /data-card-size-preset="154">L/);
+  assert.match(enhancementsJs, /const target = 156/);
+  assert.match(enhancementsJs, /Math\.round\(usable \/ target\)/);
+  assert.match(enhancementsJs, /svwb-card-size-mode/);
 });
 
 test("deckbuilder exposes both Beyond Decks import paths", () => {
