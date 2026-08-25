@@ -50,7 +50,7 @@ jobs:
           const manifest = JSON.parse(fs.readFileSync('api/v1/shadowverse-ccg/manifest.json', 'utf8'));
           if (!manifest.available || !manifest.archival || manifest.runtimeSource !== 'local') throw new Error('CCG archive manifest is not runtime-local');
           if (manifest.cardCount < 4500) throw new Error(`CCG archive too small: ${manifest.cardCount}`);
-          if (Object.keys(manifest.languages || {}).length !== 9) throw new Error('Expected nine archived CCG languages');
+          if (Object.keys(manifest.languages || {}).length !== 8) throw new Error('Expected eight archived CCG languages');
           console.log(`Validated ${manifest.cardCount} CCG cards across ${Object.keys(manifest.languages).length} languages.`);
           NODE
           git diff --check
@@ -67,3 +67,5 @@ jobs:
           fi
           git commit -m "data: archive Shadowverse CCG API and official Fan Kits"
           git push
+
+# Supported Portal locales audited on 2026-08-25: en, ja, ko, zh-tw, fr, it, de, es.
