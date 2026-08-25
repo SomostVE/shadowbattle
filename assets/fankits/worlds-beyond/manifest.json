@@ -1,10 +1,94 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "gameId": "worlds-beyond",
   "source": "official-cygames-fankit",
-  "sourcePage": "https://shadowverse-wb.com/ja/special/fankit/",
-  "fetchedAt": "2026-08-25T06:58:44.096Z",
-  "status": "dynamic-download-discovery-pending",
-  "fileCount": 0,
-  "files": []
+  "sourcePage": "https://shadowverse-wb.com/en/special/fankit/",
+  "apiEndpoint": "https://shadowverse-wb.com/web/Fankit/index",
+  "fetchedAt": "2026-08-25T13:11:58.593Z",
+  "status": "archived",
+  "fileCount": 10,
+  "logo": "./logo_ShadowverseWB.png",
+  "backgrounds": [
+    "./backgrounds/background_Abysscraft.png",
+    "./backgrounds/background_Dragoncraft.png",
+    "./backgrounds/background_FeastofWolves.png",
+    "./backgrounds/background_Forestcraft.png",
+    "./backgrounds/background_Havencraft.png",
+    "./backgrounds/background_LibraryofLambs.png",
+    "./backgrounds/background_Portalcraft.png",
+    "./backgrounds/background_Runecraft.png",
+    "./backgrounds/background_Swordcraft.png"
+  ],
+  "files": [
+    {
+      "file": "./backgrounds/background_Abysscraft.png",
+      "sourceUrl": "https://shadowverse-wb.com/web/Fankit/background_Abysscraft.png",
+      "bytes": 66,
+      "sha256": "766acbf126729e324fb91599d483af17b373ebd6a3fcdec4a0994515f9e38b3b",
+      "kind": "background"
+    },
+    {
+      "file": "./backgrounds/background_Dragoncraft.png",
+      "sourceUrl": "https://shadowverse-wb.com/web/Fankit/background_Dragoncraft.png",
+      "bytes": 66,
+      "sha256": "766acbf126729e324fb91599d483af17b373ebd6a3fcdec4a0994515f9e38b3b",
+      "kind": "background"
+    },
+    {
+      "file": "./backgrounds/background_FeastofWolves.png",
+      "sourceUrl": "https://shadowverse-wb.com/web/Fankit/background_FeastofWolves.png",
+      "bytes": 66,
+      "sha256": "766acbf126729e324fb91599d483af17b373ebd6a3fcdec4a0994515f9e38b3b",
+      "kind": "background"
+    },
+    {
+      "file": "./backgrounds/background_Forestcraft.png",
+      "sourceUrl": "https://shadowverse-wb.com/web/Fankit/background_Forestcraft.png",
+      "bytes": 66,
+      "sha256": "766acbf126729e324fb91599d483af17b373ebd6a3fcdec4a0994515f9e38b3b",
+      "kind": "background"
+    },
+    {
+      "file": "./backgrounds/background_Havencraft.png",
+      "sourceUrl": "https://shadowverse-wb.com/web/Fankit/background_Havencraft.png",
+      "bytes": 66,
+      "sha256": "766acbf126729e324fb91599d483af17b373ebd6a3fcdec4a0994515f9e38b3b",
+      "kind": "background"
+    },
+    {
+      "file": "./backgrounds/background_LibraryofLambs.png",
+      "sourceUrl": "https://shadowverse-wb.com/web/Fankit/background_LibraryofLambs.png",
+      "bytes": 66,
+      "sha256": "766acbf126729e324fb91599d483af17b373ebd6a3fcdec4a0994515f9e38b3b",
+      "kind": "background"
+    },
+    {
+      "file": "./backgrounds/background_Portalcraft.png",
+      "sourceUrl": "https://shadowverse-wb.com/web/Fankit/background_Portalcraft.png",
+      "bytes": 66,
+      "sha256": "766acbf126729e324fb91599d483af17b373ebd6a3fcdec4a0994515f9e38b3b",
+      "kind": "background"
+    },
+    {
+      "file": "./backgrounds/background_Runecraft.png",
+      "sourceUrl": "https://shadowverse-wb.com/web/Fankit/background_Runecraft.png",
+      "bytes": 66,
+      "sha256": "766acbf126729e324fb91599d483af17b373ebd6a3fcdec4a0994515f9e38b3b",
+      "kind": "background"
+    },
+    {
+      "file": "./backgrounds/background_Swordcraft.png",
+      "sourceUrl": "https://shadowverse-wb.com/web/Fankit/background_Swordcraft.png",
+      "bytes": 66,
+      "sha256": "766acbf126729e324fb91599d483af17b373ebd6a3fcdec4a0994515f9e38b3b",
+      "kind": "background"
+    },
+    {
+      "file": "./logo_ShadowverseWB.png",
+      "sourceUrl": "https://shadowverse-wb.com/web/Fankit/logo_ShadowverseWB.png",
+      "bytes": 66,
+      "sha256": "766acbf126729e324fb91599d483af17b373ebd6a3fcdec4a0994515f9e38b3b",
+      "kind": "logo"
+    }
+  ]
 }
