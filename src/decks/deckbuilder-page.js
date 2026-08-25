@@ -1,6 +1,7 @@
 import { GAME_IDS, GAME_CATALOG } from "../core/game-catalog.js";
 import { loadDeckCatalog, filterCatalog } from "./catalog.js";
 import { canAddCard, validateDeckEntries } from "./deck-rules.js";
+import { renderCardGrid, updateCardTile, syncCardQuantities } from "./card-grid.js";
 import {
   createDeckRecord,
   deleteDeck,
@@ -33,6 +34,7 @@ const CRAFT_VISUALS = Object.freeze({
 const RARITIES = ["Bronze", "Silver", "Gold", "Legendary"];
 const COST_KEYS = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10+"];
 const TYPE_KEYS = ["Follower", "Amulet", "Spell"];
+const CLASS_SCROLL_PREFIX = "shadowbattle:class-scroll:";
 
 const els = {
   gameSwitch: document.getElementById("deck-game-switch"),
@@ -90,6 +92,7 @@ let gameId = GAME_IDS.SHADOWVERSE_CCG;
 let craft = CRAFTS[gameId][0];
 let catalog = [];
 let cardMap = new Map();
+let craftPools = new Map();
 let entries = new Map();
 let currentDeckId = null;
 let currentSet = "all";
@@ -118,7 +121,6 @@ function bindEvents() {
     const button = event.target.closest("[data-game-select]");
     if (button) switchGame(button.dataset.gameSelect, { reset: true });
   });
-
   els.game.addEventListener("change", () => switchGame(els.game.value, { reset: true }));
 
   els.craftButtons.addEventListener("click", event => {
@@ -152,6 +154,29 @@ function bindEvents() {
     renderResults();
   });
   els.resetFilters.addEventListener("click", resetCardFilters);
+
+  els.results.addEventListener("click", event => {
+    const artToggle = event.target.closest("[data-art-toggle]");
+    if (artToggle) {
+      event.stopPropagation();
+      toggleTileArt(artToggle);
+      return;
+    }
+    const preview = event.target.closest("[data-preview]");
+    if (preview) {
+      event.stopPropagation();
+      openPreview(Number(preview.dataset.preview));
+      return;
+    }
+    const add = event.target.closest("[data-add]");
+    if (add) addCard(Number(add.dataset.add));
+  });
+  els.results.addEventListener("contextmenu", event => {
+    const tile = event.target.closest(".db-card-tile[data-card-id]");
+    if (!tile) return;
+    event.preventDefault();
+    removeCard(Number(tile.dataset.cardId));
+  });
 
   els.save.addEventListener("click", saveCurrentDeck);
   els.newDeck.addEventListener("click", handleClearDeck);
@@ -197,7 +222,7 @@ function bindEvents() {
 
   els.content.addEventListener("scroll", () => {
     els.backToTop.hidden = els.content.scrollTop < 700;
-  });
+  }, { passive: true });
   els.backToTop.addEventListener("click", () => els.content.scrollTo({ top: 0, behavior: "smooth" }));
 
   els.previewClose.addEventListener("click", () => els.preview.close());
@@ -219,6 +244,7 @@ function bindEvents() {
 
 async function switchGame(nextGameId, { reset = false } = {}) {
   if (!EDITABLE_GAMES.includes(nextGameId)) return;
+  saveClassScroll();
   gameId = nextGameId;
   document.body.dataset.game = gameId;
   els.game.value = gameId;
@@ -230,17 +256,28 @@ async function switchGame(nextGameId, { reset = false } = {}) {
     const payload = await loadDeckCatalog(gameId);
     catalog = payload.cards;
     cardMap = new Map(catalog.map(card => [Number(card.id), card]));
+    buildCraftPools();
     renderCrafts();
     renderSets();
     renderFormat();
-    if (reset) resetDeck({ keepStatus: true });
-    renderResults();
+    if (reset) resetDeck({ keepStatus: true, refreshGrid: false });
+    renderResults({ restoreScroll: true });
     setStatus(`${catalog.length.toLocaleString()} local deckbuilding cards loaded.`);
   } catch (error) {
     catalog = [];
     cardMap = new Map();
+    craftPools = new Map();
     renderResults();
     setStatus(error.message, true);
+  }
+}
+
+function buildCraftPools() {
+  const neutrals = catalog.filter(card => card.craft === "Neutral");
+  craftPools = new Map();
+  for (const className of CRAFTS[gameId] ?? []) {
+    const own = catalog.filter(card => card.craft === className);
+    craftPools.set(className, [...own, ...neutrals]);
   }
 }
 
@@ -267,6 +304,12 @@ function renderCraftButtons() {
   }).join("");
 }
 
+function syncCraftButtons() {
+  els.craftButtons.querySelectorAll("[data-craft]").forEach(button => {
+    button.classList.toggle("active", button.dataset.craft === craft);
+  });
+}
+
 function applyCraftTheme() {
   const visual = CRAFT_VISUALS[craft] ?? { color: "#8b99ff", rgb: "139, 153, 255" };
   document.documentElement.style.setProperty("--class-accent", visual.color);
@@ -274,7 +317,7 @@ function applyCraftTheme() {
 }
 
 function changeCraft(nextCraft) {
-  if (!CRAFTS[gameId]?.includes(nextCraft)) return;
+  if (!CRAFTS[gameId]?.includes(nextCraft) || nextCraft === craft) return;
   const incompatible = [...entries.keys()].some(id => {
     const cardCraft = cardMap.get(id)?.craft;
     return cardCraft && cardCraft !== "Neutral" && cardCraft !== nextCraft;
@@ -284,11 +327,13 @@ function changeCraft(nextCraft) {
     setStatus("Remove cards from the current craft before changing craft.", true);
     return;
   }
+
+  saveClassScroll();
   craft = nextCraft;
   els.craft.value = craft;
-  renderCraftButtons();
+  syncCraftButtons();
   applyCraftTheme();
-  renderResults();
+  renderResults({ restoreScroll: true });
 }
 
 function renderSets() {
@@ -304,10 +349,11 @@ function renderFormat() {
   els.format.innerHTML = `<option>${escapeHtml(label)}</option>`;
 }
 
-function renderResults() {
-  const base = filterCatalog(catalog, {
+function renderResults({ restoreScroll = false } = {}) {
+  const pool = craftPools.get(craft) ?? catalog;
+  const base = filterCatalog(pool, {
     query: els.search.value,
-    craft,
+    craft: "all",
     set: currentSet
   });
 
@@ -323,36 +369,14 @@ function renderResults() {
   });
 
   els.resultCount.textContent = `${filtered.length.toLocaleString()} cards`;
-  els.results.innerHTML = filtered.map(card => {
-    const current = entries.get(Number(card.id)) ?? 0;
-    const evolvedControl = hasEvolvedArt(card)
-      ? `<button class="db-card-control" type="button" data-art-toggle="${card.id}" title="Show evolved art" aria-label="Show evolved art">E</button>`
-      : "";
-    return `<article class="db-card-tile${current >= 3 ? " is-capped" : ""}" data-card-id="${card.id}">
-      <button class="db-card-main" type="button" data-add="${card.id}" title="${escapeHtml(card.name)} — click to add" aria-label="Add ${escapeHtml(card.name)} to deck">
-        <img loading="lazy" data-card-art="${card.id}" data-art-state="normal" alt="${escapeHtml(card.name)}" referrerpolicy="no-referrer">
-      </button>
-      ${current ? `<span class="db-card-quantity">×${current}</span>` : ""}
-      <div class="db-card-control-row">
-        <button class="db-card-control" type="button" data-preview="${card.id}" title="Inspect card" aria-label="Inspect ${escapeHtml(card.name)}">⤢</button>
-        ${evolvedControl}
-      </div>
-    </article>`;
-  }).join("") || `<p class="muted">No cards match these filters.</p>`;
+  renderCardGrid(els.results, filtered, {
+    getQuantity: card => entries.get(Number(card.id)) ?? 0,
+    getCardById: id => cardMap.get(Number(id)) ?? null,
+    hasEvolvedArt,
+    setImageArt
+  }, { batchSize: 96 });
 
-  els.results.querySelectorAll("img[data-card-art]").forEach(image => {
-    const card = cardMap.get(Number(image.dataset.cardArt));
-    if (card) setImageArt(image, card, false);
-  });
-  els.results.querySelectorAll("[data-add]").forEach(button => {
-    button.addEventListener("click", () => addCard(Number(button.dataset.add)));
-  });
-  els.results.querySelectorAll("[data-preview]").forEach(button => {
-    button.addEventListener("click", () => openPreview(Number(button.dataset.preview)));
-  });
-  els.results.querySelectorAll("[data-art-toggle]").forEach(button => {
-    button.addEventListener("click", () => toggleTileArt(button));
-  });
+  if (restoreScroll) restoreClassScroll();
 }
 
 function renderRarityFilter(cards) {
@@ -420,18 +444,20 @@ function addCard(cardId) {
     setStatus("Deck limit reached: 40 cards total, maximum 3 copies per card.", true);
     return;
   }
-  entries.set(cardId, (entries.get(cardId) ?? 0) + 1);
+  const next = (entries.get(cardId) ?? 0) + 1;
+  entries.set(cardId, next);
   renderDeck();
-  renderResults();
+  updateCardTile(els.results, cardId, next);
 }
 
 function removeCard(cardId, amount = 1) {
   const current = entries.get(cardId) ?? 0;
+  if (current <= 0) return;
   const next = current - amount;
   if (next <= 0) entries.delete(cardId);
   else entries.set(cardId, next);
   renderDeck();
-  renderResults();
+  updateCardTile(els.results, cardId, Math.max(0, next));
 }
 
 function renderDeck() {
@@ -495,12 +521,12 @@ function renderDeckCostStrip() {
   els.deckCostStrip.innerHTML = COST_KEYS.map(key => `<div class="db-deck-cost-cell"><span>${key}</span><strong>${counts.get(key) ?? 0}</strong></div>`).join("");
 }
 
-function resetDeck({ keepStatus = false } = {}) {
+function resetDeck({ keepStatus = false, refreshGrid = true } = {}) {
   entries = new Map();
   currentDeckId = null;
   els.name.value = "";
   renderDeck();
-  renderResults();
+  if (refreshGrid) syncCardQuantities(els.results, entries);
   if (!keepStatus) setStatus("New deck ready.");
 }
 
@@ -563,10 +589,10 @@ function loadSavedDeck(deck) {
     craft = CRAFTS[deck.gameId].includes(deck.craft) ? deck.craft : CRAFTS[deck.gameId][0];
     entries = new Map(deck.entries);
     els.craft.value = craft;
-    renderCraftButtons();
+    syncCraftButtons();
     applyCraftTheme();
     renderDeck();
-    renderResults();
+    renderResults({ restoreScroll: true });
     showTab("deck");
     setStatus(`Loaded “${deck.name}”.`);
   });
@@ -691,6 +717,17 @@ function setCardSize(value, preset = null) {
       : key !== "fit" && Number(key) === size;
     button.classList.toggle("active", active);
   });
+}
+
+function saveClassScroll() {
+  if (!els.content || !craft) return;
+  localStorage.setItem(`${CLASS_SCROLL_PREFIX}${gameId}:${craft}`, String(els.content.scrollTop || 0));
+}
+
+function restoreClassScroll() {
+  if (!els.content || !craft) return;
+  const top = Number(localStorage.getItem(`${CLASS_SCROLL_PREFIX}${gameId}:${craft}`)) || 0;
+  requestAnimationFrame(() => { els.content.scrollTop = top; });
 }
 
 function openPreview(cardId, evolved = false) {
