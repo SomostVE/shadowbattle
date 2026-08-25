@@ -29,7 +29,9 @@ Each game is treated as a separate ruleset, data namespace and visual profile.
 
 ## Deck library
 
-ShadowBattle 0.4.0 adds a browser-local deck library under `/decks/`.
+ShadowBattle 0.4.1 provides a browser-local deck library under `/decks/` with a card-first interface derived from the compact workflow used by Beyond Decks.
+
+The browser now displays the real Shadowverse card art as the primary catalog view, keeps a compact deck sidebar, and provides an inspection dialog. Followers can switch between their normal `C_<id>.png` art and evolved `E_<id>.png` art without changing the underlying deck entry. Card identity remains qualified by its game namespace.
 
 ### Original Shadowverse CCG
 
@@ -97,7 +99,7 @@ ShadowBattle contains a **complete frozen copy of the Shadowverse Portal card AP
 
 The Shadowverse CCG provider reads this local snapshot. **Normal ShadowBattle runtime does not call `shadowverse-portal.com` for card data.** The original endpoint is retained only as provenance and for an explicit archival refresh while it remains online.
 
-Card-art URL patterns are indexed separately. Mirroring every card image would be a multi-gigabyte asset archive and is intentionally not mixed into the code/data snapshot yet.
+Card-art URL patterns are indexed separately. Mirroring every card image would be a multi-gigabyte asset archive and is intentionally not mixed into the code/data snapshot yet. The deckbuilder can currently resolve the remote normal/evolved art while the full local image mirror remains a separate archival task.
 
 ## Data architecture
 
@@ -191,4 +193,4 @@ src/
 
 ## Status
 
-ShadowBattle 0.4.0 has a namespaced API, permanent original-CCG data archive, official CCG Fan Kit archive, OG/Switch deckbuilding, a Beyond Decks import bridge and the AI test surface. The board visible in `/test/` is still a development mock; there is no full playable `GameSession` yet.
+ShadowBattle 0.4.1 has a namespaced API, permanent original-CCG data archive, official CCG Fan Kit archive, OG/Switch deckbuilding, a Beyond Decks import bridge, a card-art-first deckbuilder with normal/evolved follower art, and the AI test surface. The board visible in `/test/` is still a development mock; there is no full playable `GameSession` yet.
