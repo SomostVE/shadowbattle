@@ -41,11 +41,12 @@ let mulliganSelection = new Set();
 let selectedAttacker = null;
 let selectedPlayCard = null;
 let selectedPlayModeKey = null;
+let selectedEngageAmulet = null;
 let cpuBusy = false;
 let dataReady = false;
 let queue = createQueue();
 
-claimLegacyControls();
+claimControls();
 initialize();
 
 async function initialize() {
@@ -70,7 +71,7 @@ async function initialize() {
   }
 }
 
-function claimLegacyControls() {
+function claimControls() {
   bindCapture(ui.start, startMatch);
   bindCapture(ui.mulligan, confirmMulligan);
   bindCapture(ui.bonusPp, useBonusPp);
@@ -97,7 +98,7 @@ function syncAvailability() {
     ui.help.textContent = "This action lab is currently bound to Worlds Beyond V5. SV1 and Champion's Battle will reuse the same GameSession action API.";
   } else if (!session && dataReady) {
     setStatus("SVWB action resolver ready", "ready");
-    ui.help.textContent = "Start a match. Cards, play modes, targeted effects, attacks, Ward, Storm, Evo and Super Evo are resolved action by action.";
+    ui.help.textContent = "Start a match. Play modes, Engage, targeting, combat, Evo and class resources are resolved action by action.";
   }
 }
 
@@ -159,16 +160,15 @@ async function playHumanCard(instanceId) {
   const actions = legalActions(0).filter(action => action.type === "play-card" && action.cardInstanceId === instanceId);
   if (!actions.length) return;
   const modes = uniqueModeActions(actions);
+  clearEngageAndAttack();
 
   if (modes.length > 1) {
-    selectedAttacker = null;
     if (selectedPlayCard === instanceId && selectedPlayModeKey == null) selectedPlayCard = null;
     else selectedPlayCard = instanceId;
     selectedPlayModeKey = null;
     render();
     return;
   }
-
   await choosePlayMode(instanceId, modes[0]?.playModeKey ?? actions[0].playModeKey ?? null);
 }
 
@@ -177,7 +177,7 @@ async function choosePlayMode(instanceId, playModeKey) {
   const actions = legalActions(0).filter(action => action.type === "play-card" && action.cardInstanceId === instanceId && (!playModeKey || action.playModeKey === playModeKey));
   if (!actions.length) return;
   const targeted = actions.filter(action => action.targetInstanceId);
-  selectedAttacker = null;
+  clearEngageAndAttack();
   selectedPlayCard = instanceId;
   selectedPlayModeKey = playModeKey ?? actions[0].playModeKey ?? null;
   if (targeted.length) {
@@ -189,13 +189,27 @@ async function choosePlayMode(instanceId, playModeKey) {
   await resolveAction(action);
 }
 
+async function engageAmulet(instanceId) {
+  if (!isHumanTurn()) return;
+  const actions = legalActions(0).filter(action => action.type === "engage" && action.amuletInstanceId === instanceId);
+  if (!actions.length) return;
+  clearSelections();
+  const targeted = actions.filter(action => action.targetInstanceId);
+  if (targeted.length) {
+    selectedEngageAmulet = instanceId;
+    render();
+    return;
+  }
+  await resolveAction(actions[0]);
+}
+
 async function selectAttacker(instanceId) {
   if (!isHumanTurn()) return;
   const attacks = legalActions(0).filter(action => action.type === "attack" && action.attackerInstanceId === instanceId);
   if (!attacks.length) return;
-  selectedPlayCard = null;
-  selectedPlayModeKey = null;
-  selectedAttacker = selectedAttacker === instanceId ? null : instanceId;
+  const toggledOff = selectedAttacker === instanceId;
+  clearSelections();
+  selectedAttacker = toggledOff ? null : instanceId;
   render();
 }
 
@@ -203,6 +217,13 @@ async function resolveEnemyFollowerTarget(instanceId) {
   if (!isHumanTurn()) return;
   if (selectedPlayCard) {
     const action = legalActions(0).find(item => item.type === "play-card" && item.cardInstanceId === selectedPlayCard && (!selectedPlayModeKey || item.playModeKey === selectedPlayModeKey) && item.targetInstanceId === instanceId);
+    if (!action) return;
+    clearSelections();
+    await resolveAction(action);
+    return;
+  }
+  if (selectedEngageAmulet) {
+    const action = legalActions(0).find(item => item.type === "engage" && item.amuletInstanceId === selectedEngageAmulet && item.targetInstanceId === instanceId);
     if (!action) return;
     clearSelections();
     await resolveAction(action);
@@ -216,7 +237,7 @@ async function resolveEnemyFollowerTarget(instanceId) {
 }
 
 async function attackOpponentLeader() {
-  if (!isHumanTurn() || !selectedAttacker || selectedPlayCard) return;
+  if (!isHumanTurn() || !selectedAttacker || selectedPlayCard || selectedEngageAmulet) return;
   const action = legalActions(0).find(item => item.type === "attack" && item.attackerInstanceId === selectedAttacker && item.target === "leader");
   if (!action) return;
   clearSelections();
@@ -276,6 +297,10 @@ function chooseCpuAction(actions) {
     .filter(action => action.type === "play-card")
     .sort((a, b) => b.cost - a.cost || modePriority(b) - modePriority(a) || targetValue(0, b.targetInstanceId) - targetValue(0, a.targetInstanceId))[0];
   if (play) return play;
+  const engage = actions
+    .filter(action => action.type === "engage")
+    .sort((a, b) => b.cost - a.cost || targetValue(0, b.targetInstanceId) - targetValue(0, a.targetInstanceId))[0];
+  if (engage) return engage;
   const superEvolution = actions.filter(action => action.type === "super-evolve");
   if (superEvolution.length) return bestEvolution(superEvolution, 1);
   const evolution = actions.filter(action => action.type === "evolve");
@@ -340,7 +365,7 @@ function render() {
   renderBoard(ui.opponentBoard, cpu.board, 1);
 
   const humanActions = isHumanTurn() ? legalActions(0) : [];
-  const canHitLeader = selectedAttacker && !selectedPlayCard && humanActions.some(action => action.type === "attack" && action.attackerInstanceId === selectedAttacker && action.target === "leader");
+  const canHitLeader = selectedAttacker && !selectedPlayCard && !selectedEngageAmulet && humanActions.some(action => action.type === "attack" && action.attackerInstanceId === selectedAttacker && action.target === "leader");
   ui.opponentLeader.classList.toggle("is-targetable", Boolean(canHitLeader));
 
   ui.mulligan.disabled = snapshot.phase !== GAME_PHASE.MULLIGAN || human.mulliganDone || cpuBusy;
@@ -362,7 +387,7 @@ function render() {
     ui.phaseLabel.textContent = `${active?.name ?? "Player"}'s turn`;
     ui.turnLabel.textContent = `${snapshot.activePlayer === 0 ? "YOUR" : "CPU"} TURN · ${active?.personalTurn ?? 0}`;
     if (cpuBusy || snapshot.activePlayer === 1) {
-      ui.help.textContent = "CPU is executing legal GameSession actions. This temporary driver will later be replaced by the full V5 planner.";
+      ui.help.textContent = "CPU is executing legal GameSession actions. The full V5 planner will replace this temporary policy.";
       setStatus("CPU resolving actions", "ready");
     } else if (selectedPlayCard && selectedPlayModeKey == null && selectedCardModeCount() > 1) {
       ui.help.textContent = "Choose the play mode for the selected card.";
@@ -370,11 +395,14 @@ function render() {
     } else if (selectedPlayCard) {
       ui.help.textContent = "Choose a highlighted enemy follower as the card effect target. Click the selected card again to cancel.";
       setStatus("Choose effect target", "ready");
+    } else if (selectedEngageAmulet) {
+      ui.help.textContent = "Choose a highlighted enemy follower as the Engage target.";
+      setStatus("Choose Engage target", "ready");
     } else if (selectedAttacker) {
       ui.help.textContent = "Choose a highlighted enemy follower or the enemy leader as the attack target.";
       setStatus("Choose attack target", "ready");
     } else {
-      ui.help.textContent = "Playable cards glow. Cards can expose Base, Enhance, Accelerate, Crystallize or mode choices before targeting.";
+      ui.help.textContent = "Playable cards glow. Amulets expose Engage when legal; Base, Enhance, Accelerate and Crystallize modes use the same action graph.";
       setStatus("Human action phase", "ready");
     }
   } else if (snapshot.phase === GAME_PHASE.ENDED) {
@@ -392,7 +420,17 @@ function renderLeader(player, nameNode, resourceNode, hpNode) {
   nameNode.textContent = player.name;
   hpNode.textContent = String(player.hp);
   const resources = player.resources ?? {};
-  resourceNode.textContent = `PP ${resources.pp ?? 0}/${resources.maxPp ?? 0} · Evo ${resources.evolutionPoints ?? 0} · Super Evo ${resources.superEvolutionPoints ?? 0}${resources.bonusPpAvailable ? " · Bonus PP" : ""}`;
+  const parts = [
+    `PP ${resources.pp ?? 0}/${resources.maxPp ?? 0}`,
+    `Evo ${resources.evolutionPoints ?? 0}`,
+    `Super Evo ${resources.superEvolutionPoints ?? 0}`
+  ];
+  const className = String(player.className ?? "").toLowerCase();
+  if (className.includes("abyss")) parts.push(`Shadows ${resources.shadows ?? 0}`);
+  if (className.includes("forest")) parts.push(`Combo ${resources.combo ?? 0}`);
+  if (className.includes("dragon")) parts.push(`Overflow ${Number(resources.maxPp ?? 0) >= 7 ? "ON" : "OFF"}`);
+  if (resources.bonusPpAvailable) parts.push("Bonus PP");
+  resourceNode.textContent = parts.join(" · ");
 }
 
 function renderHand(root, player, human) {
@@ -510,6 +548,7 @@ function renderBoard(root, board, owner) {
     unit.dataset.instanceId = card.instanceId;
     unit.classList.toggle("is-evolved", Boolean(card.evolved));
     unit.classList.toggle("is-super-evolved", Boolean(card.superEvolved));
+    unit.classList.toggle("is-engage-selected", selectedEngageAmulet === card.instanceId);
     const hitbox = document.createElement("button");
     hitbox.type = "button";
     hitbox.className = "sb-battle-unit-hitbox";
@@ -531,18 +570,23 @@ function renderBoard(root, board, owner) {
       unit.classList.toggle("is-attacker-ready", attackReady);
       unit.classList.toggle("is-attacker-selected", selectedAttacker === card.instanceId);
       if (attackReady) hitbox.addEventListener("click", () => selectAttacker(card.instanceId));
+
       const evolve = actions.find(action => action.type === "evolve" && action.followerInstanceId === card.instanceId);
       const superEvolve = actions.find(action => action.type === "super-evolve" && action.followerInstanceId === card.instanceId);
-      if (evolve || superEvolve) {
+      const engage = actions.find(action => action.type === "engage" && action.amuletInstanceId === card.instanceId);
+      if (evolve || superEvolve || engage) {
         const controls = document.createElement("span");
         controls.className = "sb-battle-evolution-controls";
         if (evolve) controls.append(actionButton("Evo", () => evolveFollower(card.instanceId, false)));
         if (superEvolve) controls.append(actionButton("Super Evo", () => evolveFollower(card.instanceId, true)));
+        if (engage) controls.append(actionButton(`Engage ${engage.cost}`, () => engageAmulet(card.instanceId), "is-engage"));
         unit.append(controls);
       }
     } else {
       const attackTarget = Boolean(selectedAttacker && actions.some(action => action.type === "attack" && action.attackerInstanceId === selectedAttacker && action.targetInstanceId === card.instanceId));
-      const effectTarget = Boolean(selectedPlayCard && selectedPlayModeKey && actions.some(action => action.type === "play-card" && action.cardInstanceId === selectedPlayCard && action.playModeKey === selectedPlayModeKey && action.targetInstanceId === card.instanceId));
+      const playTarget = Boolean(selectedPlayCard && selectedPlayModeKey && actions.some(action => action.type === "play-card" && action.cardInstanceId === selectedPlayCard && action.playModeKey === selectedPlayModeKey && action.targetInstanceId === card.instanceId));
+      const engageTarget = Boolean(selectedEngageAmulet && actions.some(action => action.type === "engage" && action.amuletInstanceId === selectedEngageAmulet && action.targetInstanceId === card.instanceId));
+      const effectTarget = playTarget || engageTarget;
       const targetable = attackTarget || effectTarget;
       hitbox.disabled = !targetable;
       unit.classList.toggle("is-targetable", targetable);
@@ -553,10 +597,10 @@ function renderBoard(root, board, owner) {
   }
 }
 
-function actionButton(label, handler) {
+function actionButton(label, handler, extraClass = "") {
   const button = document.createElement("button");
   button.type = "button";
-  button.className = `sb-battle-evolution-button ${label.startsWith("Super") ? "is-super" : ""}`;
+  button.className = `sb-battle-evolution-button ${label.startsWith("Super") ? "is-super" : ""} ${extraClass}`.trim();
   button.textContent = label;
   button.addEventListener("click", event => {
     event.stopPropagation();
@@ -616,6 +660,7 @@ function eventTitle(event) {
     "card-play": `${actor} plays a card`,
     "follower-enter": `${actor} follower enters`,
     "amulet-enter": `${actor} amulet enters`,
+    "engage": `${actor} Engages`,
     "countdown-tick": `${actor} Countdown`,
     "amulet-destroyed": `${actor} amulet destroyed`,
     "card-banished": "Card banished",
@@ -640,6 +685,7 @@ function eventTitle(event) {
 function eventDetail(event) {
   const p = event.payload ?? {};
   if (event.type === "ability-trigger") return `${p.card?.name ?? "Card"} · ${p.resolved ? "resolved" : "unresolved"}${p.mode ? ` · ${p.mode}` : ""}${p.target?.name ? ` → ${p.target.name}` : ""} · ${p.text ?? ""}`;
+  if (event.type === "engage") return `${p.card?.name ?? "Amulet"} · ${p.cost ?? 0} PP${p.target?.name ? ` → ${p.target.name}` : ""}`;
   if (event.type === "countdown-tick") return `${p.card?.name ?? "Amulet"} · Countdown ${p.countdown ?? 0}`;
   if (event.type === "card-returned") return `${p.card?.name ?? "Card"} → ${p.destination ?? "hand"}${p.handFull ? " · hand full" : ""}`;
   if (p.card?.name) return `${p.card.name}${p.cost != null ? ` · ${p.cost} PP` : ""}${p.mode && p.mode !== "base" ? ` · ${p.mode}` : ""}`;
@@ -663,6 +709,11 @@ function createQueue() {
   ], options.duration));
   animations.register("follower-enter", (_event, options) => pulseStage(options.duration));
   animations.register("amulet-enter", (_event, options) => pulseStage(options.duration || 360));
+  animations.register("engage", (event, options) => animateCard(event.payload?.card?.instanceId, [
+    { transform: "scale(1)", filter: "brightness(1)" },
+    { transform: "scale(1.14)", filter: "brightness(1.75) saturate(1.25)" },
+    { transform: "scale(1)", filter: "brightness(1)" }
+  ], options.duration));
   animations.register("countdown-tick", (event, options) => animateCard(event.payload?.card?.instanceId, [{ transform: "scale(1)" }, { transform: "scale(1.12)" }, { transform: "scale(1)" }], options.duration));
   animations.register("amulet-destroyed", (event, options) => animateCard(event.payload?.card?.instanceId, [{ opacity: 1, transform: "scale(1)" }, { opacity: .7, transform: "scale(1.12)" }, { opacity: 0, transform: "scale(.45)" }], options.duration));
   animations.register("card-banished", (event, options) => animateCard(event.payload?.card?.instanceId, [{ opacity: 1, filter: "brightness(1) blur(0)" }, { opacity: .6, filter: "brightness(1.8) blur(1px)" }, { opacity: 0, filter: "brightness(.4) blur(6px)" }], options.duration));
@@ -742,10 +793,16 @@ function fillSelect(select, source, selectedIndex) {
   });
 }
 
+function clearEngageAndAttack() {
+  selectedAttacker = null;
+  selectedEngageAmulet = null;
+}
+
 function clearSelections() {
   selectedAttacker = null;
   selectedPlayCard = null;
   selectedPlayModeKey = null;
+  selectedEngageAmulet = null;
 }
 
 function setStatus(text, status) {
