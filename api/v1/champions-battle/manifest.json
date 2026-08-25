@@ -1,0 +1,10 @@
+{
+  "gameId": "champions-battle",
+  "namespace": "svcb",
+  "status": "dataset-planned",
+  "provider": "Champion's Battle dataset (planned)",
+  "source": "https://shadowversecb.com/",
+  "materializedCardsEndpoint": "./cards.json",
+  "materialized": false,
+  "notes": "Champion's Battle-specific cards and rules must remain distinguishable from the original Shadowverse CCG even when artwork or card names overlap."
+}
