@@ -42,3 +42,29 @@ test("original Shadowverse CCG is a complete local archival snapshot", async () 
   assert.equal(cards.cards.length, 5933);
   assert.deepEqual(Object.keys(manifest.languages), ["en", "ja", "ko", "zh-tw", "fr", "it", "de", "es"]);
 });
+
+test("CCG deckbuilder uses a compact local non-token catalog", async () => {
+  const catalog = await readJson("api/v1/shadowverse-ccg/catalog.json");
+  assert.equal(catalog.gameId, "shadowverse-ccg");
+  assert.equal(catalog.dataNamespace, "sv1");
+  assert.ok(catalog.cardCount > 4000);
+  assert.equal(catalog.cards.length, catalog.cardCount);
+  assert.equal(catalog.cards.some(card => card.setId === 90000), false);
+  assert.equal(catalog.cards.every(card => card.uid.startsWith("sv1:")), true);
+});
+
+test("Champion's Battle base deckbuilding pool is local and excludes Portalcraft", async () => {
+  const manifest = await readJson("api/v1/champions-battle/manifest.json");
+  const catalog = await readJson("api/v1/champions-battle/catalog.json");
+  const allowedSets = new Set([10000, 10001, 10002, 10003]);
+
+  assert.equal(manifest.runtimeSource, "local");
+  assert.equal(manifest.materialized, true);
+  assert.equal(manifest.basePoolComplete, true);
+  assert.equal(manifest.exclusiveCardsComplete, false);
+  assert.equal(manifest.portalcraftIncluded, false);
+  assert.ok(catalog.cardCount >= 600);
+  assert.equal(catalog.cards.every(card => card.dataNamespace === "svcb"), true);
+  assert.equal(catalog.cards.some(card => card.craft === "Portalcraft"), false);
+  assert.equal(catalog.cards.every(card => allowedSets.has(card.setId)), true);
+});
