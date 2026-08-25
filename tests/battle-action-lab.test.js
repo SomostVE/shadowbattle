@@ -15,7 +15,7 @@ test("internal battle lab loads the playable action controller", () => {
 
 test("human battle controls dispatch real GameSession actions", () => {
   assert.match(controller, /listLegalActions/);
-  assert.match(controller, /type: "play-card"/);
+  assert.match(controller, /action\.type === "play-card"/);
   assert.match(controller, /type === "attack"/);
   assert.match(controller, /type === "evolve"/);
   assert.match(controller, /type === "super-evolve"/);
