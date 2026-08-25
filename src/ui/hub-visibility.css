@@ -1,0 +1,147 @@
+/* ShadowBattle hub visibility pass: keep the Beyond Decks glass language while
+   letting the official Fan Kit artwork remain visibly present. */
+body.hub-page::after {
+  background:
+    linear-gradient(90deg, rgba(5, 10, 16, .14), rgba(8, 15, 22, .035) 46%, rgba(5, 10, 16, .16)),
+    linear-gradient(180deg, rgba(8, 15, 22, .015), rgba(5, 10, 16, .12));
+  backdrop-filter: none;
+}
+
+.hub-battle-card,
+.hub-panel,
+.hub-tool-card {
+  background:
+    linear-gradient(180deg, rgba(26, 39, 55, .25), rgba(18, 29, 42, .30));
+  backdrop-filter: blur(1.2px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .055),
+    0 8px 24px rgba(2, 6, 11, .11);
+}
+
+.hub-battle-card::before {
+  background:
+    linear-gradient(90deg, rgba(7, 13, 20, .18) 0%, rgba(8, 16, 24, .045) 48%, rgba(7, 13, 20, .15) 100%),
+    linear-gradient(180deg, rgba(114, 184, 255, .008), rgba(4, 9, 14, .045));
+}
+
+.hub-battle-toolbar {
+  background:
+    linear-gradient(90deg, rgba(var(--class-accent-rgb), .055), transparent 38%),
+    linear-gradient(180deg, rgba(26, 40, 57, .34), rgba(19, 31, 45, .38));
+  backdrop-filter: blur(1.5px);
+}
+
+.hub-battle-flags span,
+.hub-mode-row span,
+.hub-game-state {
+  background: rgba(20, 33, 48, .38);
+}
+
+.hub-board-preview {
+  background: rgba(6, 13, 21, .31);
+  backdrop-filter: blur(1.5px);
+}
+
+.hub-game {
+  background: rgba(18, 31, 45, .22);
+  backdrop-filter: blur(1px);
+}
+
+.hub-game:hover {
+  background: rgba(26, 43, 61, .33);
+}
+
+.hub-game.active {
+  background:
+    linear-gradient(180deg, rgba(var(--class-accent-rgb), .095), rgba(18, 31, 45, .27));
+}
+
+.hub-game-stat {
+  background: rgba(5, 12, 20, .20);
+}
+
+.hub-game.active .hub-game-stat {
+  background: rgba(var(--class-accent-rgb), .035);
+}
+
+.hub-tool-card,
+.hub-tool-primary {
+  background:
+    linear-gradient(180deg, rgba(26, 39, 55, .26), rgba(18, 29, 42, .31));
+}
+
+.hub-tool-primary {
+  background:
+    linear-gradient(90deg, rgba(var(--class-accent-rgb), .045), transparent 62%),
+    linear-gradient(180deg, rgba(26, 39, 55, .27), rgba(18, 29, 42, .32));
+}
+
+.hub-tool-card:hover {
+  background:
+    linear-gradient(180deg, rgba(41, 58, 78, .44), rgba(31, 45, 62, .46));
+}
+
+/* The official logo PNGs have very different internal whitespace. Scale them
+   individually so their visible marks occupy comparable space. */
+.hub-game[data-game="shadowverse-ccg"] .hub-game-logo img {
+  transform: scale(1.95);
+}
+
+.hub-game[data-game="champions-battle"] .hub-game-logo img {
+  transform: scale(1.18);
+}
+
+.hub-game[data-game="worlds-beyond"] .hub-game-logo img {
+  transform: scale(1.52);
+}
+
+.hub-game-logo img {
+  max-width: 285px;
+  max-height: 125px;
+  transform-origin: center;
+}
+
+@media (max-width: 1320px) {
+  .hub-game-logo img {
+    max-width: 235px;
+    max-height: 104px;
+  }
+}
+
+@media (max-width: 980px) {
+  .hub-game-logo img {
+    max-width: 260px;
+    max-height: 110px;
+  }
+
+  .hub-game[data-game="shadowverse-ccg"] .hub-game-logo img {
+    transform: scale(1.7);
+  }
+
+  .hub-game[data-game="worlds-beyond"] .hub-game-logo img {
+    transform: scale(1.35);
+  }
+}
+
+@media (max-width: 620px) {
+  body.hub-page::after {
+    background: linear-gradient(180deg, rgba(5, 10, 16, .08), rgba(5, 10, 16, .20));
+  }
+
+  .hub-game-logo img {
+    max-width: 175px;
+    max-height: 88px;
+  }
+
+  .hub-game[data-game="shadowverse-ccg"] .hub-game-logo img {
+    transform: scale(1.5);
+  }
+
+  .hub-game[data-game="champions-battle"] .hub-game-logo img {
+    transform: scale(1.05);
+  }
+
+  .hub-game[data-game="worlds-beyond"] .hub-game-logo img {
+    transform: scale(1.22);
+  }
+}
