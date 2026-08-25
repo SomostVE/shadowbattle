@@ -100,8 +100,8 @@ for (const lang of LANGUAGES) {
 
 const imageIndex = englishCards.map(card => ({
   cardId: String(card.card_id),
-  base: `https://shadowverse-portal.com/image/card/en/C_${card.card_id}.png`,
-  evolved: Number(card.char_type) === 1 ? `https://shadowverse-portal.com/image/card/en/E_${card.card_id}.png` : null
+  base: `https://shadowverse-portal.com/image/card/phase2/common/C/C_${card.card_id}.png`,
+  evolved: Number(card.char_type) === 1 ? `https://shadowverse-portal.com/image/card/phase2/sp/common/E/E_${card.card_id}.png` : null
 }));
 
 const cardsPayload = {
