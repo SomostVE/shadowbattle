@@ -148,29 +148,40 @@ function attack(session, action) {
     if (!target || cardType(target) !== "follower") throw new Error("Attack target is not an enemy follower");
     if (wards.length && !hasKeyword(target, "Ward")) throw new Error("An enemy Ward follower must be attacked first");
   }
+
   attacker.attacksRemaining = Math.max(0, Number(attacker.attacksRemaining ?? 1) - 1);
   attacker.hasAttacked = true;
   attacker.canAttackLeader = false;
   attacker.canAttackFollowers = false;
   session.emit(BATTLE_EVENT.ATTACK_START, { actor: playerIndex, payload: { attacker: session.cardView(attacker), target: target ? session.cardView(target) : { leader: enemyIndex } } });
+
+  resolveWorldsBeyondTrigger(session, { trigger: "strike", playerIndex, source: attacker });
+  if (session.phase === "ended") return session.getSnapshot(playerIndex);
+  const liveAttacker = session.findBoardCard(playerIndex, attacker.instanceId);
+  if (!liveAttacker) return session.getSnapshot(playerIndex);
+  if (target && !session.findBoardCard(enemyIndex, target.instanceId)) return session.getSnapshot(playerIndex);
+
   if (!target) {
-    const amount = currentAttack(attacker);
-    session.emit(BATTLE_EVENT.ATTACK_IMPACT, { actor: playerIndex, payload: { attacker: attacker.instanceId, target: "leader", damage: amount } });
-    const dealt = session.damageLeader(enemyIndex, amount, { actor: playerIndex, source: attacker });
-    if (dealt > 0 && hasKeyword(attacker, "Drain")) healFromDrain(session, playerIndex, dealt, attacker);
+    const amount = currentAttack(liveAttacker);
+    session.emit(BATTLE_EVENT.ATTACK_IMPACT, { actor: playerIndex, payload: { attacker: liveAttacker.instanceId, target: "leader", damage: amount } });
+    const dealt = session.damageLeader(enemyIndex, amount, { actor: playerIndex, source: liveAttacker });
+    if (dealt > 0 && hasKeyword(liveAttacker, "Drain")) healFromDrain(session, playerIndex, dealt, liveAttacker);
     return session.getSnapshot(playerIndex);
   }
-  const attackDamage = currentAttack(attacker);
-  const counterDamage = currentAttack(target);
-  const dealtByAttacker = session.damageFollower(enemyIndex, target.instanceId, attackDamage, { actor: playerIndex, source: attacker, resolveDeath: false });
-  const dealtByTarget = session.damageFollower(playerIndex, attacker.instanceId, counterDamage, { actor: enemyIndex, source: target, resolveDeath: false });
-  session.emit(BATTLE_EVENT.ATTACK_IMPACT, { actor: playerIndex, payload: { attacker: attacker.instanceId, target: target.instanceId, attackerDamage: attackDamage, counterDamage } });
-  if (dealtByAttacker > 0 && hasKeyword(attacker, "Drain")) healFromDrain(session, playerIndex, dealtByAttacker, attacker);
-  let targetDestroyed = Number(target.defense ?? 0) <= 0 || (dealtByAttacker > 0 && hasKeyword(attacker, "Bane"));
-  const attackerDestroyed = Number(attacker.defense ?? 0) <= 0 || (dealtByTarget > 0 && hasKeyword(target, "Bane"));
-  if (targetDestroyed) targetDestroyed = Boolean(destroyWorldsBeyondFollower(session, enemyIndex, target.instanceId, { actor: playerIndex, source: attacker, reason: "combat" }));
-  if (attackerDestroyed) destroyWorldsBeyondFollower(session, playerIndex, attacker.instanceId, { actor: enemyIndex, source: target, reason: "combat" });
-  if (targetDestroyed && attacker.superEvolved && session.phase !== "ended") session.damageLeader(enemyIndex, 1, { actor: playerIndex, source: attacker, reason: "super-evolution-combat" });
+
+  const liveTarget = session.findBoardCard(enemyIndex, target.instanceId);
+  if (!liveTarget) return session.getSnapshot(playerIndex);
+  const attackDamage = currentAttack(liveAttacker);
+  const counterDamage = currentAttack(liveTarget);
+  const dealtByAttacker = session.damageFollower(enemyIndex, liveTarget.instanceId, attackDamage, { actor: playerIndex, source: liveAttacker, resolveDeath: false });
+  const dealtByTarget = session.damageFollower(playerIndex, liveAttacker.instanceId, counterDamage, { actor: enemyIndex, source: liveTarget, resolveDeath: false });
+  session.emit(BATTLE_EVENT.ATTACK_IMPACT, { actor: playerIndex, payload: { attacker: liveAttacker.instanceId, target: liveTarget.instanceId, attackerDamage: attackDamage, counterDamage } });
+  if (dealtByAttacker > 0 && hasKeyword(liveAttacker, "Drain")) healFromDrain(session, playerIndex, dealtByAttacker, liveAttacker);
+  let targetDestroyed = Number(liveTarget.defense ?? 0) <= 0 || (dealtByAttacker > 0 && hasKeyword(liveAttacker, "Bane"));
+  const attackerDestroyed = Number(liveAttacker.defense ?? 0) <= 0 || (dealtByTarget > 0 && hasKeyword(liveTarget, "Bane"));
+  if (targetDestroyed) targetDestroyed = Boolean(destroyWorldsBeyondFollower(session, enemyIndex, liveTarget.instanceId, { actor: playerIndex, source: liveAttacker, reason: "combat" }));
+  if (attackerDestroyed) destroyWorldsBeyondFollower(session, playerIndex, liveAttacker.instanceId, { actor: enemyIndex, source: liveTarget, reason: "combat" });
+  if (targetDestroyed && liveAttacker.superEvolved && session.phase !== "ended") session.damageLeader(enemyIndex, 1, { actor: playerIndex, source: liveAttacker, reason: "super-evolution-combat" });
   return session.getSnapshot(playerIndex);
 }
 
