@@ -5,18 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#090b14">
   <title>ShadowBattle AI Test Lab</title>
-  <link rel="stylesheet" href="../src/ui/shadowbattle.css?v=0.4.8">
-  <script type="module" src="../src/ui/version-guard.js?v=0.4.8"></script>
+  <link rel="stylesheet" href="../src/ui/shadowbattle.css?v=0.4.9">
+  <script type="module" src="../src/ui/version-guard.js?v=0.4.9"></script>
 </head>
 <body data-game="shadowverse-ccg">
   <main class="sb-shell">
     <header class="sb-topbar">
-      <a class="sb-brand" href="../">
-        <span class="sb-mark">✦</span>
-        <span>ShadowBattle</span>
-      </a>
+      <a class="sb-brand" href="../"><span class="sb-mark">✦</span><span>ShadowBattle</span></a>
       <nav class="sb-nav" aria-label="Main navigation">
-        <a href="../decks/">Decks</a>
+        <a href="../decks/">Deckbuilder</a>
+        <a href="../library/">Deck Library</a>
         <a href="../api/">API</a>
         <a href="./" aria-current="page">AI Test Lab</a>
       </nav>
@@ -54,25 +52,13 @@
             <div class="sb-leader"><span class="sb-avatar"></span><div><strong>AI opponent</strong><div class="sb-resource">PP 6/6 · Evo 2</div></div></div>
             <span class="sb-hp">20</span>
           </div>
-          <div class="sb-zone">
-            <span class="sb-slot" data-active="true"></span>
-            <span class="sb-slot"></span>
-            <span class="sb-slot"></span>
-            <span class="sb-slot"></span>
-            <span class="sb-slot"></span>
-          </div>
+          <div class="sb-zone"><span class="sb-slot" data-active="true"></span><span class="sb-slot"></span><span class="sb-slot"></span><span class="sb-slot"></span><span class="sb-slot"></span></div>
           <div class="sb-hand"><span class="sb-slot"></span><span class="sb-slot"></span><span class="sb-slot"></span><span class="sb-slot"></span></div>
         </div>
 
         <div class="sb-board-half">
           <div class="sb-hand"><span class="sb-slot"></span><span class="sb-slot"></span><span class="sb-slot"></span><span class="sb-slot"></span><span class="sb-slot"></span></div>
-          <div class="sb-zone">
-            <span class="sb-slot" data-active="true"></span>
-            <span class="sb-slot"></span>
-            <span class="sb-slot"></span>
-            <span class="sb-slot"></span>
-            <span class="sb-slot"></span>
-          </div>
+          <div class="sb-zone"><span class="sb-slot" data-active="true"></span><span class="sb-slot"></span><span class="sb-slot"></span><span class="sb-slot"></span><span class="sb-slot"></span></div>
           <div class="sb-player-line">
             <div class="sb-leader"><span class="sb-avatar"></span><div><strong>Human player</strong><div class="sb-resource">PP 5/5 · Evo 2</div></div></div>
             <span class="sb-hp">17</span>
@@ -89,27 +75,11 @@
     </section>
 
     <section class="sb-section sb-grid">
-      <article class="sb-card">
-        <div class="sb-eyebrow">Skill budget</div>
-        <h3>Intermediate profile</h3>
-        <pre id="profile-json" class="sb-code"></pre>
-      </article>
-      <article class="sb-card">
-        <div class="sb-eyebrow">Visual boundary</div>
-        <h3>Selected game profile</h3>
-        <pre id="visual-json" class="sb-code"></pre>
-      </article>
-      <article class="sb-card">
-        <div class="sb-eyebrow">Planned harness</div>
-        <h3>Next test inputs</h3>
-        <p>Deck list, known opponent cards, turn state, legal actions, hidden-information samples, candidate plans and replayable AI explanations.</p>
-      </article>
+      <article class="sb-card"><div class="sb-eyebrow">Skill budget</div><h3>Intermediate profile</h3><pre id="profile-json" class="sb-code"></pre></article>
+      <article class="sb-card"><div class="sb-eyebrow">Visual boundary</div><h3>Selected game profile</h3><pre id="visual-json" class="sb-code"></pre></article>
+      <article class="sb-card"><div class="sb-eyebrow">Planned harness</div><h3>Next test inputs</h3><p>Deck list, known opponent cards, turn state, legal actions, hidden-information samples, candidate plans and replayable AI explanations.</p></article>
     </section>
-
-    <footer class="sb-fankit-notice">
-      ShadowBattle is an independent fan project and is not affiliated with or endorsed by Cygames. Shadowverse and related intellectual property are © Cygames, Inc. Official fan-kit material, when enabled, is used subject to the Shadowverse Fan Kit Agreement.
-    </footer>
   </main>
-  <script type="module" src="../src/test/test-page.js?v=0.4.8"></script>
+  <script type="module" src="../src/test/test-page.js?v=0.4.9"></script>
 </body>
 </html>
