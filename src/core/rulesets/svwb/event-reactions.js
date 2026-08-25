@@ -1,5 +1,5 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
-import { getWorldsBeyondCrests } from "./crests.js";
+import { crestView, getWorldsBeyondCrests } from "./crests.js";
 
 const PATCH_KEY = Symbol.for("shadowbattle.svwb.event-reactions");
 
@@ -46,15 +46,6 @@ function applyBurniteHealReaction(session, playerIndex, crests, name, turn, trig
   });
   session.damageLeader(playerIndex, 1, { actor: playerIndex, reason: "crest-heal-reaction" });
   return session.phase === "main";
-}
-
-function crestView(crest) {
-  return {
-    id: crest?.id ?? null,
-    name: crest?.name ?? null,
-    cardId: crest?.cardId ?? null,
-    countdown: Number.isFinite(Number(crest?.countdown)) ? Number(crest.countdown) : null
-  };
 }
 
 function normalize(value) {
