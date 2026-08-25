@@ -26,7 +26,7 @@
   const CARD_SIZE_MODE_KEY = "shadowbattle:card-size-mode";
   const BEYOND_CARD_SIZE_KEY = "svwb-card-size";
   const BEYOND_CARD_SIZE_MODE_KEY = "svwb-card-size-mode";
-  const INCLUDE_NEUTRAL_KEY = "shadowbattle:include-neutral";
+  const CARD_POOL_MODE_KEY = "shadowbattle:card-pool-mode";
 
   installNeutralControl();
   upgradeOfficialCraftButtons();
@@ -42,14 +42,16 @@
     const root = document.getElementById("deck-craft-buttons");
     if (!root) return;
 
-    const isIncluded = () => localStorage.getItem(INCLUDE_NEUTRAL_KEY) !== "false";
+    const getMode = () => localStorage.getItem(CARD_POOL_MODE_KEY) === "neutral" ? "neutral" : "class";
+    const setMode = mode => localStorage.setItem(CARD_POOL_MODE_KEY, mode === "neutral" ? "neutral" : "class");
 
     const sync = button => {
-      const active = isIncluded();
-      button.classList.toggle("active", active);
-      button.setAttribute("aria-pressed", active ? "true" : "false");
-      button.title = active ? "Neutral cards included" : "Neutral cards hidden";
-      button.setAttribute("aria-label", active ? "Hide Neutral cards" : "Include Neutral cards");
+      const neutral = getMode() === "neutral";
+      root.classList.toggle("neutral-mode", neutral);
+      button.classList.toggle("active", neutral);
+      button.setAttribute("aria-pressed", neutral ? "true" : "false");
+      button.title = "Neutral cards";
+      button.setAttribute("aria-label", "Show Neutral cards");
     };
 
     const ensure = () => {
@@ -68,13 +70,23 @@
     };
 
     root.addEventListener("click", event => {
-      const button = event.target.closest("[data-neutral-toggle]");
-      if (!button || !root.contains(button)) return;
-      event.preventDefault();
-      event.stopPropagation();
-      localStorage.setItem(INCLUDE_NEUTRAL_KEY, isIncluded() ? "false" : "true");
-      sync(button);
-      document.getElementById("deck-search")?.dispatchEvent(new Event("input", { bubbles: true }));
+      const neutralButton = event.target.closest("[data-neutral-toggle]");
+      if (neutralButton && root.contains(neutralButton)) {
+        event.preventDefault();
+        event.stopPropagation();
+        setMode("neutral");
+        sync(neutralButton);
+        document.getElementById("deck-search")?.dispatchEvent(new Event("input", { bubbles: true }));
+        return;
+      }
+
+      const classButton = event.target.closest("[data-craft]");
+      if (!classButton || !root.contains(classButton)) return;
+      if (getMode() !== "class") {
+        setMode("class");
+        const button = root.querySelector("[data-neutral-toggle]");
+        if (button) sync(button);
+      }
     }, true);
 
     new MutationObserver(ensure).observe(root, { childList: true });
