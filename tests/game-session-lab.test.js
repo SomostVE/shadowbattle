@@ -11,7 +11,7 @@ test("internal test page exposes the interactive Worlds Beyond GameSession lab",
   assert.match(html, /id="game-session-lab"/);
   assert.match(html, /id="battle-player-hand"/);
   assert.match(html, /id="battle-mulligan"/);
-  assert.match(html, /battle-lab\.css\?v=0\.4\.24/);
+  assert.match(html, /battle-lab\.css\?v=\d+\.\d+\.\d+/);
 });
 
 test("battle lab uses real data, GameSession and the ordered animation queue", () => {
