@@ -7,48 +7,66 @@ export function resolveWorldsBeyondCrestTurnEnd(session, playerIndex, crest) {
   const player = session.getPlayer(playerIndex);
   const enemyIndex = 1 - playerIndex;
   const name = normalize(crest.name);
-  let applied = false;
+  const followersAttackedThisTurn = didFollowerAttackThisTurn(session, playerIndex);
+  let triggered = false;
+  let detail = {};
 
   if (name === "grimnir, heavenly gale") {
     const active = player.board.some(unit => cardType(unit) === "follower" && unit.superEvolved);
-    if (active) {
-      for (const target of [...session.getPlayer(enemyIndex).board].filter(unit => cardType(unit) === "follower")) {
+    const targets = active ? [...session.getPlayer(enemyIndex).board].filter(unit => cardType(unit) === "follower") : [];
+    if (targets.length) {
+      for (const target of targets) {
         session.damageFollower(enemyIndex, target.instanceId, 2, { actor: playerIndex, source: null, reason: "crest", resolveDeath: false });
         if (Number(target.defense ?? 0) <= 0) destroyWorldsBeyondFollower(session, enemyIndex, target.instanceId, { actor: playerIndex, reason: "crest", byAbility: true });
         if (session.phase === "ended") break;
       }
-      applied = true;
+      triggered = true;
+      detail = { damage: 2, targetCount: targets.length };
     }
   }
 
-  if (name === "marwynn, despair manifest" && !player.followersAttackedThisTurn) {
+  if (name === "marwynn, despair manifest" && !followersAttackedThisTurn) {
     const amount = getWorldsBeyondCrests(player).length;
     splitDamageBetweenAllEnemies(session, playerIndex, amount);
-    applied = amount > 0;
+    triggered = amount > 0;
+    detail = { splitDamage: amount };
   }
 
-  if (name === "supplicant of repose" && !player.followersAttackedThisTurn) {
-    applied = healLeader(session, playerIndex, 1, crest) > 0 || applied;
+  if (name === "supplicant of repose" && !followersAttackedThisTurn) {
+    const healed = healLeader(session, playerIndex, 1, crest);
+    triggered = true;
+    detail = { leaderHealing: healed };
   }
 
   if (name === "sandalphon, primarch successor") {
-    let healed = healLeader(session, playerIndex, 1, crest);
+    const leaderHealing = healLeader(session, playerIndex, 1, crest);
+    let followerHealing = 0;
     for (const unit of player.board.filter(card => cardType(card) === "follower")) {
       const before = Number(unit.defense ?? 0);
       const maximum = Number(unit.maxDefense ?? before);
       unit.defense = Math.min(maximum, before + 1);
-      healed += Math.max(0, unit.defense - before);
+      followerHealing += Math.max(0, unit.defense - before);
     }
-    applied = healed > 0 || applied;
+    triggered = true;
+    detail = { leaderHealing, followerHealing };
   }
 
-  if (applied) {
+  if (triggered) {
     session.emit(BATTLE_EVENT.CREST_ACTIVATE, {
       actor: playerIndex,
-      payload: { action: "turn-end", crest: crestView(crest) }
+      payload: { action: "turn-end", crest: crestView(crest), ...detail }
     });
   }
-  return applied;
+  return triggered;
+}
+
+function didFollowerAttackThisTurn(session, playerIndex) {
+  for (let index = session.events.length - 1; index >= 0; index -= 1) {
+    const event = session.events[index];
+    if (event.type === BATTLE_EVENT.TURN_START && event.actor === playerIndex) return false;
+    if (event.type === BATTLE_EVENT.ATTACK_START && event.actor === playerIndex) return true;
+  }
+  return false;
 }
 
 function splitDamageBetweenAllEnemies(session, playerIndex, amount) {
