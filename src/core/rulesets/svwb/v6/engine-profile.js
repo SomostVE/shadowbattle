@@ -28,7 +28,7 @@ export const SHADOWBATTLE_V6_ENGINE_PROFILE = deepFreeze({
     legalActionGeneration: "active",
     actionResolver: "active",
     crestLifecycle: "migration",
-    cardEffectCommands: "next",
+    cardEffectCommands: "partial",
     classRuleCoverage: "migration",
     replayDeterminism: "foundation",
     cpuController: "migration",

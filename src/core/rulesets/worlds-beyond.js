@@ -2,6 +2,7 @@ import { GAME_IDS } from "../game-catalog.js";
 import { applyWorldsBeyondAction, listWorldsBeyondActions, prepareWorldsBeyondTurn } from "./svwb/action-resolver.js";
 import { resolveWorldsBeyondEventReaction } from "./svwb/event-reactions.js";
 import { runWorldsBeyondTurnEnd, runWorldsBeyondTurnStart } from "./svwb/lifecycle.js";
+import { resolveWorldsBeyondEffectCommand } from "./svwb/v6/effect-commands.js";
 import { SHADOWBATTLE_V6_ENGINE_PROFILE } from "./svwb/v6/engine-profile.js";
 
 export const WORLDS_BEYOND_RULESET = Object.freeze({
@@ -55,6 +56,9 @@ export const WORLDS_BEYOND_RULESET = Object.freeze({
   },
   beforeTurnEnd(player, session) {
     runWorldsBeyondTurnEnd(session, player.index);
+  },
+  resolveEffectCommand(session, command) {
+    return resolveWorldsBeyondEffectCommand(session, command);
   },
   applyAction(session, action) {
     return applyWorldsBeyondAction(session, action);

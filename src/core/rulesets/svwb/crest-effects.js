@@ -1,6 +1,11 @@
 import { BATTLE_EVENT, BATTLE_VISIBILITY } from "../../battle-events.js";
+import { resolveEffectCommands } from "../../effect-commands.js";
 import { crestView, getWorldsBeyondCrests } from "./crests.js";
 import { destroyWorldsBeyondFollower } from "./effect-resolver.js";
+import {
+  createWorldsBeyondLeaderDamageCommand,
+  createWorldsBeyondLeaderHealCommand
+} from "./v6/effect-commands.js";
 
 export function resolveWorldsBeyondCrestTurnStart(session, playerIndex, crest) {
   if (!crest || session.phase !== "main") return false;
@@ -12,7 +17,9 @@ export function resolveWorldsBeyondCrestTurnStart(session, playerIndex, crest) {
   if (!selfDamage) return false;
 
   emitCrestActivation(session, playerIndex, crest, "turn-start", { selfDamage });
-  session.damageLeader(playerIndex, selfDamage, { actor: playerIndex, reason: "crest-turn-start" });
+  resolveEffectCommands(session, [
+    createWorldsBeyondLeaderDamageCommand(playerIndex, playerIndex, selfDamage, crestCommandOptions(crest, "crest-turn-start"))
+  ]);
   return true;
 }
 
@@ -76,7 +83,7 @@ export function resolveWorldsBeyondCrestTurnEnd(session, playerIndex, crest) {
   }
 
   if (name === "supplicant of repose" && !followersAttackedThisTurn) {
-    const healed = healLeader(session, playerIndex, 1, crest);
+    const healed = resolveCrestLeaderHeal(session, playerIndex, 1, crest);
     triggered = true;
     detail = { leaderHealing: healed };
   }
@@ -103,7 +110,7 @@ export function resolveWorldsBeyondCrestTurnEnd(session, playerIndex, crest) {
   }
 
   if (name === "sandalphon, primarch successor") {
-    const leaderHealing = healLeader(session, playerIndex, 1, crest);
+    const leaderHealing = resolveCrestLeaderHeal(session, playerIndex, 1, crest);
     let followerHealing = 0;
     for (const unit of player.board.filter(card => cardType(card) === "follower")) {
       const before = Number(unit.defense ?? 0);
@@ -125,7 +132,9 @@ export function resolveWorldsBeyondCrestLastWords(session, playerIndex, crest) {
 
   if (name === "maddening benison") {
     emitCrestActivation(session, playerIndex, crest, "last-words", { selfDamage: 10 });
-    session.damageLeader(playerIndex, 10, { actor: playerIndex, reason: "crest-last-words" });
+    resolveEffectCommands(session, [
+      createWorldsBeyondLeaderDamageCommand(playerIndex, playerIndex, 10, crestCommandOptions(crest, "crest-last-words"))
+    ]);
     return true;
   }
 
@@ -243,16 +252,24 @@ function splitDamageBetweenAllEnemies(session, playerIndex, amount) {
   }
 }
 
-function healLeader(session, playerIndex, amount, crest) {
-  const player = session.getPlayer(playerIndex);
-  const before = Number(player.hp ?? 0);
-  player.hp = Math.min(Number(player.maxHp ?? before), before + Math.max(0, Number(amount) || 0));
-  const healed = player.hp - before;
-  session.emit(BATTLE_EVENT.HEAL, {
-    actor: playerIndex,
-    payload: { targetPlayer: playerIndex, amount: healed, hp: player.hp, source: null, reason: "crest", crest: crestView(crest) }
-  });
-  return healed;
+function resolveCrestLeaderHeal(session, playerIndex, amount, crest) {
+  const [result] = resolveEffectCommands(session, [
+    createWorldsBeyondLeaderHealCommand(playerIndex, amount, crestCommandOptions(crest, "crest"))
+  ]);
+  return Number(result?.healed ?? 0);
+}
+
+function crestCommandOptions(crest, reason) {
+  return {
+    reason,
+    sourceCardId: crest?.cardId ?? null,
+    sourceCardName: crest?.name ?? null,
+    crest: crestView(crest),
+    metadata: {
+      source: "crest",
+      crestName: crest?.name ?? null
+    }
+  };
 }
 
 function emitCrestActivation(session, playerIndex, crest, action, detail = {}) {
