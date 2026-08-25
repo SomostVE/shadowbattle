@@ -5,6 +5,7 @@ import fs from "node:fs/promises";
 const root = new URL("../", import.meta.url);
 const hub = await fs.readFile(new URL("index.html", root), "utf8");
 const hubCss = await fs.readFile(new URL("src/ui/hub.css", root), "utf8");
+const hubBeyondCss = await fs.readFile(new URL("src/ui/hub-beyond.css", root), "utf8");
 const hubJs = await fs.readFile(new URL("src/ui/hub.js", root), "utf8");
 const referenceDeckLoader = await fs.readFile(new URL("src/ai/reference-decks.js", root), "utf8");
 const botDecks = JSON.parse(await fs.readFile(new URL("api/v1/worlds-beyond/bot-decks.json", root), "utf8"));
@@ -23,8 +24,20 @@ test("landing page is a compact game-first ShadowBattle hub", () => {
   assert.ok(hub.indexOf("hub-battle-card") < hub.indexOf("hub-tools"));
   assert.match(hub, /href="\.\/decks\/"/);
   assert.match(hub, /href="\.\/library\/"/);
-  assert.match(hub, /5,933 archived cards/);
-  assert.match(hub, /623-card base pool/);
+  assert.match(hub, /class="hub-game-logo"/);
+  assert.match(hub, /alt="Shadowverse"/);
+  assert.match(hub, /alt="Shadowverse: Champion's Battle"/);
+  assert.match(hub, /alt="Shadowverse: Worlds Beyond"/);
+  assert.match(hub, /<small>Cards<\/small>/);
+  assert.match(hub, /<small>AI decks<\/small>/);
+  assert.match(hub, /<small>Your decks<\/small>/);
+  assert.match(hub, /id="hub-sv1-card-count">5,933/);
+  assert.match(hub, /id="hub-cb-card-count">623/);
+  assert.match(hub, /id="hub-wb-card-count">826/);
+  assert.match(hub, /id="hub-sv1-player-count"/);
+  assert.match(hub, /id="hub-cb-player-count"/);
+  assert.match(hub, /id="hub-wb-player-count"/);
+  assert.match(hubBeyondCss, /grid-template-rows:\s*auto repeat\(3, minmax\(0, 1fr\)\)/);
   assert.doesNotMatch(hub, /hub-topbar|hub-nav/);
   assert.doesNotMatch(hub, /href="\.\/test\/"/);
   assert.doesNotMatch(hub, /AI Test Lab/);
@@ -55,7 +68,18 @@ test("Beyond Decks AI reference pool is vendored under the svwb namespace", () =
   assert.match(referenceDeckLoader, /worlds-beyond/);
   assert.match(referenceDeckLoader, /namespace:\s*"svwb"/);
   assert.match(referenceDeckLoader, /qualifiedId:\s*`\$\{namespace\}:\$\{card\.cardId\}`/);
-  assert.match(hub, /synchronized AI decks/);
+  assert.match(hub, /id="hub-wb-bot-count">7/);
+  assert.match(hubJs, /api\/v1\/worlds-beyond\/bot-decks\.json/);
+});
+
+test("ruleset metrics resolve dataset and player-deck counts dynamically", () => {
+  assert.match(hubJs, /renderDeckCounts/);
+  assert.match(hubJs, /shadowverse-ccg/);
+  assert.match(hubJs, /champions-battle/);
+  assert.match(hubJs, /worlds-beyond/);
+  assert.match(hubJs, /shadowverse-ccg\/manifest\.json/);
+  assert.match(hubJs, /champions-battle\/manifest\.json/);
+  assert.match(hubJs, /beyond_codex\/api\/v1\/manifest\.json/);
 });
 
 test("AI test lab is internal and absent from public navigation", () => {
