@@ -1,0 +1,70 @@
+.hub-shell {
+  width: calc(100% - 12px);
+  max-width: none;
+  padding-top: 6px;
+  padding-bottom: 5px;
+}
+
+.hub-stage {
+  gap: 6px;
+}
+
+.hub-side {
+  gap: 6px;
+}
+
+.hub-battle-card,
+.hub-panel,
+.hub-tool-card {
+  border-radius: .55rem;
+}
+
+.hub-battle-card,
+.hub-panel {
+  background: linear-gradient(180deg, rgba(35,50,70,.89), rgba(29,42,58,.91));
+}
+
+.hub-battle-toolbar {
+  min-height: 44px;
+  padding-inline: .55rem;
+}
+
+.hub-battle-main {
+  grid-template-columns: minmax(255px, .64fr) minmax(440px, 1.36fr);
+}
+
+.hub-board-preview {
+  max-width: 690px;
+  width: calc(100% - 1.5rem);
+  justify-self: end;
+}
+
+.hub-games {
+  padding: .5rem;
+}
+
+.hub-game {
+  min-height: 60px;
+}
+
+.hub-tools {
+  gap: 6px;
+}
+
+.hub-tool-card {
+  min-height: 68px;
+}
+
+@media (max-width: 980px) {
+  .hub-shell {
+    width: min(100% - 10px, 760px);
+  }
+  .hub-battle-main {
+    grid-template-columns: 1fr;
+  }
+  .hub-board-preview {
+    max-width: none;
+    width: auto;
+    justify-self: stretch;
+  }
+}
