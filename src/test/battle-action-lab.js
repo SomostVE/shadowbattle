@@ -42,6 +42,8 @@ let selectedAttacker = null;
 let selectedPlayCard = null;
 let selectedPlayModeKey = null;
 let selectedEngageAmulet = null;
+let selectedFuseTarget = null;
+let selectedFuseMaterials = new Set();
 let cpuBusy = false;
 let dataReady = false;
 let queue = createQueue();
@@ -98,7 +100,7 @@ function syncAvailability() {
     ui.help.textContent = "This action lab is currently bound to Worlds Beyond V5. SV1 and Champion's Battle will reuse the same GameSession action API.";
   } else if (!session && dataReady) {
     setStatus("SVWB action resolver ready", "ready");
-    ui.help.textContent = "Start a match. Play modes, Engage, targeting, combat, Evo and class resources are resolved action by action.";
+    ui.help.textContent = "Start a match. Play modes, Fuse, Engage, targeting, combat, Evo and class resources are resolved action by action.";
   }
 }
 
@@ -117,6 +119,7 @@ async function startMatch() {
     gameId: GAME_IDS.WORLDS_BEYOND,
     seed: ui.seed.value || "shadowbattle-action-lab",
     firstPlayer: "random",
+    cardCatalog: [...cards.values()],
     players: [
       { name: humanDeck.name, className: humanDeck.class, deck: expandDeck(humanDeck) },
       { name: cpuDeck.name, className: cpuDeck.class, deck: expandDeck(cpuDeck) }
@@ -161,6 +164,7 @@ async function playHumanCard(instanceId) {
   if (!actions.length) return;
   const modes = uniqueModeActions(actions);
   clearEngageAndAttack();
+  clearFuseSelectionState();
 
   if (modes.length > 1) {
     if (selectedPlayCard === instanceId && selectedPlayModeKey == null) selectedPlayCard = null;
@@ -178,6 +182,7 @@ async function choosePlayMode(instanceId, playModeKey) {
   if (!actions.length) return;
   const targeted = actions.filter(action => action.targetInstanceId);
   clearEngageAndAttack();
+  clearFuseSelectionState();
   selectedPlayCard = instanceId;
   selectedPlayModeKey = playModeKey ?? actions[0].playModeKey ?? null;
   if (targeted.length) {
@@ -187,6 +192,48 @@ async function choosePlayMode(instanceId, playModeKey) {
   const action = actions[0];
   clearSelections();
   await resolveAction(action);
+}
+
+function selectFuseTarget(instanceId) {
+  if (!isHumanTurn()) return;
+  const actions = fuseActionsForTarget(instanceId);
+  if (!actions.length) return;
+  const toggleOff = selectedFuseTarget === instanceId;
+  clearSelections();
+  if (!toggleOff) selectedFuseTarget = instanceId;
+  render();
+}
+
+function toggleFuseMaterial(instanceId) {
+  if (!isHumanTurn() || !selectedFuseTarget) return;
+  const actions = fuseActionsForTarget(selectedFuseTarget);
+  const candidateIds = new Set(actions.flatMap(action => action.materialInstanceIds ?? []));
+  if (!candidateIds.has(instanceId)) return;
+
+  const next = new Set(selectedFuseMaterials);
+  if (next.has(instanceId)) next.delete(instanceId);
+  else next.add(instanceId);
+  const viable = actions.some(action => isSubset(next, new Set(action.materialInstanceIds ?? [])));
+  if (!viable) return;
+  selectedFuseMaterials = next;
+  render();
+}
+
+async function confirmFuse() {
+  if (!isHumanTurn()) return;
+  const action = selectedFuseAction();
+  if (!action) return;
+  clearSelections();
+  await resolveAction(action);
+}
+
+function selectedFuseAction() {
+  if (!selectedFuseTarget) return null;
+  return fuseActionsForTarget(selectedFuseTarget).find(action => sameIdSet(selectedFuseMaterials, new Set(action.materialInstanceIds ?? []))) ?? null;
+}
+
+function fuseActionsForTarget(instanceId) {
+  return legalActions(0).filter(action => action.type === "fuse" && action.targetInstanceId === instanceId);
 }
 
 async function engageAmulet(instanceId) {
@@ -237,7 +284,7 @@ async function resolveEnemyFollowerTarget(instanceId) {
 }
 
 async function attackOpponentLeader() {
-  if (!isHumanTurn() || !selectedAttacker || selectedPlayCard || selectedEngageAmulet) return;
+  if (!isHumanTurn() || !selectedAttacker || selectedPlayCard || selectedEngageAmulet || selectedFuseTarget) return;
   const action = legalActions(0).find(item => item.type === "attack" && item.attackerInstanceId === selectedAttacker && item.target === "leader");
   if (!action) return;
   clearSelections();
@@ -293,10 +340,17 @@ async function runCpuTurnIfNeeded() {
 }
 
 function chooseCpuAction(actions) {
+  const fuse = actions
+    .filter(action => action.type === "fuse")
+    .sort((a, b) => Number(Boolean(b.projectedTransform)) - Number(Boolean(a.projectedTransform)) || (b.materialInstanceIds?.length ?? 0) - (a.materialInstanceIds?.length ?? 0))[0];
+  if (fuse?.projectedTransform) return fuse;
+
   const play = actions
     .filter(action => action.type === "play-card")
     .sort((a, b) => b.cost - a.cost || modePriority(b) - modePriority(a) || targetValue(0, b.targetInstanceId) - targetValue(0, a.targetInstanceId))[0];
   if (play) return play;
+  if (fuse && session.players[1].hand.length >= 7) return fuse;
+
   const engage = actions
     .filter(action => action.type === "engage")
     .sort((a, b) => b.cost - a.cost || targetValue(0, b.targetInstanceId) - targetValue(0, a.targetInstanceId))[0];
@@ -365,7 +419,7 @@ function render() {
   renderBoard(ui.opponentBoard, cpu.board, 1);
 
   const humanActions = isHumanTurn() ? legalActions(0) : [];
-  const canHitLeader = selectedAttacker && !selectedPlayCard && !selectedEngageAmulet && humanActions.some(action => action.type === "attack" && action.attackerInstanceId === selectedAttacker && action.target === "leader");
+  const canHitLeader = selectedAttacker && !selectedPlayCard && !selectedEngageAmulet && !selectedFuseTarget && humanActions.some(action => action.type === "attack" && action.attackerInstanceId === selectedAttacker && action.target === "leader");
   ui.opponentLeader.classList.toggle("is-targetable", Boolean(canHitLeader));
 
   ui.mulligan.disabled = snapshot.phase !== GAME_PHASE.MULLIGAN || human.mulliganDone || cpuBusy;
@@ -389,6 +443,9 @@ function render() {
     if (cpuBusy || snapshot.activePlayer === 1) {
       ui.help.textContent = "CPU is executing legal GameSession actions. The full V5 planner will replace this temporary policy.";
       setStatus("CPU resolving actions", "ready");
+    } else if (selectedFuseTarget) {
+      ui.help.textContent = `Choose highlighted Fuse materials, then confirm. ${selectedFuseMaterials.size} selected.`;
+      setStatus("Choose Fuse materials", "ready");
     } else if (selectedPlayCard && selectedPlayModeKey == null && selectedCardModeCount() > 1) {
       ui.help.textContent = "Choose the play mode for the selected card.";
       setStatus("Choose play mode", "ready");
@@ -402,7 +459,7 @@ function render() {
       ui.help.textContent = "Choose a highlighted enemy follower or the enemy leader as the attack target.";
       setStatus("Choose attack target", "ready");
     } else {
-      ui.help.textContent = "Playable cards glow. Amulets expose Engage when legal; Base, Enhance, Accelerate and Crystallize modes use the same action graph.";
+      ui.help.textContent = "Playable cards glow. Fuse sources expose a dedicated selector; Base, Enhance, Accelerate, Crystallize and Engage share the same legal action graph.";
       setStatus("Human action phase", "ready");
     }
   } else if (snapshot.phase === GAME_PHASE.ENDED) {
@@ -429,14 +486,20 @@ function renderLeader(player, nameNode, resourceNode, hpNode) {
   if (className.includes("abyss")) parts.push(`Shadows ${resources.shadows ?? 0}`);
   if (className.includes("forest")) parts.push(`Combo ${resources.combo ?? 0}`);
   if (className.includes("dragon")) parts.push(`Overflow ${Number(resources.maxPp ?? 0) >= 7 ? "ON" : "OFF"}`);
+  if (Number(player.fusedCount ?? 0) > 0) parts.push(`Fused ${player.fusedCount}`);
   if (resources.bonusPpAvailable) parts.push("Bonus PP");
   resourceNode.textContent = parts.join(" · ");
 }
 
 function renderHand(root, player, human) {
   root.replaceChildren();
-  const actions = human && isHumanTurn() ? legalActions(0).filter(action => action.type === "play-card") : [];
+  const allActions = human && isHumanTurn() ? legalActions(0) : [];
+  const actions = allActions.filter(action => action.type === "play-card");
+  const fuseActions = allActions.filter(action => action.type === "fuse");
   const playable = new Set(actions.map(action => action.cardInstanceId));
+  const fuseTargetIds = new Set(fuseActions.map(action => action.targetInstanceId));
+  const activeFuseActions = selectedFuseTarget ? fuseActions.filter(action => action.targetInstanceId === selectedFuseTarget) : [];
+  const fuseMaterialIds = new Set(activeFuseActions.flatMap(action => action.materialInstanceIds ?? []));
   let selectedModeActions = [];
 
   for (const card of player.hand) {
@@ -470,6 +533,25 @@ function renderHand(root, player, human) {
         else mulliganSelection.add(card.instanceId);
         render();
       });
+    } else if (human && selectedFuseTarget) {
+      if (card.instanceId === selectedFuseTarget) {
+        button.classList.add("is-fuse-target", "is-fuse-selected");
+        const marker = document.createElement("span");
+        marker.className = "sb-battle-card-marker";
+        marker.textContent = "Fuse source";
+        button.append(marker);
+        button.addEventListener("click", () => selectFuseTarget(card.instanceId));
+      } else if (fuseMaterialIds.has(card.instanceId)) {
+        button.classList.add("is-fuse-material");
+        button.classList.toggle("is-fuse-material-selected", selectedFuseMaterials.has(card.instanceId));
+        const marker = document.createElement("span");
+        marker.className = "sb-battle-card-marker";
+        marker.textContent = selectedFuseMaterials.has(card.instanceId) ? "Selected" : "Material";
+        button.append(marker);
+        button.addEventListener("click", () => toggleFuseMaterial(card.instanceId));
+      } else {
+        button.disabled = true;
+      }
     } else if (human && playable.has(card.instanceId)) {
       button.classList.add("is-playable");
       if (selectedPlayCard === card.instanceId) {
@@ -484,10 +566,63 @@ function renderHand(root, player, human) {
     } else {
       button.disabled = true;
     }
+    if (human && !selectedFuseTarget && fuseTargetIds.has(card.instanceId)) button.classList.add("is-fuse-target");
     root.append(button);
   }
 
-  if (human && selectedPlayCard && selectedModeActions.length > 1 && selectedPlayModeKey == null) root.append(renderModeMenu(selectedModeActions));
+  if (human && selectedFuseTarget) root.append(renderFuseSelectionMenu());
+  else if (human && fuseActions.length) root.append(renderFuseTargetMenu(fuseActions));
+  else if (human && selectedPlayCard && selectedModeActions.length > 1 && selectedPlayModeKey == null) root.append(renderModeMenu(selectedModeActions));
+}
+
+function renderFuseTargetMenu(actions) {
+  const menu = document.createElement("div");
+  menu.className = "sb-battle-fuse-menu";
+  const seen = new Set();
+  for (const action of actions) {
+    if (seen.has(action.targetInstanceId)) continue;
+    seen.add(action.targetInstanceId);
+    const source = session.findHandCard(0, action.targetInstanceId);
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "sb-battle-fuse-button";
+    button.textContent = `Fuse · ${source?.card?.name ?? "card"}`;
+    button.addEventListener("click", event => {
+      event.preventDefault();
+      event.stopPropagation();
+      selectFuseTarget(action.targetInstanceId);
+    });
+    menu.append(button);
+  }
+  return menu;
+}
+
+function renderFuseSelectionMenu() {
+  const menu = document.createElement("div");
+  menu.className = "sb-battle-fuse-menu is-selecting";
+  const action = selectedFuseAction();
+  const confirm = document.createElement("button");
+  confirm.type = "button";
+  confirm.className = "sb-battle-fuse-button is-confirm";
+  confirm.textContent = action ? `Fuse ${action.materialInstanceIds.length}` : `Select material${selectedFuseMaterials.size === 1 ? "" : "s"}`;
+  confirm.disabled = !action;
+  confirm.addEventListener("click", event => {
+    event.preventDefault();
+    event.stopPropagation();
+    confirmFuse().catch(showError);
+  });
+  const cancel = document.createElement("button");
+  cancel.type = "button";
+  cancel.className = "sb-battle-fuse-button is-cancel";
+  cancel.textContent = "Cancel";
+  cancel.addEventListener("click", event => {
+    event.preventDefault();
+    event.stopPropagation();
+    clearFuseSelectionState();
+    render();
+  });
+  menu.append(confirm, cancel);
+  return menu;
 }
 
 function renderModeMenu(actions) {
@@ -658,6 +793,8 @@ function eventTitle(event) {
     "draw": `${actor} draw`,
     "bonus-pp": `${actor} Bonus PP`,
     "card-play": `${actor} plays a card`,
+    "fuse": `${actor} Fuses`,
+    "card-transform": `${actor} transforms a card`,
     "follower-enter": `${actor} follower enters`,
     "amulet-enter": `${actor} amulet enters`,
     "engage": `${actor} Engages`,
@@ -685,6 +822,8 @@ function eventTitle(event) {
 function eventDetail(event) {
   const p = event.payload ?? {};
   if (event.type === "ability-trigger") return `${p.card?.name ?? "Card"} · ${p.resolved ? "resolved" : "unresolved"}${p.mode ? ` · ${p.mode}` : ""}${p.target?.name ? ` → ${p.target.name}` : ""} · ${p.text ?? ""}`;
+  if (event.type === "fuse") return `${p.target?.name ?? "Card"} ⇐ ${(p.materials ?? []).map(card => card?.name ?? "material").join(" + ")} · Fuse zone ${p.fusedZoneCount ?? 0}`;
+  if (event.type === "card-transform") return `${p.before?.name ?? "Card"} → ${p.after?.name ?? "Card"}`;
   if (event.type === "engage") return `${p.card?.name ?? "Amulet"} · ${p.cost ?? 0} PP${p.target?.name ? ` → ${p.target.name}` : ""}`;
   if (event.type === "countdown-tick") return `${p.card?.name ?? "Amulet"} · Countdown ${p.countdown ?? 0}`;
   if (event.type === "card-returned") return `${p.card?.name ?? "Card"} → ${p.destination ?? "hand"}${p.handFull ? " · hand full" : ""}`;
@@ -706,6 +845,24 @@ function createQueue() {
     { transform: "translateY(0) scale(1)", filter: "brightness(1)" },
     { transform: "translateY(-52px) scale(1.18)", filter: "brightness(1.35)" },
     { transform: "translateY(-8px) scale(.88)", filter: "brightness(.7)", opacity: .2 }
+  ], options.duration));
+  animations.register("fuse", (event, options) => Promise.all([
+    animateCard(event.payload?.target?.instanceId, [
+      { transform: "translateY(0) scale(1)", filter: "brightness(1) saturate(1)" },
+      { transform: "translateY(-18px) scale(1.13)", filter: "brightness(1.8) saturate(1.4)" },
+      { transform: "translateY(0) scale(1)", filter: "brightness(1.15) saturate(1.1)" }
+    ], options.duration),
+    ...(event.payload?.materials ?? []).map((material, index) => animateCard(material?.instanceId, [
+      { opacity: 1, transform: "translateY(0) scale(1)", filter: "brightness(1)" },
+      { opacity: .75, transform: `translateY(${-14 - index * 3}px) scale(.92)`, filter: "brightness(1.6)" },
+      { opacity: 0, transform: "translateY(-34px) scale(.5)", filter: "brightness(2) blur(2px)" }
+    ], Math.max(180, options.duration - index * 40)))
+  ]));
+  animations.register("card-transform", (event, options) => animateCard(event.payload?.after?.instanceId ?? event.payload?.before?.instanceId, [
+    { transform: "perspective(500px) rotateY(0deg) scale(1)", filter: "brightness(1)", boxShadow: "none" },
+    { transform: "perspective(500px) rotateY(90deg) scale(1.12)", filter: "brightness(2.3)", boxShadow: "0 0 42px rgba(166,120,255,.85)" },
+    { transform: "perspective(500px) rotateY(180deg) scale(1.08)", filter: "brightness(1.55)", boxShadow: "0 0 34px rgba(93,208,255,.62)" },
+    { transform: "perspective(500px) rotateY(360deg) scale(1)", filter: "brightness(1)", boxShadow: "none" }
   ], options.duration));
   animations.register("follower-enter", (_event, options) => pulseStage(options.duration));
   animations.register("amulet-enter", (_event, options) => pulseStage(options.duration || 360));
@@ -798,11 +955,26 @@ function clearEngageAndAttack() {
   selectedEngageAmulet = null;
 }
 
+function clearFuseSelectionState() {
+  selectedFuseTarget = null;
+  selectedFuseMaterials = new Set();
+}
+
 function clearSelections() {
   selectedAttacker = null;
   selectedPlayCard = null;
   selectedPlayModeKey = null;
   selectedEngageAmulet = null;
+  clearFuseSelectionState();
+}
+
+function isSubset(subset, superset) {
+  for (const value of subset) if (!superset.has(value)) return false;
+  return true;
+}
+
+function sameIdSet(left, right) {
+  return left.size === right.size && isSubset(left, right);
 }
 
 function setStatus(text, status) {
