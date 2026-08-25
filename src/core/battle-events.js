@@ -11,6 +11,8 @@ export const BATTLE_EVENT = Object.freeze({
   CARD_PLAY: "card-play",
   FOLLOWER_ENTER: "follower-enter",
   AMULET_ENTER: "amulet-enter",
+  COUNTDOWN_TICK: "countdown-tick",
+  AMULET_DESTROYED: "amulet-destroyed",
   SPELL_CAST: "spell-cast",
   ABILITY_TRIGGER: "ability-trigger",
   FOLLOWER_BUFF: "follower-buff",
