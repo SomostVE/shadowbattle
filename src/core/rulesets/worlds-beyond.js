@@ -1,4 +1,5 @@
 import { GAME_IDS } from "../game-catalog.js";
+import { applyWorldsBeyondAction, listWorldsBeyondActions, prepareWorldsBeyondTurn } from "./svwb/action-resolver.js";
 
 export const WORLDS_BEYOND_RULESET = Object.freeze({
   id: "svwb-v5",
@@ -36,8 +37,13 @@ export const WORLDS_BEYOND_RULESET = Object.freeze({
     player.resources.pp = player.resources.maxPp;
     player.resources.evolutionAvailable = player.personalTurn >= (player.goingFirst ? this.evolutionUnlockTurn.first : this.evolutionUnlockTurn.second);
     player.resources.superEvolutionAvailable = player.personalTurn >= (player.goingFirst ? this.superEvolutionUnlockTurn.first : this.superEvolutionUnlockTurn.second);
-    if (!player.goingFirst && player.personalTurn === 6 && player.resources.bonusPpUses < 2) {
-      player.resources.bonusPpAvailable = true;
-    }
+    if (!player.goingFirst && player.personalTurn === 6 && player.resources.bonusPpUses < 2) player.resources.bonusPpAvailable = true;
+    prepareWorldsBeyondTurn(player);
+  },
+  applyAction(session, action) {
+    return applyWorldsBeyondAction(session, action);
+  },
+  listLegalActions(session, playerIndex) {
+    return listWorldsBeyondActions(session, playerIndex);
   }
 });
