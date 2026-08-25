@@ -11,8 +11,11 @@
       "id": "shadowverse-ccg",
       "name": "Shadowverse",
       "namespace": "sv1",
-      "status": "source-validation",
-      "manifest": "./shadowverse-ccg/manifest.json"
+      "status": "archived-local",
+      "cardCount": 5933,
+      "languages": ["en", "ja", "ko", "zh-tw", "fr", "it", "de", "es"],
+      "manifest": "./shadowverse-ccg/manifest.json",
+      "cards": "./shadowverse-ccg/cards.json"
     },
     {
       "id": "champions-battle",
