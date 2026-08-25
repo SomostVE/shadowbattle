@@ -9,12 +9,14 @@ const versionGuard = await fs.readFile(new URL("src/ui/version-guard.js", root),
 const serviceWorker = await fs.readFile(new URL("sw.js", root), "utf8");
 const deckEnhancements = await fs.readFile(new URL("src/ui/deck-ui-enhancements.js", root), "utf8");
 const deckHtml = await fs.readFile(new URL("decks/index.html", root), "utf8");
+const deckSession = await fs.readFile(new URL("src/decks/deck-session.js", root), "utf8");
 
 const pageHtml = await Promise.all([
   "index.html",
   "api/index.html",
   "test/index.html",
-  "decks/index.html"
+  "decks/index.html",
+  "library/index.html"
 ].map(async path => [path, await fs.readFile(new URL(path, root), "utf8")]));
 
 const escapedVersion = packageJson.version.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -30,6 +32,16 @@ test("all main pages load the automatic version guard", () => {
   assert.match(versionGuard, /location\.replace/);
   assert.match(versionGuard, /serviceWorker\.register/);
   assert.match(versionGuard, /visibilitychange/);
+});
+
+test("version refresh snapshots deck data and never changes the deck storage namespace", () => {
+  assert.match(versionGuard, /shadowbattle:decks:v1/);
+  assert.match(versionGuard, /shadowbattle:decks:backup:v1/);
+  assert.match(versionGuard, /snapshotDeckData/);
+  assert.doesNotMatch(versionGuard, /removeItem\(DECK_KEY\)/);
+  assert.match(deckSession, /shadowbattle:deck-drafts:v1/);
+  assert.match(deckSession, /activeDeckId/);
+  assert.match(deckSession, /loadSavedDeck/);
 });
 
 test("service worker rotates versioned same-origin caches", () => {
