@@ -1,4 +1,5 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
+import { destroyWorldsBeyondFollower, resolveWorldsBeyondTrigger } from "./effect-resolver.js";
 import { costOf } from "./v5/battle-engine-v5-state.js";
 
 export const SVWB_ACTION = Object.freeze({
@@ -88,6 +89,7 @@ function playCard(session, action) {
     player.cemetery.push(instance);
     session.emit(BATTLE_EVENT.SPELL_CAST, { actor: playerIndex, payload: { card: session.cardView(instance) } });
   }
+  resolveWorldsBeyondTrigger(session, { trigger: "play", playerIndex, source: instance });
   return session.getSnapshot(playerIndex);
 }
 
@@ -119,18 +121,20 @@ function attack(session, action) {
   if (!target) {
     const amount = currentAttack(attacker);
     session.emit(BATTLE_EVENT.ATTACK_IMPACT, { actor: playerIndex, payload: { attacker: attacker.instanceId, target: "leader", damage: amount } });
-    session.damageLeader(enemyIndex, amount, { actor: playerIndex, source: attacker });
+    const dealt = session.damageLeader(enemyIndex, amount, { actor: playerIndex, source: attacker });
+    if (dealt > 0 && hasKeyword(attacker, "Drain")) healFromDrain(session, playerIndex, dealt, attacker);
     return session.getSnapshot(playerIndex);
   }
   const attackDamage = currentAttack(attacker);
   const counterDamage = currentAttack(target);
-  session.damageFollower(enemyIndex, target.instanceId, attackDamage, { actor: playerIndex, source: attacker, resolveDeath: false });
-  session.damageFollower(playerIndex, attacker.instanceId, counterDamage, { actor: enemyIndex, source: target, resolveDeath: false });
+  const dealtByAttacker = session.damageFollower(enemyIndex, target.instanceId, attackDamage, { actor: playerIndex, source: attacker, resolveDeath: false });
+  const dealtByTarget = session.damageFollower(playerIndex, attacker.instanceId, counterDamage, { actor: enemyIndex, source: target, resolveDeath: false });
   session.emit(BATTLE_EVENT.ATTACK_IMPACT, { actor: playerIndex, payload: { attacker: attacker.instanceId, target: target.instanceId, attackerDamage: attackDamage, counterDamage } });
-  const targetDestroyed = Number(target.defense ?? 0) <= 0;
-  const attackerDestroyed = Number(attacker.defense ?? 0) <= 0;
-  if (targetDestroyed) session.destroyFollower(enemyIndex, target.instanceId, { actor: playerIndex, source: attacker, reason: "combat" });
-  if (attackerDestroyed) session.destroyFollower(playerIndex, attacker.instanceId, { actor: enemyIndex, source: target, reason: "combat" });
+  if (dealtByAttacker > 0 && hasKeyword(attacker, "Drain")) healFromDrain(session, playerIndex, dealtByAttacker, attacker);
+  let targetDestroyed = Number(target.defense ?? 0) <= 0 || (dealtByAttacker > 0 && hasKeyword(attacker, "Bane"));
+  const attackerDestroyed = Number(attacker.defense ?? 0) <= 0 || (dealtByTarget > 0 && hasKeyword(target, "Bane"));
+  if (targetDestroyed) targetDestroyed = Boolean(destroyWorldsBeyondFollower(session, enemyIndex, target.instanceId, { actor: playerIndex, source: attacker, reason: "combat" }));
+  if (attackerDestroyed) destroyWorldsBeyondFollower(session, playerIndex, attacker.instanceId, { actor: enemyIndex, source: target, reason: "combat" });
   if (targetDestroyed && attacker.superEvolved && session.phase !== "ended") session.damageLeader(enemyIndex, 1, { actor: playerIndex, source: attacker, reason: "super-evolution-combat" });
   return session.getSnapshot(playerIndex);
 }
@@ -157,7 +161,16 @@ function evolve(session, action, superEvolution) {
   player.resources[pointsKey] -= 1;
   player.evolutionActionUsed = true;
   session.emit(superEvolution ? BATTLE_EVENT.SUPER_EVOLVE : BATTLE_EVENT.EVOLVE, { actor: playerIndex, payload: { card: session.cardView(follower), pointsRemaining: player.resources[pointsKey], statBonus: bonus } });
+  resolveWorldsBeyondTrigger(session, { trigger: superEvolution ? "super-evolve" : "evolve", playerIndex, source: follower });
   return session.getSnapshot(playerIndex);
+}
+
+function healFromDrain(session, playerIndex, amount, source) {
+  const player = session.getPlayer(playerIndex);
+  const before = player.hp;
+  player.hp = Math.min(player.maxHp, player.hp + Math.max(0, Number(amount) || 0));
+  const healed = player.hp - before;
+  session.emit(BATTLE_EVENT.HEAL, { actor: playerIndex, payload: { targetPlayer: playerIndex, amount: healed, hp: player.hp, source: session.cardView(source), reason: "drain" } });
 }
 
 function prepareFollower(instance, turn) {
