@@ -1,3 +1,16 @@
+:root {
+  --db-card-width: 156px;
+  --db-deck-width: 300px;
+}
+
+.db-content {
+  padding: .7rem;
+}
+
+.db-card-size-control input[type="range"] {
+  width: 120px;
+}
+
 .db-craft-button {
   overflow: hidden;
 }
@@ -26,7 +39,7 @@
 
 .db-card-tile {
   content-visibility: auto;
-  contain-intrinsic-size: 118px 172px;
+  contain-intrinsic-size: 156px 228px;
 }
 
 .db-card-main {
@@ -54,6 +67,10 @@
 
 @keyframes db-card-skeleton {
   to { background-position: -220% 0; }
+}
+
+@media (max-width: 760px) {
+  .db-content { padding: .45rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {
