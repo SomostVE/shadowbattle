@@ -9,6 +9,7 @@ const catalogJs = await fs.readFile(new URL("../src/decks/catalog.js", import.me
 const assistantJs = await fs.readFile(new URL("../src/decks/card-assistant.js", import.meta.url), "utf8");
 const assistantPageJs = await fs.readFile(new URL("../src/decks/deck-assistant-page.js", import.meta.url), "utf8");
 const enhancementsJs = await fs.readFile(new URL("../src/ui/deck-ui-enhancements.js", import.meta.url), "utf8");
+const enhancementsCss = await fs.readFile(new URL("../src/ui/deck-enhancements.css", import.meta.url), "utf8");
 const polishJs = await fs.readFile(new URL("../src/ui/deck-polish.js", import.meta.url), "utf8");
 const beyondTheme = await fs.readFile(new URL("../src/ui/beyond-decks-v2.css", import.meta.url), "utf8");
 const assistantCss = await fs.readFile(new URL("../src/ui/deck-assistant.css", import.meta.url), "utf8");
@@ -118,14 +119,13 @@ test("native add tooltip and expected deck-cap toasts are suppressed", () => {
 test("save action lives inside the Saved deck variants panel", () => {
   assert.match(html, /data-db-panel="saved"[\s\S]*Deck variants[\s\S]*id="deck-name"[\s\S]*id="save-deck"/);
   assert.doesNotMatch(html, /db-header-actions[\s\S]{0,600}id="save-deck"/);
-  assert.match(assistantCss, /db-saved-compose/);
+  assert.match(enhancementsCss, /db-saved-compose/);
+  assert.match(enhancementsCss, /db-tabs-two/);
 });
 
-test("deckbuilder exposes both Beyond Decks import paths", () => {
-  assert.match(html, /id="import-beyond-local"/);
-  assert.match(html, /id="beyond-import-json"/);
-  assert.match(html, /id="import-beyond-file"/);
-  assert.match(html, /shadowverse-deck-assistant:v2/);
+test("Beyond Decks import is not exposed in the deckbuilder UI", () => {
+  assert.doesNotMatch(html, /data-db-tab="import"/);
+  assert.match(html, /href="\.\.\/library\/">Deck Library/);
 });
 
 test("deckbuilder resolves normal and evolved Shadowverse card art", () => {
