@@ -72,7 +72,7 @@ function renderStrip(root, crests, playerIndex) {
     label.textContent = crestInitials(crest.name);
     slot.append(sigil, label);
 
-    if (Number.isFinite(Number(crest.countdown))) {
+    if (hasFiniteCountdown(crest)) {
       const countdown = document.createElement("span");
       countdown.className = "sb-crest-countdown";
       countdown.textContent = String(Math.max(0, Number(crest.countdown)));
@@ -138,8 +138,12 @@ function animateRoot(root, duration) {
 }
 
 function crestTitle(crest) {
-  const countdown = Number.isFinite(Number(crest?.countdown)) ? ` · Countdown ${Math.max(0, Number(crest.countdown))}` : " · Persistent";
+  const countdown = hasFiniteCountdown(crest) ? ` · Countdown ${Math.max(0, Number(crest.countdown))}` : " · Persistent";
   return `${crest?.name ?? "Crest"}${countdown}`;
+}
+
+function hasFiniteCountdown(crest) {
+  return crest?.countdown != null && Number.isFinite(Number(crest.countdown));
 }
 
 function crestInitials(name) {
