@@ -571,8 +571,8 @@ function renderHand(root, player, human) {
   }
 
   if (human && selectedFuseTarget) root.append(renderFuseSelectionMenu());
-  else if (human && fuseActions.length) root.append(renderFuseTargetMenu(fuseActions));
   else if (human && selectedPlayCard && selectedModeActions.length > 1 && selectedPlayModeKey == null) root.append(renderModeMenu(selectedModeActions));
+  else if (human && !selectedPlayCard && !selectedEngageAmulet && !selectedAttacker && fuseActions.length) root.append(renderFuseTargetMenu(fuseActions));
 }
 
 function renderFuseTargetMenu(actions) {
