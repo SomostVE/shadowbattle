@@ -5,18 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#090b14">
   <title>ShadowBattle API</title>
-  <link rel="stylesheet" href="../src/ui/shadowbattle.css?v=0.4.8">
-  <script type="module" src="../src/ui/version-guard.js?v=0.4.8"></script>
+  <link rel="stylesheet" href="../src/ui/shadowbattle.css?v=0.4.9">
+  <script type="module" src="../src/ui/version-guard.js?v=0.4.9"></script>
 </head>
 <body data-game="shadowverse-ccg">
   <main class="sb-shell">
     <header class="sb-topbar">
-      <a class="sb-brand" href="../">
-        <span class="sb-mark">✦</span>
-        <span>ShadowBattle</span>
-      </a>
+      <a class="sb-brand" href="../"><span class="sb-mark">✦</span><span>ShadowBattle</span></a>
       <nav class="sb-nav" aria-label="Main navigation">
-        <a href="../decks/">Decks</a>
+        <a href="../decks/">Deckbuilder</a>
+        <a href="../library/">Deck Library</a>
         <a href="./" aria-current="page">API</a>
         <a href="../test/">AI Test Lab</a>
       </nav>
@@ -76,10 +74,6 @@ GET ./v1/champions-battle/catalog.json</pre>
       <h2>No shared raw card pool</h2>
       <p>Each provider validates and normalizes its own source. A normalized card UID always includes its game namespace, for example <code>svwb:...</code>, <code>sv1:...</code> or <code>svcb:...</code>.</p>
     </section>
-
-    <footer class="sb-fankit-notice">
-      ShadowBattle is an independent fan project and is not affiliated with or endorsed by Cygames. Shadowverse and related intellectual property are © Cygames, Inc.
-    </footer>
   </main>
 </body>
 </html>
