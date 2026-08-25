@@ -1,8 +1,9 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
+import { banishBoardCard, returnBoardCardToHand } from "../../zone-actions.js";
 import { baseText, section } from "./v5/battle-engine-v5-text.js";
 import { targetEffectSpec } from "./v5/battle-engine-v5-targeting.js";
 
-const SUPPORTED_TARGET_KINDS = new Set(["damage", "destroy"]);
+const SUPPORTED_TARGET_KINDS = new Set(["damage", "destroy", "banish", "return"]);
 
 export function getWorldsBeyondTargetRequirement(source, trigger = "play") {
   if (!source?.card) return null;
@@ -65,6 +66,7 @@ export function destroyWorldsBeyondFollower(session, playerIndex, instanceId, op
 function triggerText(card, trigger) {
   const text = String(card?.text ?? "");
   if (trigger === "play") return baseText(text);
+  if (trigger === "strike") return section(text, "strike");
   if (trigger === "evolve") return section(text, "evolve") || naturalLifecycle(text, /when this follower evolves,\s*/i);
   if (trigger === "super-evolve") return section(text, "super-evolve");
   if (trigger === "last-words") return section(text, "last words");
@@ -87,7 +89,9 @@ function hasUnsupportedChoiceOrCondition(text, { targetSpec = null } = {}) {
     inspect = inspect
       .replace(/\bselect an enemy follower(?: on the field)? and\s*/gi, "")
       .replace(/\bdeal\s+\d+\s+damage to (?:an|a|the) enemy follower\b/gi, "")
-      .replace(/\bdestroy (?:an|a|the) enemy follower\b/gi, "");
+      .replace(/\bdestroy (?:an|a|the) enemy follower\b/gi, "")
+      .replace(/\bbanish (?:an|a|the) enemy follower\b/gi, "")
+      .replace(/\breturn (?:an|a|the) enemy follower to (?:its owner'?s|their) hand\b/gi, "");
   }
   return /\b(?:select|choose)\b|\bif\b|\bunless\b|\bfor each\b|\bwhenever\b|\bwhen(?:ever)?\b|\brandomly select\b|\bX\b|\b(?:Necromancy|Combo|Overflow|Earth Rite|Engage|Fuse|Transmute|Crest|Faith|Reanimate)\b/i.test(inspect);
 }
@@ -103,6 +107,10 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
       applied ||= damage > 0;
     } else if (targetSpec.kind === "destroy") {
       applied ||= Boolean(destroyWorldsBeyondFollower(session, enemyIndex, target.instanceId, { actor: playerIndex, source, reason: "ability", byAbility: true }));
+    } else if (targetSpec.kind === "banish") {
+      applied ||= Boolean(banishBoardCard(session, enemyIndex, target.instanceId, { actor: playerIndex, source, reason: "ability" }));
+    } else if (targetSpec.kind === "return") {
+      applied ||= Boolean(returnBoardCardToHand(session, enemyIndex, target.instanceId, { actor: playerIndex, source, reason: "ability" }));
     }
   }
 
