@@ -69,7 +69,7 @@ The game shares a large amount of card content with early Shadowverse CCG but mu
 
 ## Interactive engine direction
 
-The interactive engine should keep one persistent `GameSession` rather than simulate a whole match in one call.
+The interactive engine keeps one persistent `GameSession` rather than simulating a whole match in one call.
 
 ```text
 GameSession
@@ -78,8 +78,9 @@ GameSession
 ├─ active player
 ├─ legal action generator
 ├─ action resolver
-├─ event/replay log
-└─ RNG state
+├─ semantic event/replay log
+├─ deterministic resolution queue
+└─ seeded RNG state
 ```
 
 Human flow:
@@ -89,6 +90,7 @@ render state
 → request legal actions
 → human chooses one action
 → resolve exactly one action
+→ drain deterministic reactions
 → render resulting state
 ```
 
@@ -100,8 +102,39 @@ read AI-visible state
 → limited search / evaluation
 → choose one action
 → resolve exactly one action
+→ drain deterministic reactions
 → repeat until end turn
 ```
+
+## ShadowBattle Engine V6 Alpha
+
+V6 is the interactive engine owned by ShadowBattle. It is not a copy of the monolithic Beyond Decks simulator.
+
+The first V6 boundary is deterministic resolution:
+
+```text
+semantic event
+→ ruleset afterEvent hook
+→ FIFO resolution queue
+→ reaction/effect
+→ semantic event(s)
+→ queued follow-up reactions
+→ stable state
+```
+
+V6 guarantees that runtime rule code no longer replaces `GameSession.emit()` to install reactions. Nested reactions are resolved synchronously in FIFO order and a hard step budget stops accidental infinite reaction loops.
+
+During the alpha migration, proven text/mode/targeting helpers from Beyond Decks Battle Engine V5 remain under `src/core/rulesets/svwb/v5/`. They are compatibility primitives, not the V6 orchestration layer.
+
+The V6 acceptance gates are:
+
+1. deterministic event/reaction resolution;
+2. semantic effect-command pipeline instead of direct ad-hoc state mutation;
+3. complete legal action and targeting rules;
+4. class mechanics and Crest lifecycle coverage;
+5. deterministic replay from seed + action log;
+6. identical engine path for Human, CPU and Remote controllers;
+7. explicit Full / Partial / Unsupported coverage so unsupported card text is never silently treated as resolved.
 
 ## AI skill target
 

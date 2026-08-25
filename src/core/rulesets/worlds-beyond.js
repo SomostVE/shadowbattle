@@ -2,13 +2,18 @@ import { GAME_IDS } from "../game-catalog.js";
 import { applyWorldsBeyondAction, listWorldsBeyondActions, prepareWorldsBeyondTurn } from "./svwb/action-resolver.js";
 import { resolveWorldsBeyondEventReaction } from "./svwb/event-reactions.js";
 import { runWorldsBeyondTurnEnd, runWorldsBeyondTurnStart } from "./svwb/lifecycle.js";
+import { SHADOWBATTLE_V6_ENGINE_PROFILE } from "./svwb/v6/engine-profile.js";
 
 export const WORLDS_BEYOND_RULESET = Object.freeze({
-  id: "svwb-v5",
+  id: "svwb-v6-alpha",
   gameId: GAME_IDS.WORLDS_BEYOND,
-  sourceEngine: "Beyond Decks Battle Engine V5",
-  sourceRuntime: "js/battle-engine-v5-runtime.js",
-  battleRulesVersion: 5,
+  engineVersion: 6,
+  engineStage: "alpha",
+  engineProfile: SHADOWBATTLE_V6_ENGINE_PROFILE,
+  sourceEngine: SHADOWBATTLE_V6_ENGINE_PROFILE.name,
+  sourceRuntime: "src/core/game-session.js",
+  battleRulesVersion: 6,
+  compatibilityBattleRulesVersion: SHADOWBATTLE_V6_ENGINE_PROFILE.compatibility.inheritedBattleRulesVersion,
   leaderHealth: 20,
   openingHandSize: 4,
   maxHandSize: 9,
