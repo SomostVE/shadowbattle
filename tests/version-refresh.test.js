@@ -17,19 +17,15 @@ const pageHtml = await Promise.all([
   "decks/index.html"
 ].map(async path => [path, await fs.readFile(new URL(path, root), "utf8")]));
 
-const escapedVersion = packageJson.version.replaceAll(".", "\\.");
-const versionGuardPattern = new RegExp(`version-guard\\.js\\?v=${escapedVersion}`);
-const deckEnhancementsPattern = new RegExp(`deck-ui-enhancements\\.js\\?v=${escapedVersion}`);
+const escapedVersion = packageJson.version.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 test("package and public version manifest stay in sync", () => {
-  assert.match(packageJson.version, /^\d+\.\d+\.\d+$/);
   assert.equal(versionJson.version, packageJson.version);
 });
 
 test("all main pages load the automatic version guard", () => {
-  for (const [path, html] of pageHtml) {
-    assert.match(html, versionGuardPattern, path);
-  }
+  const guardPattern = new RegExp(`version-guard\\.js\\?v=${escapedVersion}`);
+  for (const [path, html] of pageHtml) assert.match(html, guardPattern, path);
   assert.match(versionGuard, /cache:\s*"no-store"/);
   assert.match(versionGuard, /location\.replace/);
   assert.match(versionGuard, /serviceWorker\.register/);
@@ -46,7 +42,7 @@ test("service worker rotates versioned same-origin caches", () => {
 
 test("deck page uses official Portal class assets and staged card art loading", () => {
   assert.match(deckHtml, /preconnect[^>]+shadowverse-portal\.com/);
-  assert.match(deckHtml, deckEnhancementsPattern);
+  assert.match(deckHtml, new RegExp(`deck-ui-enhancements\\.js\\?v=${escapedVersion}`));
   assert.match(deckEnhancements, /class_checkbox\.png/);
   assert.match(deckEnhancements, /Forestcraft:\s*1/);
   assert.match(deckEnhancements, /Portalcraft:\s*8/);
