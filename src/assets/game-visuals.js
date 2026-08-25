@@ -6,27 +6,37 @@ export const GAME_VISUALS = Object.freeze({
     theme: "worlds-beyond",
     assetPolicy: "provider-owned",
     cardArtProvider: "Beyond Codex",
+    fanKitRoot: "../../assets/fankits/worlds-beyond/",
+    fanKitManifest: "../../assets/fankits/worlds-beyond/manifest.json",
     officialSources: [
       "https://somostve.github.io/beyond_codex/api/v1/",
-      "https://shadowverse-wb.com/"
+      "https://shadowverse-wb.com/ja/special/fankit/"
     ],
-    notes: "Use Beyond Codex for card images/data. Keep Worlds Beyond assets isolated from legacy Shadowverse assets."
+    notes: "Use Beyond Codex for card images/data. The Worlds Beyond Fan Kit source is registered separately because its current download controls are dynamic."
   }),
   "shadowverse-ccg": Object.freeze({
     gameId: "shadowverse-ccg",
     theme: "shadowverse-classic",
-    assetPolicy: "cygames-fan-kit",
-    cardArtProvider: "Shadowverse Portal",
+    assetPolicy: "archived-cygames-fan-kit",
+    cardDataProvider: "ShadowBattle local sv1 archive",
+    cardArtIndex: "../../api/v1/shadowverse-ccg/image-index.json",
+    fanKitRoot: "../../assets/fankits/shadowverse-ccg/",
+    fanKitManifest: "../../assets/fankits/shadowverse-ccg/manifest.json",
+    backgroundsRoot: "../../assets/fankits/shadowverse-ccg/extracted/Backgrounds/",
+    charactersRoot: "../../assets/fankits/shadowverse-ccg/extracted/Characters-1/",
+    rankIconsRoot: "../../assets/fankits/shadowverse-ccg/extracted/RankIcons-1/",
+    downloadedAssetsRoot: "../../assets/fankits/shadowverse-ccg/downloads/",
     officialSources: [
       "https://shadowverse.com/special/fankit/",
       "https://shadowverse-portal.com/cards"
     ],
-    notes: "The official fan kit currently exposes Shadowverse logos, characters, rank icons and background packs. Fan-kit material must be displayed unmodified except for proportional resizing and with the required notice."
+    notes: "36 official Fan Kit downloads are archived locally. Characters, rank icons and backgrounds are extracted for direct UI use. Card metadata is local; card-art URLs are preserved separately as an archive index."
   }),
   "champions-battle": Object.freeze({
     gameId: "champions-battle",
     theme: "champions-battle",
     assetPolicy: "official-public-material-only",
+    fanKitRoot: "../../assets/fankits/champions-battle/",
     cardArtProvider: "planned",
     officialSources: [
       "https://shadowversecb.com/"
