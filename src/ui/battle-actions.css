@@ -159,6 +159,43 @@
   box-shadow: 0 0 34px rgba(255, 196, 76, .38), inset 0 0 18px rgba(255,255,255,.14);
 }
 
+.sb-battle-mode-menu {
+  position: relative;
+  z-index: 12;
+  align-self: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+  margin-left: 10px;
+  padding: 7px;
+  border: 1px solid rgba(151, 204, 245, .28);
+  border-radius: 12px;
+  background: rgba(6, 14, 23, .95);
+  box-shadow: 0 12px 30px rgba(0,0,0,.48), 0 0 26px rgba(86, 169, 228, .14);
+  backdrop-filter: blur(8px);
+}
+.sb-battle-mode-button {
+  min-height: 30px;
+  padding: 5px 10px;
+  border: 1px solid rgba(147, 209, 251, .52);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(47, 110, 154, .96), rgba(21, 59, 88, .98));
+  color: #f4f9ff;
+  cursor: pointer;
+  font-size: .62rem;
+  font-weight: 900;
+  letter-spacing: .02em;
+  white-space: nowrap;
+  box-shadow: inset 0 1px rgba(255,255,255,.1), 0 4px 10px rgba(0,0,0,.32);
+}
+.sb-battle-mode-button:hover,
+.sb-battle-mode-button:focus-visible {
+  border-color: rgba(205, 235, 255, .9);
+  filter: brightness(1.18);
+  transform: translateY(-1px);
+  outline: none;
+}
+
 .sb-battle-stage[data-phase="ended"] .sb-battle-side { filter: saturate(.55) brightness(.78); }
 
 @media (max-width: 560px) {
@@ -166,11 +203,22 @@
   .sb-battle-stat { width: 23px; height: 23px; font-size: .68rem; bottom: -6px; }
   .sb-battle-evolution-controls { bottom: -29px; }
   .sb-battle-evolution-button { min-height: 22px; padding: 2px 5px; font-size: .49rem; }
+  .sb-battle-mode-menu {
+    position: absolute;
+    left: 50%;
+    bottom: 104px;
+    max-width: 94%;
+    margin: 0;
+    overflow-x: auto;
+    transform: translateX(-50%);
+  }
+  .sb-battle-mode-button { min-height: 28px; padding: 4px 8px; font-size: .56rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .sb-battle-card.is-playable,
   .sb-battle-unit,
   .sb-battle-unit-hitbox img,
-  .sb-battle-evolution-button { transition: none; }
+  .sb-battle-evolution-button,
+  .sb-battle-mode-button { transition: none; }
 }
