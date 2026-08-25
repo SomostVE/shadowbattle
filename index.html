@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#141d28">
   <title>ShadowBattle</title>
-  <link rel="stylesheet" href="./src/ui/hub.css?v=0.4.11">
-  <script type="module" src="./src/ui/version-guard.js?v=0.4.11"></script>
+  <link rel="stylesheet" href="./src/ui/hub.css?v=0.4.12">
+  <script type="module" src="./src/ui/version-guard.js?v=0.4.12"></script>
 </head>
 <body>
   <main class="hub-shell">
@@ -14,9 +14,10 @@
       <a class="hub-brand" href="./">
         <span class="hub-brand-mark">✦</span>
         <strong>ShadowBattle</strong>
-        <span id="hub-version" class="hub-version">v0.4.11</span>
+        <span id="hub-version" class="hub-version">v0.4.12</span>
       </a>
       <nav class="hub-nav" aria-label="Main navigation">
+        <a class="hub-nav-primary" href="#battle">Battle</a>
         <a href="./decks/">Deckbuilder</a>
         <a href="./library/">Deck Library</a>
         <a href="./test/">AI Test</a>
@@ -24,82 +25,112 @@
       </nav>
     </header>
 
-    <section class="hub-hero">
-      <div class="hub-hero-main">
-        <span class="hub-kicker">Human vs AI</span>
-        <h1>ShadowBattle</h1>
-        <p class="hub-tagline">Build. Test. Play.</p>
-        <div class="hub-hero-actions">
-          <a class="hub-primary" href="./decks/">Open Deckbuilder</a>
-          <a class="hub-secondary" href="./library/">Browse Deck Library</a>
+    <section id="battle" class="hub-hero hub-battle-hero">
+      <div class="hub-battle-surface">
+        <div class="hub-battle-copy">
+          <span class="hub-kicker">Human vs AI</span>
+          <h1>Battle Arena</h1>
+          <p class="hub-tagline">Play Shadowverse turn by turn, card by card, against an AI opponent.</p>
+          <div class="hub-battle-status"><span class="hub-live-dot"></span>Interactive battle engine in development</div>
+          <div class="hub-battle-actions">
+            <span class="hub-primary" aria-disabled="true">Battle Arena — coming soon</span>
+            <a class="hub-secondary" href="./test/">Open AI Test Lab</a>
+          </div>
+        </div>
+
+        <div class="hub-board-preview" aria-label="Battle preview">
+          <div class="hub-player-line">
+            <div><strong>AI Opponent</strong><small>PP 6 / 6 · Evo 2</small></div>
+            <span class="hub-hp">20</span>
+          </div>
+          <div class="hub-card-row" aria-hidden="true">
+            <span class="hub-board-slot"></span><span class="hub-board-slot active"></span><span class="hub-board-slot"></span><span class="hub-board-slot active"></span><span class="hub-board-slot"></span>
+          </div>
+          <div class="hub-turn-line"><span>TURN 6</span></div>
+          <div class="hub-card-row" aria-hidden="true">
+            <span class="hub-board-slot active"></span><span class="hub-board-slot"></span><span class="hub-board-slot active"></span><span class="hub-board-slot"></span><span class="hub-board-slot"></span>
+          </div>
+          <div class="hub-player-line">
+            <div><strong>You</strong><small>PP 6 / 6 · Evo 2</small></div>
+            <span class="hub-hp">18</span>
+          </div>
         </div>
       </div>
 
-      <aside class="hub-universe-panel" aria-label="Game profiles">
-        <div class="hub-universe-head">
-          <strong>Game profiles</strong>
-          <span>isolated data + rules</span>
+      <aside class="hub-game-panel" aria-label="Battle game profiles">
+        <div class="hub-game-panel-head">
+          <span>Battle profiles</span>
+          <h2>Choose your Shadowverse</h2>
         </div>
         <div class="hub-game">
           <span class="hub-game-code">SV1</span>
-          <div><strong>Shadowverse CCG</strong><small>Original CCG</small></div>
-          <span id="hub-sv1-count" class="hub-game-count">0 saved</span>
+          <div><strong>Shadowverse CCG</strong><small>Original CCG · complete local data</small></div>
+          <span class="hub-game-state">First target</span>
         </div>
-        <div class="hub-game">
+        <div class="hub-game" data-state="next">
           <span class="hub-game-code">CB</span>
-          <div><strong>Champion's Battle</strong><small>Switch ruleset</small></div>
-          <span id="hub-svcb-count" class="hub-game-count">0 saved</span>
+          <div><strong>Champion's Battle</strong><small>Switch ruleset · base pool ready</small></div>
+          <span class="hub-game-state">Next</span>
         </div>
         <div class="hub-game" data-state="future">
           <span class="hub-game-code">WB</span>
-          <div><strong>Worlds Beyond</strong><small>Human vs AI provider</small></div>
-          <span class="hub-game-count">Later</span>
+          <div><strong>Worlds Beyond</strong><small>Separate provider and future engine</small></div>
+          <span class="hub-game-state">Later</span>
         </div>
       </aside>
     </section>
 
-    <section class="hub-statusbar" aria-label="Project status">
-      <div class="hub-stat"><span>CCG archive</span><strong>5,933 cards</strong></div>
-      <div class="hub-stat"><span>Champion's Battle</span><strong>623 base cards</strong></div>
-      <div class="hub-stat"><span>Saved decks</span><strong id="hub-saved-count">0</strong></div>
+    <section class="hub-statusbar" aria-label="Battle design">
       <div class="hub-stat"><span>Battle model</span><strong>Human vs AI</strong></div>
+      <div class="hub-stat"><span>Turn flow</span><strong>Action by action</strong></div>
+      <div class="hub-stat"><span>Rules accuracy</span><strong>Maximum</strong></div>
+      <div class="hub-stat"><span>AI profile</span><strong>Intermediate</strong></div>
     </section>
 
     <div class="hub-section-title">
-      <h2>Workspace</h2>
-      <span>ShadowBattle tools</span>
+      <h2>Prepare your match</h2>
+      <span>Deck tools</span>
     </div>
 
-    <section class="hub-grid" aria-label="ShadowBattle tools">
-      <a class="hub-card" href="./decks/">
-        <span class="hub-card-icon">▦</span>
+    <section class="hub-prep-grid" aria-label="Deck preparation">
+      <a class="hub-prep-card" href="./decks/">
+        <div class="hub-prep-top">
+          <span class="hub-card-icon">▦</span>
+          <span class="hub-prep-meta">5,933 CCG · 623 CB</span>
+        </div>
         <h3>Deckbuilder</h3>
-        <small>SV1 · CB</small>
+        <p>Build 40-card Shadowverse CCG and Champion's Battle decks with card art, traits, keywords and linked-card assistance.</p>
       </a>
-      <a class="hub-card" href="./library/">
-        <span class="hub-card-icon">◆</span>
+
+      <a class="hub-prep-card" href="./library/">
+        <div class="hub-prep-top">
+          <span class="hub-card-icon">◆</span>
+          <span id="hub-saved-count" class="hub-prep-meta">0 saved</span>
+        </div>
         <h3>Deck Library</h3>
-        <small>Filters · event rules</small>
+        <p>Browse saved decks by game, class, curve and rarity restrictions for matches and event formats.</p>
       </a>
-      <div class="hub-card" data-disabled="true">
-        <span class="hub-card-badge">Coming soon</span>
-        <span class="hub-card-icon">⚔</span>
-        <h3>Battle</h3>
-        <small>Human vs AI</small>
-      </div>
-      <a class="hub-card" href="./test/">
+    </section>
+
+    <div class="hub-section-title">
+      <h2>Development & data</h2>
+      <span>Secondary tools</span>
+    </div>
+
+    <section class="hub-tool-grid" aria-label="Development tools">
+      <a class="hub-tool-card" href="./test/">
         <span class="hub-card-icon">◈</span>
-        <h3>AI Test Lab</h3>
-        <small>Decision logic</small>
+        <div><h3>AI Test Lab</h3><small>Decision logic · legal action scoring · hidden information</small></div>
+        <span class="hub-tool-arrow">→</span>
       </a>
-      <a class="hub-card" href="./api/">
+      <a class="hub-tool-card" href="./api/">
         <span class="hub-card-icon">{ }</span>
-        <h3>Data / API</h3>
-        <small>sv1 · svcb · svwb</small>
+        <div><h3>Data / API</h3><small>Public JSON datasets for SV1, Champion's Battle and Worlds Beyond</small></div>
+        <span class="hub-tool-arrow">→</span>
       </a>
     </section>
   </main>
 
-  <script type="module" src="./src/ui/hub.js?v=0.4.11"></script>
+  <script type="module" src="./src/ui/hub.js?v=0.4.12"></script>
 </body>
 </html>
