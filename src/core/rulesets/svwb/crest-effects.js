@@ -1,4 +1,4 @@
-import { BATTLE_EVENT } from "../../battle-events.js";
+import { BATTLE_EVENT, BATTLE_VISIBILITY } from "../../battle-events.js";
 import { crestView, getWorldsBeyondCrests } from "./crests.js";
 import { destroyWorldsBeyondFollower } from "./effect-resolver.js";
 
@@ -20,6 +20,7 @@ export function resolveWorldsBeyondCrestTurnEnd(session, playerIndex, crest) {
   if (!crest || session.phase !== "main") return false;
   const player = session.getPlayer(playerIndex);
   const enemyIndex = 1 - playerIndex;
+  const enemy = session.getPlayer(enemyIndex);
   const name = normalize(crest.name);
   const followersAttackedThisTurn = didFollowerAttackThisTurn(session, playerIndex);
   let triggered = false;
@@ -27,7 +28,7 @@ export function resolveWorldsBeyondCrestTurnEnd(session, playerIndex, crest) {
 
   if (name === "grimnir, heavenly gale") {
     const active = player.board.some(unit => cardType(unit) === "follower" && unit.superEvolved);
-    const targets = active ? [...session.getPlayer(enemyIndex).board].filter(unit => cardType(unit) === "follower") : [];
+    const targets = active ? [...enemy.board].filter(unit => cardType(unit) === "follower") : [];
     if (targets.length) {
       for (const target of targets) {
         session.damageFollower(enemyIndex, target.instanceId, 2, { actor: playerIndex, source: null, reason: "crest", resolveDeath: false });
@@ -39,6 +40,28 @@ export function resolveWorldsBeyondCrestTurnEnd(session, playerIndex, crest) {
     }
   }
 
+  if (name === "devotee of repose" && !followersAttackedThisTurn) {
+    const candidates = player.board.filter(unit => cardType(unit) === "follower");
+    if (candidates.length) {
+      const unit = candidates[Math.floor(session.rng() * candidates.length)] ?? candidates[0];
+      const before = currentAttack(unit);
+      unit.attack = Math.max(0, before - 2);
+      grantKeyword(unit, "Ward");
+      session.emit(BATTLE_EVENT.FOLLOWER_BUFF, {
+        actor: playerIndex,
+        payload: {
+          card: session.cardView(unit),
+          attack: unit.attack - before,
+          defense: 0,
+          reason: "crest",
+          crest: crestView(crest)
+        }
+      });
+      triggered = true;
+      detail = { target: session.cardView(unit), attackReduction: before - unit.attack, ward: true };
+    }
+  }
+
   if (name === "marwynn, despair manifest" && !followersAttackedThisTurn) {
     const amount = getWorldsBeyondCrests(player).length;
     splitDamageBetweenAllEnemies(session, playerIndex, amount);
@@ -46,10 +69,37 @@ export function resolveWorldsBeyondCrestTurnEnd(session, playerIndex, crest) {
     detail = { splitDamage: amount };
   }
 
+  if (name === "congregant of repose" && !followersAttackedThisTurn) {
+    const drawn = drawRandomDefenseFourFollower(session, playerIndex);
+    triggered = true;
+    detail = { drawn: drawn ? session.cardView(drawn) : null };
+  }
+
   if (name === "supplicant of repose" && !followersAttackedThisTurn) {
     const healed = healLeader(session, playerIndex, 1, crest);
     triggered = true;
     detail = { leaderHealing: healed };
+  }
+
+  if (name === "himeka, heir to repose" && player.board.some(unit => cardType(unit) === "follower" && normalize(unit.card?.name) === name)) {
+    const eligible = enemy.board.filter(unit => cardType(unit) === "follower" && currentAttack(unit) <= 4 && !unit.himekaBanishAtOwnTurnEnd);
+    let count = Math.min(getWorldsBeyondCrests(player).length, eligible.length);
+    const locked = [];
+    while (count > 0 && eligible.length) {
+      const index = Math.floor(session.rng() * eligible.length);
+      const [unit] = eligible.splice(index, 1);
+      unit.permanentAttackLock = true;
+      unit.canAttackFollowers = false;
+      unit.canAttackLeader = false;
+      unit.himekaBanishAtOwnTurnEnd = true;
+      unit.himekaBanishActor = playerIndex;
+      locked.push(session.cardView(unit));
+      count -= 1;
+    }
+    if (locked.length) {
+      triggered = true;
+      detail = { locked, lockedCount: locked.length };
+    }
   }
 
   if (name === "sandalphon, primarch successor") {
@@ -94,6 +144,34 @@ export function resolveWorldsBeyondCrestLastWords(session, playerIndex, crest) {
   return false;
 }
 
+function drawRandomDefenseFourFollower(session, playerIndex) {
+  const player = session.getPlayer(playerIndex);
+  const candidates = player.deck.filter(item => cardType(item) === "follower" && Number(item.card?.defense) === 4);
+  if (!candidates.length) return null;
+  const item = candidates[Math.floor(session.rng() * candidates.length)] ?? candidates[0];
+  const index = player.deck.findIndex(entry => entry.instanceId === item.instanceId);
+  if (index < 0) return null;
+  player.deck.splice(index, 1);
+
+  if (player.hand.length >= session.ruleset.maxHandSize) {
+    player.cemetery.push(item);
+    session.emit(BATTLE_EVENT.CARD_BURNED, {
+      actor: playerIndex,
+      visibility: BATTLE_VISIBILITY.OWNER,
+      payload: { card: session.cardView(item), reason: "crest-draw" }
+    });
+    return item;
+  }
+
+  player.hand.push(item);
+  session.emit(BATTLE_EVENT.DRAW, {
+    actor: playerIndex,
+    visibility: BATTLE_VISIBILITY.OWNER,
+    payload: { reason: "crest", count: 1, cards: [session.cardView(item)] }
+  });
+  return item;
+}
+
 function summonCrestFollower(session, playerIndex, crest, { evolve = false, grantStorm = false } = {}) {
   const player = session.getPlayer(playerIndex);
   if (player.board.length >= session.ruleset.maxBoardSize) return null;
@@ -118,7 +196,7 @@ function summonCrestFollower(session, playerIndex, crest, { evolve = false, gran
     canAttackFollowers: hasKeyword({ card }, "Rush") || hasKeyword({ card }, "Storm"),
     canAttackLeader: hasKeyword({ card }, "Storm")
   };
-  if (grantStorm && !hasKeyword(instance, "Storm")) instance.grantedKeywords = ["Storm"];
+  if (grantStorm && !hasKeyword(instance, "Storm")) grantKeyword(instance, "Storm");
   if (grantStorm) {
     instance.canAttackFollowers = true;
     instance.canAttackLeader = true;
@@ -182,6 +260,19 @@ function emitCrestActivation(session, playerIndex, crest, action, detail = {}) {
     actor: playerIndex,
     payload: { action, crest: crestView(crest), ...detail }
   });
+}
+
+function grantKeyword(instance, keyword) {
+  const wanted = normalize(keyword);
+  const current = Array.isArray(instance?.card?.keywords) ? instance.card.keywords : [];
+  if (current.some(value => normalize(value) === wanted)) return false;
+  instance.grantedKeywords = [...(instance.grantedKeywords ?? []), keyword];
+  instance.card = { ...instance.card, keywords: [...current, keyword] };
+  return true;
+}
+
+function currentAttack(instance) {
+  return Number(instance?.attack ?? (Number(instance?.card?.attack ?? 0) + Number(instance?.attackBonus ?? 0)));
 }
 
 function cardType(instance) {
