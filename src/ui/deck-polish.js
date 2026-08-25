@@ -2,6 +2,7 @@
   const results = document.getElementById("deck-results");
   const save = document.getElementById("save-deck");
   const name = document.getElementById("deck-name");
+  const saved = document.getElementById("saved-decks");
 
   // Reaching the normal 3-copy / 40-card cap is expected deckbuilder behavior,
   // not an error state. Stop the add action before the main page emits a toast.
@@ -15,12 +16,24 @@
     event.stopImmediatePropagation();
   }, true);
 
-  // Saving now lives in the Saved tab like Beyond Decks. Keep an empty variant
-  // name local to that panel rather than bouncing the user back to Deck.
   save?.addEventListener("click", event => {
     if (name?.value.trim()) return;
     event.preventDefault();
     event.stopImmediatePropagation();
     name?.focus();
   }, true);
+
+  // The deckbuilder now edits only original Shadowverse and Champion's Battle.
+  // Preserve old svwb records in localStorage, but do not surface them here.
+  const hideWorldsBeyondRows = () => {
+    for (const row of saved?.querySelectorAll(".db-saved-row") ?? []) {
+      const meta = row.querySelector("small")?.textContent ?? "";
+      if (/Worlds Beyond/i.test(meta)) row.hidden = true;
+    }
+  };
+
+  if (saved) {
+    new MutationObserver(hideWorldsBeyondRows).observe(saved, { childList: true, subtree: true });
+    hideWorldsBeyondRows();
+  }
 })();
