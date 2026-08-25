@@ -2,6 +2,7 @@ import { BATTLE_EVENT } from "../../battle-events.js";
 import { banishBoardCard, returnBoardCardToHand } from "../../zone-actions.js";
 import { evaluateWorldsBeyondClassCondition } from "./class-conditions.js";
 import { getWorldsBeyondEngageInfo } from "./engage.js";
+import { preprocessWorldsBeyondFuseText } from "./fuse.js";
 import { baseText, section } from "./v5/battle-engine-v5-text.js";
 import { targetEffectSpec } from "./v5/battle-engine-v5-targeting.js";
 
@@ -9,7 +10,7 @@ const SUPPORTED_TARGET_KINDS = new Set(["damage", "destroy", "banish", "return"]
 
 export function getWorldsBeyondTargetRequirement(source, trigger = "play", mode = null, player = null) {
   if (!source?.card) return null;
-  const originalText = triggerText(source, trigger, mode);
+  const originalText = preprocessWorldsBeyondFuseText(source, triggerText(source, trigger, mode));
   if (!originalText) return null;
   const conditional = player ? evaluateWorldsBeyondClassCondition(originalText, player, source.card) : { text: originalText, active: true };
   if (!conditional.active || !conditional.text) return null;
@@ -26,7 +27,7 @@ export function getWorldsBeyondTargetOptions(session, { trigger = "play", player
 
 export function resolveWorldsBeyondTrigger(session, { trigger, playerIndex, source, targetInstanceId = null, mode = null }) {
   if (!source?.card) return { applied: false, unresolved: false, text: "" };
-  const originalText = triggerText(source, trigger, mode);
+  const originalText = preprocessWorldsBeyondFuseText(source, triggerText(source, trigger, mode));
   if (!originalText) return { applied: false, unresolved: false, text: "" };
 
   const player = session.getPlayer(playerIndex);
