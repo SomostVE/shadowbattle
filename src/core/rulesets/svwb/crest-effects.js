@@ -170,12 +170,10 @@ function healLeader(session, playerIndex, amount, crest) {
   const before = Number(player.hp ?? 0);
   player.hp = Math.min(Number(player.maxHp ?? before), before + Math.max(0, Number(amount) || 0));
   const healed = player.hp - before;
-  if (healed > 0) {
-    session.emit(BATTLE_EVENT.HEAL, {
-      actor: playerIndex,
-      payload: { targetPlayer: playerIndex, amount: healed, hp: player.hp, source: null, reason: "crest", crest: crestView(crest) }
-    });
-  }
+  session.emit(BATTLE_EVENT.HEAL, {
+    actor: playerIndex,
+    payload: { targetPlayer: playerIndex, amount: healed, hp: player.hp, source: null, reason: "crest", crest: crestView(crest) }
+  });
   return healed;
 }
 
