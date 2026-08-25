@@ -1,4 +1,5 @@
 const DECK_KEY = "shadowbattle:decks:v1";
+const BEYOND_DECKS_KEY = "shadowverse-deck-assistant:v2";
 const RULESET_KEY = "shadowbattle:hub-ruleset:v1";
 const CPU_DIFFICULTY_KEY = "shadowbattle:cpu-difficulty:v1";
 const PVP_SETTINGS_KEY = "shadowbattle:pvp-private-settings:v1";
@@ -33,10 +34,21 @@ bindPrivateMatchSetup();
 
 function renderDeckCounts() {
   const library = readLibrary();
+  const localWbDecks = Object.values(library?.games?.["worlds-beyond"]?.decks ?? {});
+  const beyondWorkspace = readBeyondDecksWorkspace();
+  const beyondSaved = Object.entries(beyondWorkspace?.savedDecks ?? {}).map(([fallbackName, deck]) => ({
+    name: deck?.name ?? fallbackName,
+    deck: deck?.deck ?? []
+  }));
+  const wbSignatures = new Set([
+    ...localWbDecks.map(deck => deckCountSignature(deck.name, deck.entries)),
+    ...beyondSaved.map(deck => deckCountSignature(deck.name, deck.deck))
+  ]);
+
   const counts = {
     "shadowverse-ccg": Object.keys(library?.games?.["shadowverse-ccg"]?.decks ?? {}).length,
     "champions-battle": Object.keys(library?.games?.["champions-battle"]?.decks ?? {}).length,
-    "worlds-beyond": Object.keys(library?.games?.["worlds-beyond"]?.decks ?? {}).length
+    "worlds-beyond": wbSignatures.size
   };
 
   setText("hub-sv1-player-count", counts["shadowverse-ccg"]);
@@ -262,9 +274,26 @@ function formatCount(value) {
   return Number(value).toLocaleString("en-US");
 }
 
+function deckCountSignature(name, entries) {
+  const normalized = (entries ?? []).map(entry => {
+    const tuple = Array.isArray(entry) ? entry : [entry?.id ?? entry?.cardId, entry?.quantity ?? entry?.count];
+    return [Number(tuple[0]), Number(tuple[1])];
+  }).filter(([id, quantity]) => Number.isFinite(id) && Number.isFinite(quantity) && quantity > 0)
+    .sort((a, b) => a[0] - b[0]);
+  return JSON.stringify([String(name ?? ""), normalized]);
+}
+
 function readLibrary() {
   try {
     return JSON.parse(localStorage.getItem(DECK_KEY) || "null");
+  } catch {
+    return null;
+  }
+}
+
+function readBeyondDecksWorkspace() {
+  try {
+    return JSON.parse(localStorage.getItem(BEYOND_DECKS_KEY) || "null");
   } catch {
     return null;
   }
