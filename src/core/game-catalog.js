@@ -17,7 +17,7 @@ export const GAME_CATALOG = Object.freeze({
     name: "Shadowverse",
     shortName: "Shadowverse CCG",
     dataNamespace: "sv1",
-    status: "planned"
+    status: "supported-data-archived"
   }),
   [GAME_IDS.CHAMPIONS_BATTLE]: Object.freeze({
     id: GAME_IDS.CHAMPIONS_BATTLE,
