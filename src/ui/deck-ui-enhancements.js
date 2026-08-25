@@ -1,6 +1,7 @@
 (() => {
   const PORTAL_CLASS_ASSET = "https://shadowverse-portal.com/public/assets/image/cards/en/classes";
   const CRAFT_CLASS_IDS = Object.freeze({
+    Neutral: 0,
     Forestcraft: 1,
     Swordcraft: 2,
     Runecraft: 3,
@@ -11,6 +12,7 @@
     Portalcraft: 8
   });
   const FALLBACK_GLYPHS = Object.freeze({
+    Neutral: "N",
     Forestcraft: "F",
     Swordcraft: "S",
     Runecraft: "R",
@@ -24,14 +26,59 @@
   const CARD_SIZE_MODE_KEY = "shadowbattle:card-size-mode";
   const BEYOND_CARD_SIZE_KEY = "svwb-card-size";
   const BEYOND_CARD_SIZE_MODE_KEY = "svwb-card-size-mode";
+  const INCLUDE_NEUTRAL_KEY = "shadowbattle:include-neutral";
 
+  installNeutralControl();
   upgradeOfficialCraftButtons();
   installDeferredCardArtLoader();
   installBeyondDecksSizing();
 
   function officialCraftIcon(craft) {
-    const classId = CRAFT_CLASS_IDS[craft];
-    return classId ? `${PORTAL_CLASS_ASSET}/${classId}/class_checkbox.png` : null;
+    if (!Object.prototype.hasOwnProperty.call(CRAFT_CLASS_IDS, craft)) return null;
+    return `${PORTAL_CLASS_ASSET}/${CRAFT_CLASS_IDS[craft]}/class_checkbox.png`;
+  }
+
+  function installNeutralControl() {
+    const root = document.getElementById("deck-craft-buttons");
+    if (!root) return;
+
+    const isIncluded = () => localStorage.getItem(INCLUDE_NEUTRAL_KEY) !== "false";
+
+    const sync = button => {
+      const active = isIncluded();
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", active ? "true" : "false");
+      button.title = active ? "Neutral cards included" : "Neutral cards hidden";
+      button.setAttribute("aria-label", active ? "Hide Neutral cards" : "Include Neutral cards");
+    };
+
+    const ensure = () => {
+      let button = root.querySelector("[data-neutral-toggle]");
+      if (!button) {
+        button = document.createElement("button");
+        button.type = "button";
+        button.className = "db-craft-button db-neutral-toggle";
+        button.dataset.neutralToggle = "true";
+        button.dataset.craftVisual = "Neutral";
+        button.style.setProperty("--craft-rgb", "174, 184, 199");
+        button.textContent = FALLBACK_GLYPHS.Neutral;
+        root.appendChild(button);
+      }
+      sync(button);
+    };
+
+    root.addEventListener("click", event => {
+      const button = event.target.closest("[data-neutral-toggle]");
+      if (!button || !root.contains(button)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      localStorage.setItem(INCLUDE_NEUTRAL_KEY, isIncluded() ? "false" : "true");
+      sync(button);
+      document.getElementById("deck-search")?.dispatchEvent(new Event("input", { bubbles: true }));
+    }, true);
+
+    new MutationObserver(ensure).observe(root, { childList: true });
+    ensure();
   }
 
   function upgradeOfficialCraftButtons() {
@@ -39,10 +86,10 @@
     if (!root) return;
 
     const renderIcons = () => {
-      for (const button of root.querySelectorAll("[data-craft]")) {
+      for (const button of root.querySelectorAll("[data-craft], [data-neutral-toggle]")) {
         if (button.dataset.iconFallback === "true") continue;
 
-        const craft = button.dataset.craft;
+        const craft = button.dataset.craft ?? button.dataset.craftVisual ?? "Neutral";
         const src = officialCraftIcon(craft);
         if (!src) continue;
 
