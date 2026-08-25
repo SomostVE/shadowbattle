@@ -7,10 +7,11 @@ The goal is not to replace the official games. ShadowBattle provides a determini
 ## Project surfaces
 
 - `/` — project landing page.
-- `/api/` — ShadowBattle's own namespaced API surface.
+- `/decks/` — local deckbuilder and deck library.
+- `/api/` — ShadowBattle's namespaced API surface.
 - `/test/` — AI logic laboratory for deterministic scenarios and behavior tests.
 
-## Planned game support
+## Game support
 
 - **Shadowverse: Worlds Beyond**
 - **Shadowverse CCG** (original PC / mobile game)
@@ -26,6 +27,39 @@ Each game is treated as a separate ruleset, data namespace and visual profile.
 - Rules must remain exact even when AI decision quality is intentionally limited.
 - Card IDs, keywords, mechanics and data from different Shadowverse games must never share one unqualified namespace.
 
+## Deck library
+
+ShadowBattle 0.4.0 adds a browser-local deck library under `/decks/`.
+
+### Original Shadowverse CCG
+
+The deckbuilder reads a compact local catalog generated from the frozen Shadowverse Portal archive. Decks use the normal 40-card / 3-copy rules and are stored under the `shadowverse-ccg` / `sv1` namespace.
+
+### Champion's Battle
+
+The Switch deckbuilder is isolated under `champions-battle` / `svcb`.
+
+Its current local base pool contains:
+
+- Basic;
+- Classic;
+- Darkness Evolved;
+- Rise of Bahamut;
+- no Portalcraft.
+
+Champion's Battle-exclusive cards are intentionally not inferred from CCG IDs. They will be added later as a dedicated `svcb`-only layer after the exclusive dataset is audited.
+
+### Beyond Decks bridge
+
+Worlds Beyond decks remain owned by Beyond Decks/Beyond Codex, but ShadowBattle can import them into its local deck library for future Human vs AI sessions.
+
+Supported import paths:
+
+1. **Direct browser workspace import** from Beyond Decks' existing `shadowverse-deck-assistant:v2` localStorage key when both apps are running on the same origin.
+2. **JSON/file import** using the deck payload already produced by Beyond Decks' Export button.
+
+ShadowBattle imports the current Beyond Decks deck and its saved variants without changing or deleting the Beyond Decks workspace.
+
 ## API architecture
 
 ```text
@@ -37,12 +71,15 @@ Each game is treated as a separate ruleset, data namespace and visual profile.
 ├─ shadowverse-ccg/
 │  ├─ manifest.json                    # namespace sv1
 │  ├─ cards.json                       # frozen English snapshot
-│  ├─ data-headers.json                # original Portal field metadata
-│  ├─ image-index.json                 # preserved card-art URL index
+│  ├─ catalog.json                     # compact deckbuilding catalog
+│  ├─ data-headers.json
+│  ├─ image-index.json
 │  └─ locales/
 │     └─ cards.<lang>.json             # 8 official Portal languages
 └─ champions-battle/
-   └─ manifest.json                    # namespace svcb
+   ├─ manifest.json                    # namespace svcb
+   ├─ cards.json                       # local Switch base pool
+   └─ catalog.json                     # compact Switch deckbuilding catalog
 ```
 
 A normalized card UID is always qualified with the game namespace, such as `svwb:...`, `sv1:...` or `svcb:...`.
@@ -60,7 +97,7 @@ ShadowBattle contains a **complete frozen copy of the Shadowverse Portal card AP
 
 The Shadowverse CCG provider reads this local snapshot. **Normal ShadowBattle runtime does not call `shadowverse-portal.com` for card data.** The original endpoint is retained only as provenance and for an explicit archival refresh while it remains online.
 
-Card-art URL patterns are indexed separately. Mirroring every card image would be a multi-gigabyte asset archive and is intentionally not mixed into the code/data snapshot.
+Card-art URL patterns are indexed separately. Mirroring every card image would be a multi-gigabyte asset archive and is intentionally not mixed into the code/data snapshot yet.
 
 ## Data architecture
 
@@ -70,6 +107,10 @@ Shadowverse: Worlds Beyond
    Beyond Codex
         ↓
 Worlds Beyond provider
+        ↓
+Beyond Decks exports / local workspace
+        ↓
+ShadowBattle deck library
 
 Shadowverse CCG
         ↓ archival capture only
@@ -77,13 +118,13 @@ Shadowverse Portal
         ↓
 local frozen sv1 API
         ↓
-Classic provider
+local compact deck catalog
 
 Champion's Battle
         ↓
-Dedicated normalized dataset
-        ↓
-Champion's Battle provider
+local launch-era svcb base pool
+        +
+future audited exclusive layer
 
              ↓
        ShadowBattle API
@@ -125,9 +166,16 @@ src/
 │     ├─ worlds-beyond.js
 │     ├─ shadowverse-ccg.js
 │     └─ champions-battle.js
+├─ decks/
+│  ├─ catalog.js
+│  ├─ deck-rules.js
+│  ├─ deckbuilder-page.js
+│  ├─ import-beyond-decks.js
+│  └─ storage.js
 ├─ test/
 │  └─ test-page.js
 └─ ui/
+   ├─ deckbuilder.css
    └─ shadowbattle.css
 ```
 
@@ -143,4 +191,4 @@ src/
 
 ## Status
 
-ShadowBattle 0.3.0 has a namespaced API, permanent original-CCG data archive, official CCG Fan Kit archive and AI test surface. The board visible in `/test/` is currently a development mock; there is no full playable `GameSession` yet.
+ShadowBattle 0.4.0 has a namespaced API, permanent original-CCG data archive, official CCG Fan Kit archive, OG/Switch deckbuilding, a Beyond Decks import bridge and the AI test surface. The board visible in `/test/` is still a development mock; there is no full playable `GameSession` yet.
