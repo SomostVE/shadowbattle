@@ -5,113 +5,137 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#090b14">
   <title>ShadowBattle Decks</title>
-  <link rel="stylesheet" href="../src/ui/shadowbattle.css">
-  <link rel="stylesheet" href="../src/ui/deckbuilder.css">
+  <link rel="stylesheet" href="../src/ui/shadowbattle.css?v=0.4.1">
+  <link rel="stylesheet" href="../src/ui/deckbuilder.css?v=0.4.1">
 </head>
-<body data-game="shadowverse-ccg">
-  <main class="sb-shell db-shell">
-    <header class="sb-topbar">
-      <a class="sb-brand" href="../">
-        <span class="sb-mark">✦</span>
-        <span>ShadowBattle</span>
-      </a>
-      <nav class="sb-nav" aria-label="Main navigation">
-        <a href="./" aria-current="page">Decks</a>
-        <a href="../api/">API</a>
-        <a href="../test/">AI Test Lab</a>
-      </nav>
-    </header>
+<body class="db-page" data-game="shadowverse-ccg">
+  <header class="sb-topbar db-topbar">
+    <a class="sb-brand" href="../">
+      <span class="sb-mark">✦</span>
+      <span>ShadowBattle</span>
+    </a>
+    <nav class="sb-nav" aria-label="Main navigation">
+      <a href="./" aria-current="page">Decks</a>
+      <a href="../api/">API</a>
+      <a href="../test/">AI Test Lab</a>
+    </nav>
+  </header>
 
-    <section class="sb-hero db-hero">
-      <div class="sb-eyebrow">Local deck library</div>
-      <h1>Deckbuilder</h1>
-      <p>Build and save decks for the original Shadowverse and Champion's Battle. Worlds Beyond decks can be imported directly from Beyond Decks and kept in the same ShadowBattle library for future Human vs AI sessions.</p>
+  <section class="db-commandbar" aria-label="Deck controls">
+    <label class="db-field db-game-field">
+      <span>Game</span>
+      <select id="deck-game">
+        <option value="shadowverse-ccg">Shadowverse CCG</option>
+        <option value="champions-battle">Champion's Battle</option>
+      </select>
+    </label>
+
+    <label class="db-field db-craft-field">
+      <span>Craft</span>
+      <select id="deck-craft"></select>
+    </label>
+
+    <label class="db-field db-name-field">
+      <span>Deck name</span>
+      <input id="deck-name" type="text" maxlength="80" placeholder="My deck">
+    </label>
+
+    <div class="db-action-row">
+      <button id="new-deck" type="button">New</button>
+      <button id="save-deck" type="button" class="db-primary">Save</button>
+      <button id="export-shadowbattle-deck" type="button">Export</button>
+    </div>
+  </section>
+
+  <section class="db-filterbar" aria-label="Card filters">
+    <label class="db-search-field">
+      <span class="db-visually-hidden">Search cards</span>
+      <input id="deck-search" type="search" placeholder="Search cards, effects, traits…">
+    </label>
+    <label class="db-set-field">
+      <span class="db-visually-hidden">Card set</span>
+      <select id="deck-set"><option value="all">All sets</option></select>
+    </label>
+    <strong id="deck-result-count" class="db-result-count">0 cards</strong>
+    <span class="db-filter-hint">Click a card to add it · use ⤢ to inspect · E/N switches art</span>
+  </section>
+
+  <main class="db-app-shell">
+    <section class="db-browser" aria-label="Card catalog">
+      <div id="deck-status" class="db-status" role="status">Loading local catalogs…</div>
+      <div id="deck-results" class="db-card-grid"></div>
     </section>
 
-    <div id="deck-status" class="db-status" role="status">Loading local catalogs…</div>
+    <aside class="db-deck-panel" aria-label="Deck sidebar">
+      <div class="db-tabs" role="tablist" aria-label="Deck tools">
+        <button type="button" class="db-tab active" data-db-tab="deck" aria-selected="true">Deck</button>
+        <button type="button" class="db-tab" data-db-tab="saved" aria-selected="false">Saved</button>
+        <button type="button" class="db-tab" data-db-tab="import" aria-selected="false">Import</button>
+      </div>
 
-    <section class="db-workspace">
-      <aside class="sb-panel db-controls">
-        <div class="sb-eyebrow">Deck</div>
-        <label>
-          Game
-          <select id="deck-game">
-            <option value="shadowverse-ccg">Shadowverse CCG</option>
-            <option value="champions-battle">Champion's Battle</option>
-          </select>
-        </label>
-        <label>
-          Craft
-          <select id="deck-craft"></select>
-        </label>
-        <label>
-          Deck name
-          <input id="deck-name" type="text" maxlength="80" placeholder="My deck">
-        </label>
-        <div class="db-action-row">
-          <button id="new-deck" type="button">New</button>
-          <button id="save-deck" type="button" class="db-primary">Save locally</button>
-          <button id="export-shadowbattle-deck" type="button">Export</button>
-        </div>
-
-        <div class="db-deck-summary">
-          <strong id="current-deck-count">0/40</strong>
+      <section class="db-tab-content active" data-db-panel="deck">
+        <div class="db-deck-heading">
+          <div>
+            <div class="db-panel-kicker">Current deck</div>
+            <strong id="current-deck-count">0/40</strong>
+          </div>
           <span id="deck-legality" data-legal="false">40 cards remaining</span>
         </div>
         <div id="current-deck" class="db-current-deck"></div>
-      </aside>
-
-      <section class="sb-panel db-browser">
-        <div class="db-browser-toolbar">
-          <label>
-            Search
-            <input id="deck-search" type="search" placeholder="Name, effect, trait…">
-          </label>
-          <label>
-            Set
-            <select id="deck-set"><option value="all">All sets</option></select>
-          </label>
-          <span id="deck-result-count" class="db-result-count">0 cards</span>
-        </div>
-        <div id="deck-results" class="db-card-grid"></div>
       </section>
-    </section>
 
-    <section class="sb-section sb-panel">
-      <div class="sb-section-title">
-        <div>
-          <div class="sb-eyebrow">Browser storage</div>
-          <h2>Saved decks</h2>
+      <section class="db-tab-content" data-db-panel="saved" hidden>
+        <div class="db-panel-kicker">Browser storage</div>
+        <h2>Saved decks</h2>
+        <div id="saved-decks" class="db-saved-list"></div>
+      </section>
+
+      <section class="db-tab-content" data-db-panel="import" hidden>
+        <div class="db-panel-kicker">Beyond Decks bridge</div>
+        <h2>Import Worlds Beyond</h2>
+        <p class="db-panel-copy">ShadowBattle can read Beyond Decks from <code>shadowverse-deck-assistant:v2</code> on the same browser origin, or import its JSON export without modifying the Beyond Decks workspace.</p>
+        <div class="db-import-actions">
+          <button id="import-beyond-local" type="button" class="db-primary">Import local library</button>
+          <label class="db-file-button">
+            Import JSON file
+            <input id="import-beyond-file" type="file" accept="application/json,.json">
+          </label>
+        </div>
+        <textarea id="beyond-import-json" rows="8" spellcheck="false" placeholder="Paste Beyond Decks JSON here…"></textarea>
+        <button id="import-beyond-json" type="button">Import pasted JSON</button>
+        <p class="db-panel-copy db-switch-note">Champion's Battle remains isolated under <code>svcb</code>. Its current base pool excludes Portalcraft and does not yet include Switch-exclusive cards.</p>
+      </section>
+    </aside>
+  </main>
+
+  <dialog id="card-preview-dialog" class="db-preview-dialog">
+    <div class="db-preview-head">
+      <div>
+        <div id="card-preview-meta" class="db-panel-kicker"></div>
+        <h2 id="card-preview-title">Card preview</h2>
+      </div>
+      <button id="card-preview-close" class="db-icon-button" type="button" aria-label="Close preview">×</button>
+    </div>
+    <div class="db-preview-layout">
+      <div class="db-preview-image-wrap">
+        <img id="card-preview-image" alt="" referrerpolicy="no-referrer">
+        <div id="card-preview-art-controls" class="db-preview-art-controls">
+          <button id="card-preview-normal" type="button" class="active">Normal</button>
+          <button id="card-preview-evolved" type="button">Evolved</button>
         </div>
       </div>
-      <div id="saved-decks" class="db-saved-list"></div>
-    </section>
-
-    <section class="sb-section sb-panel db-import-panel">
-      <div class="sb-eyebrow">Beyond Decks bridge</div>
-      <h2>Import Worlds Beyond decks</h2>
-      <p>If Beyond Decks and ShadowBattle are opened under the same browser origin, ShadowBattle can read the existing <code>shadowverse-deck-assistant:v2</code> workspace directly. Otherwise, paste or select the JSON already produced by Beyond Decks' Export button.</p>
-      <div class="db-action-row">
-        <button id="import-beyond-local" type="button" class="db-primary">Import local Beyond Decks library</button>
-        <label class="db-file-button">
-          Import Beyond Decks file
-          <input id="import-beyond-file" type="file" accept="application/json,.json">
-        </label>
+      <div class="db-preview-info">
+        <div id="card-preview-stats" class="db-preview-stats"></div>
+        <div id="card-preview-text" class="db-preview-text"></div>
+        <button id="card-preview-add" type="button" class="db-primary db-preview-add">Add to deck</button>
       </div>
-      <textarea id="beyond-import-json" rows="9" spellcheck="false" placeholder='Paste Beyond Decks JSON here…'></textarea>
-      <button id="import-beyond-json" type="button">Import pasted JSON</button>
-    </section>
+    </div>
+  </dialog>
 
-    <section class="sb-section sb-panel">
-      <div class="sb-eyebrow">Champion's Battle dataset</div>
-      <h2>Switch support status</h2>
-      <p>The locally materialized pool currently contains Basic, Classic, Darkness Evolved and Rise of Bahamut with Portalcraft excluded. Champion's Battle-exclusive cards remain a dedicated <code>svcb</code> layer to add after their dataset is audited.</p>
-    </section>
+  <footer class="sb-fankit-notice db-footer">
+    ShadowBattle is an independent fan project and is not affiliated with or endorsed by Cygames. Shadowverse and related intellectual property are © Cygames, Inc.
+  </footer>
 
-    <footer class="sb-fankit-notice">
-      ShadowBattle is an independent fan project and is not affiliated with or endorsed by Cygames. Shadowverse and related intellectual property are © Cygames, Inc.
-    </footer>
-  </main>
-  <script type="module" src="../src/decks/deckbuilder-page.js"></script>
+  <script type="module" src="../src/decks/deckbuilder-page.js?v=0.4.1"></script>
 </body>
 </html>
