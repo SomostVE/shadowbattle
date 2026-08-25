@@ -37,6 +37,19 @@
   transform: scale(1.03);
 }
 
+.db-craft-list.neutral-mode .db-craft-button[data-craft].active {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  filter: saturate(.95) brightness(.96);
+}
+
+.db-craft-list.neutral-mode .db-craft-button[data-craft].active img[data-official-class-icon] {
+  opacity: .72;
+  filter: saturate(.82) brightness(.88);
+  transform: none;
+}
+
 .db-card-tile {
   content-visibility: auto;
   contain-intrinsic-size: 156px 228px;
