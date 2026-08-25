@@ -72,7 +72,7 @@ export function resolveWorldsBeyondCrestTurnEnd(session, playerIndex, crest) {
   if (name === "congregant of repose" && !followersAttackedThisTurn) {
     const drawn = drawRandomDefenseFourFollower(session, playerIndex);
     triggered = true;
-    detail = { drawn: drawn ? session.cardView(drawn) : null };
+    detail = { drawn: Boolean(drawn) };
   }
 
   if (name === "supplicant of repose" && !followersAttackedThisTurn) {
