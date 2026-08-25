@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { GAME_IDS } from "../src/core/game-catalog.js";
 import { GameSession } from "../src/core/game-session.js";
+import { hasWorldsBeyondKeyword } from "../src/core/rulesets/svwb/combat-readiness.js";
 
 function fillerDeck(prefix) {
   return Array.from({ length: 40 }, (_, index) => ({
@@ -58,24 +59,18 @@ test("a normal follower cannot attack on the turn it enters play", () => {
   );
 });
 
-test("mentioning Storm in ability text does not grant Storm", () => {
-  const game = readyGame();
-  const card = replaceHandCard(game, {
-    id: 20002,
-    name: "Storm Mention Tester",
-    type: "Follower",
-    cost: 0,
-    attack: 2,
-    defense: 2,
-    keywords: [],
-    text: "Fanfare: Give another allied follower Storm."
-  });
-  game.dispatch({ type: "play-card", player: 0, cardInstanceId: card.instanceId });
-  const follower = game.players[0].board[0];
-
-  assert.equal(follower.canAttackFollowers, false);
-  assert.equal(follower.canAttackLeader, false);
-  assert.deepEqual(attacksFor(game, follower.instanceId), []);
+test("mentioning combat keywords in ability prose does not grant them", () => {
+  for (const keyword of ["Storm", "Rush", "Ward", "Bane", "Drain"]) {
+    const unit = {
+      card: {
+        keywords: [],
+        text: `Fanfare: Give another allied follower ${keyword}.`
+      }
+    };
+    assert.equal(hasWorldsBeyondKeyword(unit, keyword), false, `${keyword} must not be inferred from effect prose`);
+  }
+  assert.equal(hasWorldsBeyondKeyword({ card: { keywords: ["Storm"], text: "" } }, "Storm"), true);
+  assert.equal(hasWorldsBeyondKeyword({ card: { keywords: [], text: "Storm\nFanfare: Draw 1 card." } }, "Storm"), true);
 });
 
 test("Rush can attack followers immediately but not the enemy leader", () => {
