@@ -27,6 +27,12 @@ const CRAFT_RGB = Object.freeze({
   Havencraft: "219,201,131",
   Portalcraft: "69,206,215"
 });
+const VIAL_COST_BY_RARITY = Object.freeze({
+  Bronze: 50,
+  Silver: 200,
+  Gold: 800,
+  Legendary: 3500
+});
 const CLASS_ASSET = "https://shadowverse-portal.com/public/assets/image/cards/en/classes";
 
 const els = {
@@ -34,8 +40,7 @@ const els = {
   search: document.getElementById("library-search"),
   craft: document.getElementById("library-craft"),
   legendary: document.getElementById("library-legendary-max"),
-  average: document.getElementById("library-average-max"),
-  total: document.getElementById("library-total-max"),
+  vials: document.getElementById("library-vial-max"),
   sort: document.getElementById("library-sort"),
   reset: document.getElementById("library-reset"),
   grid: document.getElementById("library-grid"),
@@ -53,8 +58,8 @@ init();
 async function init() {
   bindEvents();
   await Promise.all(GAMES.map(loadGameCatalog));
-  renderCraftFilter();
   rebuildModels();
+  renderCraftFilter();
   render();
 }
 
@@ -67,7 +72,7 @@ function bindEvents() {
     render();
   });
 
-  for (const control of [els.search, els.craft, els.legendary, els.average, els.total, els.sort]) {
+  for (const control of [els.search, els.craft, els.legendary, els.vials, els.sort]) {
     control.addEventListener(control === els.search ? "input" : "change", render);
   }
 
@@ -79,8 +84,8 @@ function bindEvents() {
     resetFilters(false);
     if (button.dataset.preset === "no-legendary") els.legendary.value = "0";
     if (button.dataset.preset === "six-legendary") els.legendary.value = "6";
-    if (button.dataset.preset === "low-curve") els.average.value = "3";
-    if (button.dataset.preset === "cheap-total") els.total.value = "100";
+    if (button.dataset.preset === "budget-20k") els.vials.value = "20000";
+    if (button.dataset.preset === "budget-40k") els.vials.value = "40000";
     render();
   });
 
@@ -102,6 +107,7 @@ function bindEvents() {
     library = deleteDeck(library, gameId, deckId);
     library = saveDeckLibrary(library);
     rebuildModels();
+    renderCraftFilter();
     render();
   });
 }
@@ -125,42 +131,52 @@ function buildModel(deck) {
   const map = catalogMaps.get(deck.gameId) ?? new Map();
   const cards = (deck.entries ?? []).map(([id, quantity]) => ({ card: map.get(Number(id)), quantity: Number(quantity) || 0 }));
   let size = 0;
-  let totalCost = 0;
   let legendary = 0;
+  let vialCost = 0;
   const uniqueCards = [];
 
   for (const { card, quantity } of cards) {
     if (!quantity) continue;
     size += quantity;
-    totalCost += (Number(card?.cost) || 0) * quantity;
     if (card?.rarity === "Legendary") legendary += quantity;
-    if (card) uniqueCards.push(card);
+    if (card) {
+      vialCost += getVialCost(card) * quantity;
+      uniqueCards.push(card);
+    }
   }
 
   return {
     deck,
     size,
-    totalCost,
-    averageCost: size ? totalCost / size : 0,
     legendary,
+    vialCost,
     uniqueCards
   };
+}
+
+function getVialCost(card) {
+  if (!card) return 0;
+  const explicit = [card.vialCost, card.craftVials, card.createCost, card.craftCost]
+    .map(Number)
+    .find(value => Number.isFinite(value) && value >= 0);
+  if (explicit != null) return explicit;
+
+  if (String(card.set ?? "").trim().toLowerCase() === "basic") return 0;
+  return VIAL_COST_BY_RARITY[card.rarity] ?? 0;
 }
 
 function render() {
   const needle = els.search.value.trim().toLowerCase();
   const craft = els.craft.value;
   const legendaryMax = numberOrNull(els.legendary.value);
-  const averageMax = numberOrNull(els.average.value);
-  const totalMax = numberOrNull(els.total.value);
+  const vialMax = numberOrNull(els.vials.value);
 
   let filtered = models.filter(model => {
     if (gameFilter !== "all" && model.deck.gameId !== gameFilter) return false;
     if (craft !== "all" && model.deck.craft !== craft) return false;
     if (needle && !String(model.deck.name).toLowerCase().includes(needle)) return false;
     if (legendaryMax != null && model.legendary > legendaryMax) return false;
-    if (averageMax != null && model.averageCost > averageMax) return false;
-    if (totalMax != null && model.totalCost > totalMax) return false;
+    if (vialMax != null && model.vialCost > vialMax) return false;
     return true;
   });
 
@@ -168,15 +184,16 @@ function render() {
   els.count.textContent = String(filtered.length);
   els.empty.hidden = filtered.length !== 0;
   els.grid.innerHTML = filtered.map(renderDeckCard).join("");
+  hydrateCardArtwork();
 }
 
 function renderDeckCard(model) {
-  const { deck, size, totalCost, averageCost, legendary, uniqueCards } = model;
+  const { deck, size, vialCost, legendary, uniqueCards } = model;
   const craft = deck.craft || "Unknown";
   const classId = CRAFT_IDS[craft];
   const icon = Number.isFinite(classId) ? `${CLASS_ASSET}/${classId}/class_checkbox.png` : "";
   const rgb = CRAFT_RGB[craft] ?? "114,184,255";
-  const thumbs = uniqueCards.slice(0, 6);
+  const thumbs = uniqueCards.slice(0, 5);
   const extra = Math.max(0, uniqueCards.length - thumbs.length);
   const saved = formatDate(deck.savedAt);
 
@@ -193,12 +210,11 @@ function renderDeckCard(model) {
     <div class="lib-metrics">
       <div class="lib-metric"><span>Cards</span><strong>${size}/40</strong></div>
       <div class="lib-metric"><span>Legendary</span><strong>${legendary}</strong></div>
-      <div class="lib-metric"><span>Average PP</span><strong>${averageCost.toFixed(2)}</strong></div>
-      <div class="lib-metric"><span>Total PP</span><strong>${totalCost}</strong></div>
+      <div class="lib-metric lib-metric-vials"><span>Vial cost</span><strong>${formatVials(vialCost)}</strong></div>
     </div>
 
-    <div class="lib-thumbs">
-      ${thumbs.map(card => `<img src="${escapeAttr(card.image)}" alt="${escapeAttr(card.name)}" title="${escapeAttr(card.name)}" loading="lazy" referrerpolicy="no-referrer">`).join("")}
+    <div class="lib-thumbs" aria-label="Deck card artwork">
+      ${thumbs.map(card => `<img data-library-art="${card.id}" data-library-game="${escapeAttr(deck.gameId)}" alt="${escapeAttr(card.name)}" title="${escapeAttr(card.name)}" loading="lazy" referrerpolicy="no-referrer">`).join("")}
       ${extra ? `<span class="lib-more">+${extra}</span>` : ""}
     </div>
 
@@ -209,11 +225,52 @@ function renderDeckCard(model) {
   </article>`;
 }
 
+function hydrateCardArtwork() {
+  els.grid.querySelectorAll("img[data-library-art]").forEach(image => {
+    const gameId = image.dataset.libraryGame;
+    const card = catalogMaps.get(gameId)?.get(Number(image.dataset.libraryArt));
+    if (card) setLibraryImageArt(image, card);
+  });
+}
+
+function cardArtCandidates(card) {
+  const id = Number(card.id);
+  const stored = card.image;
+  const storedIsModernOrLocal = typeof stored === "string" && stored && !stored.includes("shadowverse-portal.com/image/card/en/");
+  const portalModern = `https://shadowverse-portal.com/image/card/phase2/common/C/C_${id}.png`;
+  const portalLegacy = `https://shadowverse-portal.com/image/card/en/C_${id}.png`;
+  return [...new Set([
+    storedIsModernOrLocal ? stored : null,
+    portalModern,
+    !storedIsModernOrLocal ? stored : null,
+    portalLegacy
+  ].filter(Boolean))];
+}
+
+function setLibraryImageArt(image, card) {
+  const candidates = cardArtCandidates(card);
+  let index = 0;
+  image.classList.remove("art-missing");
+  image.onerror = () => {
+    index += 1;
+    if (index < candidates.length) {
+      image.src = candidates[index];
+      return;
+    }
+    image.onerror = null;
+    image.removeAttribute("src");
+    image.classList.add("art-missing");
+  };
+  if (candidates[0]) image.src = candidates[0];
+}
+
 function renderCraftFilter() {
+  const current = els.craft.value || "all";
   const crafts = [...new Set(models.map(model => model.deck.craft).filter(Boolean))];
   const defaults = ["Forestcraft", "Swordcraft", "Runecraft", "Dragoncraft", "Shadowcraft", "Bloodcraft", "Havencraft", "Portalcraft"];
   const values = [...new Set([...defaults, ...crafts])];
   els.craft.innerHTML = `<option value="all">All classes</option>${values.map(value => `<option value="${escapeAttr(value)}">${escapeHtml(value)}</option>`).join("")}`;
+  els.craft.value = values.includes(current) ? current : "all";
 }
 
 function resetFilters(renderAfter = true) {
@@ -222,8 +279,7 @@ function resetFilters(renderAfter = true) {
   els.search.value = "";
   els.craft.value = "all";
   els.legendary.value = "all";
-  els.average.value = "all";
-  els.total.value = "all";
+  els.vials.value = "all";
   els.sort.value = "saved";
   if (renderAfter) render();
 }
@@ -231,8 +287,7 @@ function resetFilters(renderAfter = true) {
 function modelComparator(sort) {
   if (sort === "name") return (a, b) => String(a.deck.name).localeCompare(String(b.deck.name));
   if (sort === "legendary") return (a, b) => b.legendary - a.legendary || String(a.deck.name).localeCompare(String(b.deck.name));
-  if (sort === "average") return (a, b) => a.averageCost - b.averageCost || String(a.deck.name).localeCompare(String(b.deck.name));
-  if (sort === "total") return (a, b) => a.totalCost - b.totalCost || String(a.deck.name).localeCompare(String(b.deck.name));
+  if (sort === "vials") return (a, b) => a.vialCost - b.vialCost || String(a.deck.name).localeCompare(String(b.deck.name));
   return (a, b) => String(b.deck.savedAt).localeCompare(String(a.deck.savedAt));
 }
 
@@ -240,6 +295,10 @@ function numberOrNull(value) {
   if (value === "all") return null;
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
+}
+
+function formatVials(value) {
+  return Number(value || 0).toLocaleString("en-US");
 }
 
 function formatDate(value) {
