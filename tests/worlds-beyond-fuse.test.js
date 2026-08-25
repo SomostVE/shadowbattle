@@ -30,12 +30,12 @@ function fillerDeck(prefix) {
   return Array.from({ length: 40 }, (_, index) => ({ id: `${prefix}-${index}`, name: `${prefix} ${index}`, type: "Follower", cost: 9, attack: 1, defense: 1, keywords: [], traits: [], text: "" }));
 }
 
-function readyGame() {
+function readyGame({ catalog = CATALOG } = {}) {
   const game = new GameSession({
     gameId: GAME_IDS.WORLDS_BEYOND,
     seed: "fuse-test",
     firstPlayer: 0,
-    cardCatalog: CATALOG,
+    cardCatalog: catalog,
     players: [{ name: "A", deck: fillerDeck("A") }, { name: "B", deck: fillerDeck("B") }]
   });
   game.start();
@@ -118,6 +118,22 @@ test("Fuse exposes legal actions and preserves the V5 Gear transformation chain"
 
   const fuseEvents = game.getEvents({ viewer: 0 }).filter(event => [BATTLE_EVENT.FUSE, BATTLE_EVENT.CARD_TRANSFORM].includes(event.type));
   assert.deepEqual(fuseEvents.map(event => event.type), [BATTLE_EVENT.FUSE, BATTLE_EVENT.CARD_TRANSFORM, BATTLE_EVENT.FUSE, BATTLE_EVENT.CARD_TRANSFORM]);
+});
+
+test("Fuse rejects a missing transformation definition before consuming materials", () => {
+  const game = readyGame({ catalog: CATALOG.filter(card => card !== CARDS.striker) });
+  const target = putInHand(game, 0, 0, CARDS.gearAmbition);
+  const material = putInHand(game, 0, 1, CARDS.gearRemembrance);
+  const action = game.listLegalActions(0).find(item => item.type === "fuse" && item.targetInstanceId === target.instanceId && item.materialInstanceIds.includes(material.instanceId));
+  const handBefore = game.players[0].hand.map(item => item.instanceId);
+  const eventsBefore = game.events.length;
+
+  assert.throws(() => game.dispatch(action), /missing from the local catalog/i);
+  assert.deepEqual(game.players[0].hand.map(item => item.instanceId), handBefore);
+  assert.equal(game.players[0].fusedCards.length, 0);
+  assert.equal(target.card.name, "Gear of Ambition");
+  assert.equal(target.fusedThisTurn, false);
+  assert.equal(game.events.length, eventsBefore);
 });
 
 test("Ominous Artifact alpha transforms into Masterwork Artifact Omega after beta and gamma", () => {
