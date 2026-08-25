@@ -15,7 +15,7 @@ test("landing page puts Human vs AI battle before deck tools", () => {
   assert.match(hub, /Play Shadowverse turn by turn/);
   assert.match(hub, /Choose your Shadowverse/);
   assert.match(hub, /Prepare your match/);
-  assert.ok(hub.indexOf("Battle Arena") < hub.indexOf("Deckbuilder"));
+  assert.ok(hub.indexOf("hub-battle-surface") < hub.indexOf("hub-prep-grid"));
   assert.match(hub, /href="\.\/decks\/"/);
   assert.match(hub, /href="\.\/library\/"/);
   assert.match(hub, /5,933 CCG · 623 CB/);
