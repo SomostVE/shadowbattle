@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#090b14">
+  <title>ShadowBattle API</title>
+  <link rel="stylesheet" href="../src/ui/shadowbattle.css">
+</head>
+<body data-game="worlds-beyond">
+  <main class="sb-shell">
+    <header class="sb-topbar">
+      <a class="sb-brand" href="../">
+        <span class="sb-mark">✦</span>
+        <span>ShadowBattle</span>
+      </a>
+      <nav class="sb-nav" aria-label="Main navigation">
+        <a href="./" aria-current="page">API</a>
+        <a href="../test/">AI Test Lab</a>
+      </nav>
+    </header>
+
+    <section class="sb-hero">
+      <div class="sb-eyebrow">ShadowBattle data service</div>
+      <h1>/api</h1>
+      <p>A single API surface with hard game namespaces. Data can be queried from one repository without ever allowing Worlds Beyond, legacy CCG or Champion's Battle IDs and rules to collide.</p>
+    </section>
+
+    <section class="sb-grid">
+      <article class="sb-card">
+        <span class="sb-status" data-status="ready">upstream ready</span>
+        <h2>Worlds Beyond</h2>
+        <p><code>svwb</code> · validated upstream: Beyond Codex.</p>
+        <pre class="sb-code">/api/v1/worlds-beyond/manifest.json
+/api/v1/worlds-beyond/cards.json   (planned materialized endpoint)</pre>
+      </article>
+      <article class="sb-card">
+        <span class="sb-status" data-status="planned">source validation</span>
+        <h2>Shadowverse CCG</h2>
+        <p><code>sv1</code> · Shadowverse Portal source adapter in preparation.</p>
+        <pre class="sb-code">/api/v1/shadowverse-ccg/manifest.json
+/api/v1/shadowverse-ccg/cards.json (planned)</pre>
+      </article>
+      <article class="sb-card">
+        <span class="sb-status" data-status="planned">dataset planned</span>
+        <h2>Champion's Battle</h2>
+        <p><code>svcb</code> · dedicated Switch dataset, including game-exclusive cards.</p>
+        <pre class="sb-code">/api/v1/champions-battle/manifest.json
+/api/v1/champions-battle/cards.json (planned)</pre>
+      </article>
+    </section>
+
+    <section class="sb-section sb-panel">
+      <div class="sb-eyebrow">Current static endpoints</div>
+      <h2>API v1</h2>
+      <pre class="sb-code">GET ./v1/manifest.json
+GET ./v1/games.json
+GET ./v1/worlds-beyond/manifest.json
+GET ./v1/shadowverse-ccg/manifest.json
+GET ./v1/champions-battle/manifest.json</pre>
+      <p>The final card endpoints will be generated into the same namespaced folders. A normalized card UID always includes the game namespace, for example <code>svwb:101...</code>, <code>sv1:101...</code> or <code>svcb:101...</code>.</p>
+    </section>
+
+    <section class="sb-section sb-panel">
+      <div class="sb-eyebrow">Boundary rule</div>
+      <h2>No shared raw card pool</h2>
+      <p>ShadowBattle may expose several games through one API, but ingestion stays isolated. Each provider validates and normalizes its own source before data enters a game-specific endpoint. Cross-game joins must be explicit rather than inferred from numeric IDs or card names.</p>
+    </section>
+
+    <footer class="sb-fankit-notice">
+      ShadowBattle is an independent fan project and is not affiliated with or endorsed by Cygames. Shadowverse and related intellectual property are © Cygames, Inc.
+    </footer>
+  </main>
+</body>
+</html>
