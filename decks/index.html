@@ -4,14 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#141d28">
-  <title>ShadowBattle Decks</title>
+  <title>ShadowBattle Deckbuilder</title>
   <link rel="dns-prefetch" href="//shadowverse-portal.com">
   <link rel="preconnect" href="https://shadowverse-portal.com">
-  <link rel="stylesheet" href="../src/ui/deckbuilder.css?v=0.4.8">
-  <link rel="stylesheet" href="../src/ui/deck-enhancements.css?v=0.4.8">
-  <link rel="stylesheet" href="../src/ui/beyond-decks-v2.css?v=0.4.8">
-  <link rel="stylesheet" href="../src/ui/deck-assistant.css?v=0.4.8">
-  <script type="module" src="../src/ui/version-guard.js?v=0.4.8"></script>
+  <link rel="stylesheet" href="../src/ui/deckbuilder.css?v=0.4.9">
+  <link rel="stylesheet" href="../src/ui/deck-enhancements.css?v=0.4.9">
+  <link rel="stylesheet" href="../src/ui/beyond-decks-v2.css?v=0.4.9">
+  <link rel="stylesheet" href="../src/ui/deck-assistant.css?v=0.4.9">
+  <script type="module" src="../src/ui/version-guard.js?v=0.4.9"></script>
 </head>
 <body class="db-page" data-game="shadowverse-ccg">
   <header class="db-app-header">
@@ -26,6 +26,7 @@
 
       <div class="db-header-actions">
         <a class="db-button" href="../">Home</a>
+        <a class="db-button" href="../library/">Deck Library</a>
         <a class="db-button" href="../api/">API</a>
         <a class="db-button" href="../test/">AI Test</a>
         <button id="export-shadowbattle-deck" class="db-button" type="button">Export</button>
@@ -36,16 +37,13 @@
     <div class="db-subtoolbar">
       <button id="filters-drawer-toggle" class="db-button db-filter-toggle" type="button" aria-controls="filters-sidebar" aria-expanded="false">Filters</button>
       <strong id="deck-result-count" class="db-result-count">0 cards</strong>
-
       <div id="deck-cost-filter" class="db-cost-filter" aria-label="Cost filter"></div>
       <div id="deck-type-filter" class="db-type-filter" aria-label="Type filter"></div>
 
       <div class="db-view-controls">
         <label class="db-format-control">
           <span>Format</span>
-          <select id="deck-format" disabled>
-            <option>Unlimited</option>
-          </select>
+          <select id="deck-format" disabled><option>Unlimited</option></select>
         </label>
         <label class="db-card-size-control">
           <span>Card size</span>
@@ -119,10 +117,9 @@
     </section>
 
     <aside class="db-deck-panel" aria-label="Deck sidebar">
-      <div class="db-tabs" role="tablist" aria-label="Deck tools">
+      <div class="db-tabs db-tabs-two" role="tablist" aria-label="Deck tools">
         <button type="button" class="db-tab active" data-db-tab="deck" aria-selected="true">Deck</button>
         <button type="button" class="db-tab" data-db-tab="saved" aria-selected="false">Saved</button>
-        <button type="button" class="db-tab" data-db-tab="import" aria-selected="false">Import</button>
       </div>
 
       <section class="db-tab-content active" data-db-panel="deck">
@@ -130,7 +127,6 @@
           <h2>Deck</h2>
           <strong id="current-deck-count">0 / 40</strong>
         </div>
-
         <span id="deck-legality" data-legal="false" hidden>40 cards remaining</span>
 
         <div class="db-deck-toolbar">
@@ -143,7 +139,6 @@
         </div>
 
         <div id="deck-cost-strip" class="db-deck-cost-strip" aria-label="Deck cost curve"></div>
-
         <div class="db-deck-section-title">
           <span>Main deck</span>
           <strong id="main-deck-count">0 / 40</strong>
@@ -154,6 +149,7 @@
       <section class="db-tab-content" data-db-panel="saved" hidden>
         <div class="db-deck-header">
           <h2>Deck variants</h2>
+          <a class="db-library-link" href="../library/">Library ↗</a>
         </div>
         <div class="db-saved-compose">
           <input id="deck-name" class="db-input" type="text" maxlength="80" placeholder="Variant name">
@@ -162,22 +158,11 @@
         <div id="saved-decks" class="db-saved-list"></div>
       </section>
 
-      <section class="db-tab-content" data-db-panel="import" hidden>
-        <div class="db-deck-header">
-          <h2>Import</h2>
-        </div>
-        <p class="db-panel-copy">Worlds Beyond stays under <code>svwb</code>. ShadowBattle can read <code>shadowverse-deck-assistant:v2</code> from Beyond Decks on the same browser origin or import its JSON without modifying that workspace.</p>
-        <div class="db-import-actions">
-          <button id="import-beyond-local" type="button" class="db-button db-primary">Import local Beyond Decks</button>
-          <label class="db-file-button">
-            Import JSON file
-            <input id="import-beyond-file" type="file" accept="application/json,.json">
-          </label>
-        </div>
-        <textarea id="beyond-import-json" rows="8" spellcheck="false" placeholder="Paste Beyond Decks JSON here…"></textarea>
-        <button id="import-beyond-json" class="db-button" type="button">Import pasted JSON</button>
-        <p class="db-panel-copy db-switch-note"><code>sv1</code>, <code>svcb</code> and <code>svwb</code> remain separate namespaces. Champion's Battle still excludes Portalcraft and does not yet include Switch-exclusive cards.</p>
-        <p class="db-legal-note">ShadowBattle is an independent fan project and is not affiliated with or endorsed by Cygames.</p>
+      <section data-db-panel="import" hidden aria-hidden="true">
+        <button id="import-beyond-local" type="button"></button>
+        <input id="import-beyond-file" type="file">
+        <textarea id="beyond-import-json"></textarea>
+        <button id="import-beyond-json" type="button"></button>
       </section>
     </aside>
   </main>
@@ -208,9 +193,10 @@
     </div>
   </dialog>
 
-  <script src="../src/ui/deck-ui-enhancements.js?v=0.4.8"></script>
-  <script src="../src/ui/deck-polish.js?v=0.4.8"></script>
-  <script type="module" src="../src/decks/deckbuilder-page.js?v=0.4.8"></script>
-  <script type="module" src="../src/decks/deck-assistant-page.js?v=0.4.8"></script>
+  <script src="../src/ui/deck-ui-enhancements.js?v=0.4.9"></script>
+  <script src="../src/ui/deck-polish.js?v=0.4.9"></script>
+  <script type="module" src="../src/decks/deckbuilder-page.js?v=0.4.9"></script>
+  <script type="module" src="../src/decks/deck-assistant-page.js?v=0.4.9"></script>
+  <script type="module" src="../src/decks/deck-session.js?v=0.4.9"></script>
 </body>
 </html>
