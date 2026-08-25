@@ -1,0 +1,227 @@
+.api-shell {
+  margin-top: 1rem;
+}
+
+.api-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: .8rem;
+}
+
+.api-head h1 {
+  margin: .2rem 0 0;
+  font-size: clamp(2rem, 4vw, 3.5rem);
+  letter-spacing: -.045em;
+}
+
+.api-kicker {
+  color: #8fc8ff;
+  font-size: .68rem;
+  font-weight: 900;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+}
+
+.api-head-meta {
+  color: #9faebe;
+  font-size: .72rem;
+}
+
+.api-global,
+.api-card {
+  border: 1px solid #40536b;
+  background: linear-gradient(180deg, rgba(33,48,66,.96), rgba(25,37,51,.96));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.045), 0 12px 32px rgba(2,7,13,.14);
+}
+
+.api-global {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: .8rem;
+  border-radius: .78rem;
+  padding: .65rem .75rem;
+  margin-bottom: .8rem;
+}
+
+.api-global strong {
+  white-space: nowrap;
+  font-size: .76rem;
+}
+
+.api-global-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .38rem;
+}
+
+.api-grid {
+  display: grid;
+  grid-template-columns: 1.25fr 1fr .82fr;
+  gap: .75rem;
+}
+
+.api-card {
+  min-width: 0;
+  border-radius: .9rem;
+  padding: .8rem;
+}
+
+.api-card-head {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  margin-bottom: .7rem;
+}
+
+.api-code {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  border-radius: .58rem;
+  background: #182535;
+  color: #9ed0ff;
+  font-size: .65rem;
+  font-weight: 900;
+}
+
+.api-card-head h2 {
+  margin: 0;
+  font-size: .95rem;
+}
+
+.api-card-head small {
+  display: block;
+  margin-top: .15rem;
+  color: #9faebe;
+  font-size: .62rem;
+}
+
+.api-endpoints {
+  display: grid;
+  gap: .38rem;
+}
+
+.api-endpoint {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: .45rem;
+  min-width: 0;
+  border: 1px solid #3e526a;
+  border-radius: .58rem;
+  padding: .5rem .52rem .5rem .62rem;
+  background: #223145;
+}
+
+.api-endpoint-main {
+  min-width: 0;
+}
+
+.api-endpoint-main a {
+  display: block;
+  overflow: hidden;
+  color: #eef6ff;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 700 .7rem/1.3 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.api-endpoint-main a:hover {
+  color: #9ed0ff;
+}
+
+.api-endpoint-main span {
+  display: block;
+  margin-top: .15rem;
+  color: #91a2b6;
+  font-size: .58rem;
+}
+
+.api-copy,
+.api-open {
+  min-height: 29px;
+  border: 1px solid #4a6079;
+  border-radius: .45rem;
+  padding: .3rem .48rem;
+  background: #2a3d52;
+  color: #eaf2fb;
+  text-decoration: none;
+  font-size: .6rem;
+  font-weight: 800;
+}
+
+.api-copy:hover,
+.api-open:hover {
+  border-color: #72b8ff;
+  background: #31485f;
+}
+
+.api-copy[data-copied="true"] {
+  border-color: #5fae78;
+  color: #aee9bd;
+}
+
+.api-locales {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .32rem;
+  margin-top: .65rem;
+  padding-top: .65rem;
+  border-top: 1px solid #3b4d63;
+}
+
+.api-locales > span {
+  width: 100%;
+  color: #91a2b6;
+  font-size: .58rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.api-locales a {
+  border: 1px solid #435970;
+  border-radius: 999px;
+  padding: .3rem .48rem;
+  background: #26374b;
+  color: #dbe8f5;
+  text-decoration: none;
+  font-size: .61rem;
+  font-weight: 750;
+}
+
+.api-locales a:hover {
+  border-color: #72b8ff;
+  color: #fff;
+}
+
+.api-source {
+  margin-top: .65rem;
+  padding-top: .65rem;
+  border-top: 1px solid #3b4d63;
+}
+
+.api-source a {
+  color: #9ed0ff;
+  font-size: .68rem;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+@media (max-width: 1050px) {
+  .api-grid { grid-template-columns: 1fr 1fr; }
+  .api-card:last-child { grid-column: 1 / -1; }
+}
+
+@media (max-width: 720px) {
+  .api-head { align-items: flex-start; flex-direction: column; }
+  .api-global { grid-template-columns: 1fr; }
+  .api-grid { grid-template-columns: 1fr; }
+  .api-card:last-child { grid-column: auto; }
+}
