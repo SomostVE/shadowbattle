@@ -10,6 +10,7 @@ export const BATTLE_EVENT = Object.freeze({
   BONUS_PP: "bonus-pp",
   CARD_PLAY: "card-play",
   FOLLOWER_ENTER: "follower-enter",
+  AMULET_ENTER: "amulet-enter",
   SPELL_CAST: "spell-cast",
   ATTACK_START: "attack-start",
   ATTACK_IMPACT: "attack-impact",
