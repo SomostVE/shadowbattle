@@ -9,6 +9,7 @@ const catalogJs = await fs.readFile(new URL("../src/decks/catalog.js", import.me
 const assistantJs = await fs.readFile(new URL("../src/decks/card-assistant.js", import.meta.url), "utf8");
 const assistantPageJs = await fs.readFile(new URL("../src/decks/deck-assistant-page.js", import.meta.url), "utf8");
 const enhancementsJs = await fs.readFile(new URL("../src/ui/deck-ui-enhancements.js", import.meta.url), "utf8");
+const polishJs = await fs.readFile(new URL("../src/ui/deck-polish.js", import.meta.url), "utf8");
 const beyondTheme = await fs.readFile(new URL("../src/ui/beyond-decks-v2.css", import.meta.url), "utf8");
 const assistantCss = await fs.readFile(new URL("../src/ui/deck-assistant.css", import.meta.url), "utf8");
 
@@ -85,6 +86,7 @@ test("deck assistant exposes trait and keyword deck filters", () => {
   assert.match(assistantPageJs, /selectedTraits/);
   assert.match(assistantPageJs, /selectedKeywords/);
   assert.match(assistantCss, /db-assistant-filter-chip/);
+  assert.doesNotMatch(html, />Card assistant</);
 });
 
 test("deck assistant hovers cards and resolves generated cards plus their sources locally", () => {
@@ -96,6 +98,27 @@ test("deck assistant hovers cards and resolves generated cards plus their source
   assert.match(catalogJs, /loadDeckReferenceCards/);
   assert.match(catalogJs, /api\/v1\/shadowverse-ccg\/cards\.json|shadowverse-ccg\/cards\.json/);
   assert.match(catalogJs, /deckSelectable:\s*false/);
+});
+
+test("hover preview reuses loaded card art and keeps Portal fallbacks", () => {
+  assert.match(assistantJs, /visibleGridArt/);
+  assert.match(assistantJs, /phase2\/common\/C\/C_\$\{id\}\.png/);
+  assert.match(assistantJs, /phase2\/sp\/common\/E\/E_\$\{id\}\.png/);
+  assert.match(assistantJs, /setAssistantArt/);
+});
+
+test("native add tooltip and expected deck-cap toasts are suppressed", () => {
+  assert.doesNotMatch(gridJs, /click to add/i);
+  assert.match(html, /deck-polish\.js/);
+  assert.match(polishJs, /is-capped/);
+  assert.match(polishJs, /total < 40/);
+  assert.match(polishJs, /stopImmediatePropagation/);
+});
+
+test("save action lives inside the Saved deck variants panel", () => {
+  assert.match(html, /data-db-panel="saved"[\s\S]*Deck variants[\s\S]*id="deck-name"[\s\S]*id="save-deck"/);
+  assert.doesNotMatch(html, /db-header-actions[\s\S]{0,600}id="save-deck"/);
+  assert.match(assistantCss, /db-saved-compose/);
 });
 
 test("deckbuilder exposes both Beyond Decks import paths", () => {
