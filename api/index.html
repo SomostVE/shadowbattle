@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#141d28">
   <title>ShadowBattle Data API</title>
-  <link rel="stylesheet" href="../src/ui/hub.css?v=0.4.11">
-  <link rel="stylesheet" href="../src/ui/api-page.css?v=0.4.11">
-  <script type="module" src="../src/ui/version-guard.js?v=0.4.11"></script>
+  <link rel="stylesheet" href="../src/ui/hub.css?v=0.4.12">
+  <link rel="stylesheet" href="../src/ui/api-page.css?v=0.4.12">
+  <script type="module" src="../src/ui/version-guard.js?v=0.4.12"></script>
 </head>
 <body>
   <main class="hub-shell">
@@ -15,13 +15,14 @@
       <a class="hub-brand" href="../">
         <span class="hub-brand-mark">✦</span>
         <strong>ShadowBattle</strong>
-        <span class="hub-version">v0.4.11</span>
+        <span class="hub-version">v0.4.12</span>
       </a>
       <nav class="hub-nav" aria-label="Main navigation">
+        <a href="../#battle">Battle</a>
         <a href="../decks/">Deckbuilder</a>
         <a href="../library/">Deck Library</a>
         <a href="../test/">AI Test</a>
-        <a href="./">API</a>
+        <a class="hub-nav-primary" href="./">API</a>
       </nav>
     </header>
 
@@ -166,8 +167,16 @@
           <div class="api-endpoints">
             <div class="api-endpoint">
               <div class="api-endpoint-main">
-                <a id="wb-manifest" href="https://somostve.github.io/shadowbattle/api/v1/worlds-beyond/manifest.json" target="_blank" rel="noreferrer">manifest.json</a>
-                <span>ShadowBattle provider metadata</span>
+                <a id="wb-cards" href="https://somostve.github.io/beyond_codex/api/v1/cards.json" target="_blank" rel="noreferrer">cards.json</a>
+                <span>Live Beyond Codex card dataset</span>
+                <code>https://somostve.github.io/beyond_codex/api/v1/cards.json</code>
+              </div>
+              <button class="api-copy" type="button" data-copy-endpoint="#wb-cards">Copy</button>
+            </div>
+            <div class="api-endpoint">
+              <div class="api-endpoint-main">
+                <a id="wb-manifest" href="https://somostve.github.io/shadowbattle/api/v1/worlds-beyond/manifest.json" target="_blank" rel="noreferrer">ShadowBattle manifest</a>
+                <span>Provider metadata</span>
                 <code>https://somostve.github.io/shadowbattle/api/v1/worlds-beyond/manifest.json</code>
               </div>
               <button class="api-copy" type="button" data-copy-endpoint="#wb-manifest">Copy</button>
@@ -175,7 +184,7 @@
           </div>
 
           <div class="api-source">
-            <a href="https://somostve.github.io/beyond_codex/api/v1/" target="_blank" rel="noreferrer">Open Beyond Codex API ↗</a>
+            <a href="https://somostve.github.io/beyond_codex/" target="_blank" rel="noreferrer">Open Beyond Codex ↗</a>
           </div>
         </article>
       </section>
@@ -235,6 +244,6 @@ print(data.keys())</code></pre>
     </section>
   </main>
 
-  <script type="module" src="../src/ui/api-page.js?v=0.4.11"></script>
+  <script type="module" src="../src/ui/api-page.js?v=0.4.12"></script>
 </body>
 </html>
