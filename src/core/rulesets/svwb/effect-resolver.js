@@ -1,17 +1,59 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
 import { baseText, section } from "./v5/battle-engine-v5-text.js";
+import { targetEffectSpec } from "./v5/battle-engine-v5-targeting.js";
 
-export function resolveWorldsBeyondTrigger(session, { trigger, playerIndex, source }) {
+const SUPPORTED_TARGET_KINDS = new Set(["damage", "destroy"]);
+
+export function getWorldsBeyondTargetRequirement(source, trigger = "play") {
+  if (!source?.card) return null;
+  const text = triggerText(source.card, trigger);
+  if (!text) return null;
+  const spec = targetEffectSpec({ mode: { text }, instance: source });
+  return spec ? { ...spec, text } : null;
+}
+
+export function getWorldsBeyondTargetOptions(session, { trigger = "play", playerIndex, source } = {}) {
+  const requirement = getWorldsBeyondTargetRequirement(source, trigger);
+  if (!requirement) return [];
+  return targetableEnemyFollowers(session.getPlayer(1 - playerIndex).board);
+}
+
+export function resolveWorldsBeyondTrigger(session, { trigger, playerIndex, source, targetInstanceId = null }) {
   if (!source?.card) return { applied: false, unresolved: false, text: "" };
   const text = triggerText(source.card, trigger);
   if (!text) return { applied: false, unresolved: false, text: "" };
-  const unresolved = hasUnsupportedChoiceOrCondition(text);
+
+  const targetSpec = targetEffectSpec({ mode: { text }, instance: source });
+  const targetOptions = targetSpec ? targetableEnemyFollowers(session.getPlayer(1 - playerIndex).board) : [];
+  let target = null;
+  let targetMissing = false;
+  let invalidTarget = false;
+
+  if (targetSpec && targetOptions.length) {
+    target = targetOptions.find(unit => unit.instanceId === targetInstanceId) ?? null;
+    targetMissing = !targetInstanceId;
+    invalidTarget = Boolean(targetInstanceId && !target);
+  }
+
+  const unsupportedTarget = Boolean(targetSpec && !SUPPORTED_TARGET_KINDS.has(targetSpec.kind));
+  const unresolved = targetMissing || invalidTarget || unsupportedTarget || hasUnsupportedChoiceOrCondition(text, { targetSpec });
+
   session.emit(BATTLE_EVENT.ABILITY_TRIGGER, {
     actor: playerIndex,
-    payload: { trigger, card: session.cardView(source), text, resolved: !unresolved }
+    payload: {
+      trigger,
+      card: session.cardView(source),
+      text,
+      resolved: !unresolved,
+      target: target ? session.cardView(target) : null,
+      targetKind: targetSpec?.kind ?? null,
+      targetRequired: Boolean(targetSpec && targetOptions.length),
+      targetAvailable: targetOptions.length > 0
+    }
   });
-  if (unresolved) return { applied: false, unresolved: true, text };
-  return executeSimpleEffects(session, { text, playerIndex, source });
+
+  if (unresolved) return { applied: false, unresolved: true, text, targetSpec, target };
+  return executeSimpleEffects(session, { text, playerIndex, source, targetSpec, target });
 }
 
 export function destroyWorldsBeyondFollower(session, playerIndex, instanceId, options = {}) {
@@ -26,6 +68,8 @@ function triggerText(card, trigger) {
   if (trigger === "evolve") return section(text, "evolve") || naturalLifecycle(text, /when this follower evolves,\s*/i);
   if (trigger === "super-evolve") return section(text, "super-evolve");
   if (trigger === "last-words") return section(text, "last words");
+  if (trigger === "turn-start") return section(text, "at the start of your turn") || naturalLifecycle(text, /at the start of your turn,\s*/i);
+  if (trigger === "turn-end") return section(text, "at the end of your turn") || naturalLifecycle(text, /at the end of your turn,\s*/i);
   return "";
 }
 
@@ -37,13 +81,30 @@ function naturalLifecycle(text, pattern) {
   return (next < 0 ? tail : tail.slice(0, next)).trim();
 }
 
-function hasUnsupportedChoiceOrCondition(text) {
-  return /\b(?:select|choose)\b|\bif\b|\bunless\b|\bfor each\b|\bwhenever\b|\bwhen(?:ever)?\b|\brandomly select\b|\bX\b|\b(?:Necromancy|Combo|Overflow|Earth Rite|Engage|Fuse|Transmute|Crest|Faith|Reanimate)\b/i.test(text);
+function hasUnsupportedChoiceOrCondition(text, { targetSpec = null } = {}) {
+  let inspect = String(text ?? "");
+  if (targetSpec) {
+    inspect = inspect
+      .replace(/\bselect an enemy follower(?: on the field)? and\s*/gi, "")
+      .replace(/\bdeal\s+\d+\s+damage to (?:an|a|the) enemy follower\b/gi, "")
+      .replace(/\bdestroy (?:an|a|the) enemy follower\b/gi, "");
+  }
+  return /\b(?:select|choose)\b|\bif\b|\bunless\b|\bfor each\b|\bwhenever\b|\bwhen(?:ever)?\b|\brandomly select\b|\bX\b|\b(?:Necromancy|Combo|Overflow|Earth Rite|Engage|Fuse|Transmute|Crest|Faith|Reanimate)\b/i.test(inspect);
 }
 
-function executeSimpleEffects(session, { text, playerIndex, source }) {
+function executeSimpleEffects(session, { text, playerIndex, source, targetSpec = null, target = null }) {
   const enemyIndex = 1 - playerIndex;
   let applied = false;
+
+  if (targetSpec && target) {
+    if (targetSpec.kind === "damage") {
+      const damage = session.damageFollower(enemyIndex, target.instanceId, targetSpec.amount, { actor: playerIndex, source, reason: "ability", resolveDeath: false });
+      if (Number(target.defense ?? 0) <= 0) destroyWorldsBeyondFollower(session, enemyIndex, target.instanceId, { actor: playerIndex, source, reason: "ability", byAbility: true });
+      applied ||= damage > 0;
+    } else if (targetSpec.kind === "destroy") {
+      applied ||= Boolean(destroyWorldsBeyondFollower(session, enemyIndex, target.instanceId, { actor: playerIndex, source, reason: "ability", byAbility: true }));
+    }
+  }
 
   for (const match of text.matchAll(/\bdraw\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+cards?\b/gi)) {
     const amount = numberWord(match[1]);
@@ -71,27 +132,27 @@ function executeSimpleEffects(session, { text, playerIndex, source }) {
 
   for (const match of text.matchAll(/\bdeal\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+damage to (?:all|each) enemy followers?\b/gi)) {
     const amount = numberWord(match[1]);
-    const targets = [...session.players[enemyIndex].board].filter(unit => String(unit.card?.type ?? "").toLowerCase() === "follower");
-    for (const target of targets) {
-      session.damageFollower(enemyIndex, target.instanceId, amount, { actor: playerIndex, source, reason: "ability", resolveDeath: false });
-      if (Number(target.defense ?? 0) <= 0) destroyWorldsBeyondFollower(session, enemyIndex, target.instanceId, { actor: playerIndex, source, reason: "ability", byAbility: true });
+    const targets = [...session.players[enemyIndex].board].filter(unit => cardType(unit) === "follower");
+    for (const unit of targets) {
+      session.damageFollower(enemyIndex, unit.instanceId, amount, { actor: playerIndex, source, reason: "ability", resolveDeath: false });
+      if (Number(unit.defense ?? 0) <= 0) destroyWorldsBeyondFollower(session, enemyIndex, unit.instanceId, { actor: playerIndex, source, reason: "ability", byAbility: true });
     }
     applied ||= targets.length > 0;
   }
 
   for (const match of text.matchAll(/\bdeal\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+damage to (?:a random|random) enemy follower\b/gi)) {
-    const target = randomEnemyFollower(session, enemyIndex);
-    if (target) {
-      session.damageFollower(enemyIndex, target.instanceId, numberWord(match[1]), { actor: playerIndex, source, reason: "ability", resolveDeath: false });
-      if (Number(target.defense ?? 0) <= 0) destroyWorldsBeyondFollower(session, enemyIndex, target.instanceId, { actor: playerIndex, source, reason: "ability", byAbility: true });
+    const unit = randomEnemyFollower(session, enemyIndex);
+    if (unit) {
+      session.damageFollower(enemyIndex, unit.instanceId, numberWord(match[1]), { actor: playerIndex, source, reason: "ability", resolveDeath: false });
+      if (Number(unit.defense ?? 0) <= 0) destroyWorldsBeyondFollower(session, enemyIndex, unit.instanceId, { actor: playerIndex, source, reason: "ability", byAbility: true });
       applied = true;
     }
   }
 
   if (/\bdestroy (?:a random|random) enemy follower\b/i.test(text)) {
-    const target = randomEnemyFollower(session, enemyIndex);
-    if (target) {
-      destroyWorldsBeyondFollower(session, enemyIndex, target.instanceId, { actor: playerIndex, source, reason: "ability", byAbility: true });
+    const unit = randomEnemyFollower(session, enemyIndex);
+    if (unit) {
+      destroyWorldsBeyondFollower(session, enemyIndex, unit.instanceId, { actor: playerIndex, source, reason: "ability", byAbility: true });
       applied = true;
     }
   }
@@ -110,7 +171,11 @@ function executeSimpleEffects(session, { text, playerIndex, source }) {
     applied = true;
   }
 
-  return { applied, unresolved: false, text };
+  return { applied, unresolved: false, text, targetSpec, target };
+}
+
+function targetableEnemyFollowers(board) {
+  return board.filter(unit => cardType(unit) === "follower" && !unit.aura && !unit.ambush);
 }
 
 function healLeader(session, playerIndex, amount, source) {
@@ -126,9 +191,13 @@ function healLeader(session, playerIndex, amount, source) {
 }
 
 function randomEnemyFollower(session, playerIndex) {
-  const targets = session.players[playerIndex].board.filter(unit => String(unit.card?.type ?? "").toLowerCase() === "follower");
+  const targets = session.players[playerIndex].board.filter(unit => cardType(unit) === "follower");
   if (!targets.length) return null;
   return targets[Math.floor(session.rng() * targets.length)] ?? targets[0];
+}
+
+function cardType(instance) {
+  return String(instance?.card?.type ?? instance?.type ?? "").trim().toLowerCase();
 }
 
 function numberWord(value) {
