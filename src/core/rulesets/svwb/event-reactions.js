@@ -1,20 +1,17 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
 import { crestView, getWorldsBeyondCrests } from "./crests.js";
 
-const PATCH_KEY = Symbol.for("shadowbattle.svwb.event-reactions");
-
-export function installWorldsBeyondEventReactions(session) {
-  if (!session || session[PATCH_KEY]) return session;
-  const emit = session.emit.bind(session);
-  Object.defineProperty(session, PATCH_KEY, { value: true, configurable: false });
-
-  session.emit = function emitWithWorldsBeyondReactions(type, options = {}) {
-    const event = emit(type, options);
-    if (type === BATTLE_EVENT.TURN_START) restorePersistentAttackLocks(session, event);
-    if (type === BATTLE_EVENT.HEAL) resolveHealCrestReactions(session, event);
-    return event;
-  };
-  return session;
+export function resolveWorldsBeyondEventReaction(session, event) {
+  if (!session || !event) return false;
+  if (event.type === BATTLE_EVENT.TURN_START) {
+    restorePersistentAttackLocks(session, event);
+    return true;
+  }
+  if (event.type === BATTLE_EVENT.HEAL) {
+    resolveHealCrestReactions(session, event);
+    return true;
+  }
+  return false;
 }
 
 function restorePersistentAttackLocks(session, event) {
@@ -35,8 +32,8 @@ function resolveHealCrestReactions(session, event) {
   const healed = Math.max(0, Number(event.payload?.amount) || 0);
   const crests = getWorldsBeyondCrests(player);
 
-  // V5 Burnite Flame reacts to the first healing action of the turn even when
-  // that action restores 0 defense. Ash requires defense to actually be restored.
+  // V5 behavior retained during the V6 migration: Flame reacts to the first
+  // healing action even for 0 restored defense; Ash requires a real heal.
   if (!applyBurniteHealReaction(session, playerIndex, crests, "burnite, anathema of flame", turn, "healing-action")) return;
   if (session.phase !== "main" || healed <= 0) return;
   applyBurniteHealReaction(session, playerIndex, crests, "burnite, anathema of ash", turn, "healing-restored");

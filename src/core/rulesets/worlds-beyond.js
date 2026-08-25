@@ -1,6 +1,6 @@
 import { GAME_IDS } from "../game-catalog.js";
 import { applyWorldsBeyondAction, listWorldsBeyondActions, prepareWorldsBeyondTurn } from "./svwb/action-resolver.js";
-import { installWorldsBeyondEventReactions } from "./svwb/event-reactions.js";
+import { resolveWorldsBeyondEventReaction } from "./svwb/event-reactions.js";
 import { runWorldsBeyondTurnEnd, runWorldsBeyondTurnStart } from "./svwb/lifecycle.js";
 
 export const WORLDS_BEYOND_RULESET = Object.freeze({
@@ -42,8 +42,10 @@ export const WORLDS_BEYOND_RULESET = Object.freeze({
     if (!player.goingFirst && player.personalTurn === 6 && player.resources.bonusPpUses < 2) player.resources.bonusPpAvailable = true;
     prepareWorldsBeyondTurn(player);
   },
+  afterEvent(session, event) {
+    resolveWorldsBeyondEventReaction(session, event);
+  },
   afterTurnStart(player, session) {
-    installWorldsBeyondEventReactions(session);
     runWorldsBeyondTurnStart(session, player.index);
   },
   beforeTurnEnd(player, session) {

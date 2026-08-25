@@ -1,4 +1,5 @@
 import { BATTLE_EVENT, BATTLE_VISIBILITY, createBattleEvent } from "./battle-events.js";
+import { BattleResolutionQueue } from "./resolution-queue.js";
 import { WORLDS_BEYOND_RULESET } from "./rulesets/worlds-beyond.js";
 
 const PHASE = Object.freeze({
@@ -39,6 +40,7 @@ export class GameSession {
     this.endReason = null;
     this.events = [];
     this.eventSequence = 0;
+    this.resolutionQueue = new BattleResolutionQueue();
     this.started = false;
   }
 
@@ -292,7 +294,24 @@ export class GameSession {
   emit(type, options = {}) {
     const event = createBattleEvent(this.eventSequence++, type, options);
     this.events.push(event);
+    if (typeof this.ruleset.afterEvent === "function") {
+      this.resolutionQueue.enqueue(`after-event:${type}`, () => this.ruleset.afterEvent(this, event), {
+        eventSequence: event.sequence,
+        eventType: type
+      });
+      this.resolutionQueue.drain();
+    }
     return event;
+  }
+
+  queueResolution(label, resolver, metadata = {}) {
+    const id = this.resolutionQueue.enqueue(label, resolver, metadata);
+    this.resolutionQueue.drain();
+    return id;
+  }
+
+  getResolutionState() {
+    return this.resolutionQueue.getState();
   }
 
   getEvents({ since = 0, viewer = null, revealHands = false } = {}) {
