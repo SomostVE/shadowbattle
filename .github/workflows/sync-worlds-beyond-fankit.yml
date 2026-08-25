@@ -21,17 +21,17 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-      - name: Discover official Worlds Beyond Fan Kit assets
+      - name: Archive official Worlds Beyond Fan Kit assets
         run: node scripts/sync-worlds-beyond-fankit.mjs
-      - name: Commit discovery metadata
+      - name: Commit archived assets
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add assets/fankits/worlds-beyond/discovery.json
+          git add -A assets/fankits/worlds-beyond
           if git diff --cached --quiet; then
-            echo "Fan Kit discovery unchanged."
+            echo "Worlds Beyond Fan Kit archive unchanged."
             exit 0
           fi
-          git commit -m "chore: refresh Worlds Beyond Fan Kit discovery"
+          git commit -m "chore: archive Worlds Beyond Fan Kit assets"
           git push
