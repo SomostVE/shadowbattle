@@ -108,6 +108,11 @@
   box-shadow: 0 8px 24px rgba(3,8,14,.32);
 }
 
+.db-assistant-main-art[hidden] {
+  display: block;
+  visibility: hidden;
+}
+
 .db-assistant-art-toggle {
   position: absolute;
   right: .35rem;
@@ -307,6 +312,23 @@
   line-height: 1.18;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.db-saved-compose {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: .35rem;
+  margin: .2rem 0 .68rem;
+}
+
+.db-saved-compose .db-input,
+.db-saved-compose .db-button {
+  min-height: 40px;
+}
+
+.db-saved-compose .db-button {
+  min-width: 62px;
+  padding-inline: .8rem;
 }
 
 @media (max-width: 720px) {
