@@ -1,0 +1,22 @@
+name: Validate ShadowBattle
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - name: Check JavaScript syntax
+        run: |
+          for file in $(find src tests -type f -name '*.js' | sort); do
+            node --check "$file"
+          done
+      - name: Run tests
+        run: npm test
