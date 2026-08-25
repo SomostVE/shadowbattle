@@ -29,7 +29,10 @@ export const BATTLE_EVENT = Object.freeze({
   EVOLVE: "evolve",
   SUPER_EVOLVE: "super-evolve",
   HEAL: "heal",
+  CREST_GAINED: "crest-gained",
+  CREST_TICK: "crest-tick",
   CREST_ACTIVATE: "crest-activate",
+  CREST_EXPIRED: "crest-expired",
   MATCH_END: "match-end"
 });
 
