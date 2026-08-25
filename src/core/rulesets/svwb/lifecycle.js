@@ -7,6 +7,10 @@ import {
 } from "./crest-effects.js";
 import { getWorldsBeyondCrests, runWorldsBeyondCrestTurnStart } from "./crests.js";
 import { gainWorldsBeyondShadows, resolveWorldsBeyondTrigger } from "./effect-resolver.js";
+import {
+  resolveWorldsBeyondForestCrestTurnEnd,
+  resolveWorldsBeyondForestCrestTurnStart
+} from "./forest-crest-effects.js";
 
 export function runWorldsBeyondTurnStart(session, playerIndex) {
   const player = session.getPlayer(playerIndex);
@@ -14,7 +18,10 @@ export function runWorldsBeyondTurnStart(session, playerIndex) {
   // V5 resolves Crest start-of-turn effects before Crest Countdown, then
   // resolves Last Words for the Crests that expire on that tick.
   runWorldsBeyondCrestTurnStart(session, playerIndex, {
-    beforeTick: crest => resolveWorldsBeyondCrestTurnStart(session, playerIndex, crest),
+    beforeTick: crest => {
+      resolveWorldsBeyondCrestTurnStart(session, playerIndex, crest);
+      if (session.phase === "main") resolveWorldsBeyondForestCrestTurnStart(session, playerIndex, crest);
+    },
     onExpire: crest => resolveWorldsBeyondCrestLastWords(session, playerIndex, crest)
   });
   if (session.phase !== "main") return;
@@ -42,6 +49,8 @@ export function runWorldsBeyondTurnEnd(session, playerIndex) {
   for (const crest of [...getWorldsBeyondCrests(player)]) {
     if (!getWorldsBeyondCrests(player).includes(crest)) continue;
     resolveWorldsBeyondCrestTurnEnd(session, playerIndex, crest);
+    if (session.phase !== "main") return;
+    resolveWorldsBeyondForestCrestTurnEnd(session, playerIndex, crest);
     if (session.phase !== "main") return;
   }
 
