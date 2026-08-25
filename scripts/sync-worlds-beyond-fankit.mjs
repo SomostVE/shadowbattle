@@ -4,7 +4,7 @@ import crypto from "node:crypto";
 
 const SOURCE_PAGE = "https://shadowverse-wb.com/en/special/fankit/";
 const API_ENDPOINT = "https://shadowverse-wb.com/web/Fankit/index";
-const ASSET_BASE = "https://shadowverse-wb.com/web/Fankit/";
+const SITE_ORIGIN = "https://shadowverse-wb.com/";
 const ROOT = path.join("assets", "fankits", "worlds-beyond");
 const BACKGROUND_DIR = path.join(ROOT, "backgrounds");
 
@@ -32,7 +32,7 @@ async function fetchWithRetry(url, kind = "bytes", attempts = 4) {
       const response = await fetch(url, {
         redirect: "follow",
         headers: {
-          "user-agent": "Mozilla/5.0 (compatible; ShadowBattle-FanKitArchive/1.0)",
+          "user-agent": "Mozilla/5.0 (compatible; ShadowBattle-FanKitArchive/1.1)",
           accept: kind === "json" ? "application/json,*/*;q=0.8" : "image/png,*/*;q=0.8",
           "accept-language": "en-US,en;q=0.9"
         },
@@ -48,36 +48,42 @@ async function fetchWithRetry(url, kind = "bytes", attempts = 4) {
   throw new Error(`Failed to fetch ${url}: ${lastError?.message ?? lastError}`);
 }
 
-function collectStrings(value, out = []) {
+function collectFanKitFiles(value, out = new Map()) {
   if (Array.isArray(value)) {
-    for (const item of value) collectStrings(item, out);
-  } else if (value && typeof value === "object") {
-    for (const item of Object.values(value)) collectStrings(item, out);
-  } else if (typeof value === "string") {
-    out.push(value);
+    for (const item of value) collectFanKitFiles(item, out);
+    return out;
   }
+  if (!value || typeof value !== "object") return out;
+
+  if (typeof value.file_name === "string" && typeof value.file_url === "string") {
+    out.set(value.file_name, value.file_url.replaceAll("\\/", "/"));
+  }
+  for (const item of Object.values(value)) collectFanKitFiles(item, out);
   return out;
 }
 
-function assertOfficialCatalog(payload) {
-  const strings = collectStrings(payload);
-  const missing = [...BACKGROUNDS, LOGO].filter(name => !strings.some(value => value.includes(name)));
-  if (missing.length) {
-    throw new Error(`Official Fan Kit API no longer exposes expected assets: ${missing.join(", ")}`);
+function assertPng(bytes, name) {
+  const signature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  if (bytes.length < 1024 || !bytes.subarray(0, 8).equals(signature)) {
+    throw new Error(`${name} did not download as a valid PNG (${bytes.length} bytes)`);
   }
 }
 
 await fs.mkdir(BACKGROUND_DIR, { recursive: true });
 await fs.rm(path.join(ROOT, "discovery.json"), { force: true });
 
-console.log(`Checking official Worlds Beyond Fan Kit catalog: ${API_ENDPOINT}`);
+console.log(`Reading official Worlds Beyond Fan Kit catalog: ${API_ENDPOINT}`);
 const catalog = await fetchWithRetry(API_ENDPOINT, "json");
-assertOfficialCatalog(catalog);
+const officialFiles = collectFanKitFiles(catalog);
+const wanted = [...BACKGROUNDS, LOGO];
+const missing = wanted.filter(name => !officialFiles.has(name));
+if (missing.length) throw new Error(`Official Fan Kit API is missing: ${missing.join(", ")}`);
 
 const files = [];
 for (const name of BACKGROUNDS) {
-  const sourceUrl = new URL(name, ASSET_BASE).href;
+  const sourceUrl = new URL(`/${officialFiles.get(name).replace(/^\/+/, "")}`, SITE_ORIGIN).href;
   const bytes = await fetchWithRetry(sourceUrl);
+  assertPng(bytes, name);
   const file = `./backgrounds/${name}`;
   await fs.writeFile(path.join(BACKGROUND_DIR, name), bytes);
   files.push({ file, sourceUrl, bytes: bytes.length, sha256: sha256(bytes), kind: "background" });
@@ -85,8 +91,9 @@ for (const name of BACKGROUNDS) {
 }
 
 {
-  const sourceUrl = new URL(LOGO, ASSET_BASE).href;
+  const sourceUrl = new URL(`/${officialFiles.get(LOGO).replace(/^\/+/, "")}`, SITE_ORIGIN).href;
   const bytes = await fetchWithRetry(sourceUrl);
+  assertPng(bytes, LOGO);
   const file = `./${LOGO}`;
   await fs.writeFile(path.join(ROOT, LOGO), bytes);
   files.push({ file, sourceUrl, bytes: bytes.length, sha256: sha256(bytes), kind: "logo" });
