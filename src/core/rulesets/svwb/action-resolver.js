@@ -8,10 +8,16 @@ import {
   resolveWorldsBeyondTrigger
 } from "./effect-resolver.js";
 import { getWorldsBeyondEngageInfo } from "./engage.js";
+import {
+  getWorldsBeyondFuseActions,
+  hasWorldsBeyondTrait,
+  resolveWorldsBeyondFuse
+} from "./fuse.js";
 import { modes as v5Modes } from "./v5/battle-engine-v5-modes.js";
 
 export const SVWB_ACTION = Object.freeze({
   PLAY_CARD: "play-card",
+  FUSE: "fuse",
   ENGAGE: "engage",
   ATTACK: "attack",
   EVOLVE: "evolve",
@@ -21,6 +27,7 @@ export const SVWB_ACTION = Object.freeze({
 export function applyWorldsBeyondAction(session, action) {
   switch (action.type) {
     case SVWB_ACTION.PLAY_CARD: return playCard(session, action);
+    case SVWB_ACTION.FUSE: return fuse(session, action);
     case SVWB_ACTION.ENGAGE: return engage(session, action);
     case SVWB_ACTION.ATTACK: return attack(session, action);
     case SVWB_ACTION.EVOLVE: return evolve(session, action, false);
@@ -52,7 +59,7 @@ export function listWorldsBeyondActions(session, playerIndex) {
   if (session.phase !== "main" || session.activePlayer !== playerIndex || session.winner != null) return [];
   const player = session.getPlayer(playerIndex);
   const enemy = session.getPlayer(1 - playerIndex);
-  const actions = [];
+  const actions = [...getWorldsBeyondFuseActions(session, playerIndex)];
 
   for (const card of player.hand) {
     for (const mode of playModes(card, player)) {
@@ -195,6 +202,36 @@ function playCard(session, action) {
   if (type === "spell") gainWorldsBeyondShadows(session, playerIndex, 1);
   if (mode.accelerated || mode.kind === "accelerate") restoreOriginalCardForm(instance);
   return session.getSnapshot(playerIndex);
+}
+
+function fuse(session, action) {
+  const result = resolveWorldsBeyondFuse(session, action, {
+    afterMaterials: ({ playerIndex, materials }) => applyFuseReactiveEffects(session, playerIndex, materials)
+  });
+  return result.snapshot;
+}
+
+function applyFuseReactiveEffects(session, playerIndex, materials) {
+  const player = session.getPlayer(playerIndex);
+  const enemyIndex = 1 - playerIndex;
+
+  for (const cannon of player.board.filter(unit => cardType(unit) === "amulet" && normalizeName(unit.card?.name) === "ancient cannon")) {
+    const target = randomEnemyFollower(session, enemyIndex);
+    if (!target) continue;
+    session.damageFollower(enemyIndex, target.instanceId, 2, { actor: playerIndex, source: cannon, reason: "fuse-reaction", resolveDeath: false });
+    if (Number(target.defense ?? 0) <= 0) destroyWorldsBeyondFollower(session, enemyIndex, target.instanceId, { actor: playerIndex, source: cannon, reason: "fuse-reaction", byAbility: true });
+  }
+
+  const lootMaterials = materials.filter(item => hasWorldsBeyondTrait(item.card, "Loot"));
+  if (!lootMaterials.length) return;
+  for (const congregant of player.board.filter(unit => cardType(unit) === "follower" && normalizeName(unit.card?.name) === "congregant of usurpation")) {
+    for (const material of lootMaterials) {
+      const target = randomEnemyFollower(session, enemyIndex);
+      if (!target) break;
+      session.damageFollower(enemyIndex, target.instanceId, 3, { actor: playerIndex, source: congregant, reason: `fuse-${material.card?.name ?? "loot"}`, resolveDeath: false });
+      if (Number(target.defense ?? 0) <= 0) destroyWorldsBeyondFollower(session, enemyIndex, target.instanceId, { actor: playerIndex, source: congregant, reason: "fuse-reaction", byAbility: true });
+    }
+  }
 }
 
 function engage(session, action) {
@@ -386,6 +423,12 @@ function prepareFollower(instance, turn) {
   instance.canAttackLeader = hasKeyword(instance, "Storm");
 }
 
+function randomEnemyFollower(session, playerIndex) {
+  const targets = session.getPlayer(playerIndex).board.filter(unit => cardType(unit) === "follower");
+  if (!targets.length) return null;
+  return targets[Math.floor(session.rng() * targets.length)] ?? targets[0];
+}
+
 function assertMainActor(session, playerIndex) {
   if (session.phase !== "main") throw new Error(`Expected phase main, got ${session.phase}`);
   if (session.winner != null) throw new Error("The match has ended");
@@ -396,6 +439,7 @@ function assertMainActor(session, playerIndex) {
 function currentAttack(instance) { return Number(instance.attack ?? (Number(instance.card?.attack ?? 0) + Number(instance.attackBonus ?? 0))); }
 function currentMaxDefense(instance) { return Number(instance.maxDefense ?? (Number(instance.card?.defense ?? 0) + Number(instance.defenseBonus ?? 0))); }
 function cardType(instance) { return String(instance?.card?.type ?? instance?.type ?? "").trim().toLowerCase(); }
+function normalizeName(value) { return String(value ?? "").trim().toLowerCase(); }
 function hasKeyword(instance, keyword) {
   const wanted = String(keyword).toLowerCase();
   const keywords = Array.isArray(instance?.card?.keywords) ? instance.card.keywords : [];
