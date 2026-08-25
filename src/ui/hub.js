@@ -1,17 +1,24 @@
 const DECK_KEY = "shadowbattle:decks:v1";
 
+const CCG_BACKGROUND_ROOT = "./assets/fankits/shadowverse-ccg/extracted/Backgrounds/Backgrounds/";
 const CCG_BACKGROUNDS = [
-  "./assets/fankits/shadowverse-ccg/extracted/Backgrounds/Backgrounds/background_Castle.png",
-  "./assets/fankits/shadowverse-ccg/extracted/Backgrounds/Backgrounds/background_DarkForest.png",
-  "./assets/fankits/shadowverse-ccg/extracted/Backgrounds/Backgrounds/background_Darkstone.png",
-  "./assets/fankits/shadowverse-ccg/extracted/Backgrounds/Backgrounds/background_Forest.png",
-  "./assets/fankits/shadowverse-ccg/extracted/Backgrounds/Backgrounds/background_Hall.png",
-  "./assets/fankits/shadowverse-ccg/extracted/Backgrounds/Backgrounds/background_Laboratory.png",
-  "./assets/fankits/shadowverse-ccg/extracted/Backgrounds/Backgrounds/background_Lake.png",
-  "./assets/fankits/shadowverse-ccg/extracted/Backgrounds/Backgrounds/background_Lake_Night.png",
-  "./assets/fankits/shadowverse-ccg/extracted/Backgrounds/Backgrounds/background_Mansion.png",
-  "./assets/fankits/shadowverse-ccg/extracted/Backgrounds/Backgrounds/background_Map.png"
-];
+  "background_Castle.png",
+  "background_DarkForest.png",
+  "background_Darkstone.png",
+  "background_Forest.png",
+  "background_Hall.png",
+  "background_Laboratory.png",
+  "background_Lake.png",
+  "background_Lake_Night.png",
+  "background_Mansion.png",
+  "background_Map.png",
+  "background_Mausoleum.png",
+  "background_Morning_Star.png",
+  "background_Mountains.png",
+  "background_Track.png",
+  "background_Track_Morning.png",
+  "background_Track_Night.png"
+].map(name => `${CCG_BACKGROUND_ROOT}${name}`);
 
 renderDeckCounts();
 renderDatasetCounts();
@@ -75,7 +82,8 @@ function bindGameProfileButtons() {
 }
 
 async function applyRandomFanKitBackground() {
-  const pool = [...CCG_BACKGROUNDS, ...await readWorldsBeyondBackgrounds()];
+  const worldsBeyond = await readWorldsBeyondBackgrounds();
+  const pool = [...CCG_BACKGROUNDS, ...worldsBeyond];
   if (pool.length === 0) return;
 
   const start = Math.floor(Math.random() * pool.length);
@@ -90,19 +98,21 @@ async function applyRandomFanKitBackground() {
 
 async function readWorldsBeyondBackgrounds() {
   try {
-    const response = await fetch("./assets/fankits/worlds-beyond/manifest.json", { cache: "no-store" });
+    const root = new URL("./assets/fankits/worlds-beyond/", location.href);
+    const response = await fetch(new URL("manifest.json", root), { cache: "no-store" });
     if (!response.ok) return [];
     const manifest = await response.json();
 
     const declared = Array.isArray(manifest.backgrounds) ? manifest.backgrounds : [];
     const archivedImages = Array.isArray(manifest.files)
       ? manifest.files
+          .filter(entry => entry?.kind === "background" || /(?:background|\bbg\b)/i.test(String(entry?.file ?? "")))
           .map(entry => String(entry?.file ?? ""))
-          .filter(file => /(?:background|\bbg\b)/i.test(file) && /\.(?:png|jpe?g|webp)$/i.test(file))
+          .filter(file => /\.(?:png|jpe?g|webp)$/i.test(file))
       : [];
 
-    return [...declared, ...archivedImages]
-      .map(file => new URL(file, new URL("./assets/fankits/worlds-beyond/", location.href)).href);
+    return [...new Set([...declared, ...archivedImages])]
+      .map(file => new URL(file, root).href);
   } catch {
     return [];
   }
