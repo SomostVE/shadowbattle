@@ -1,4 +1,5 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
+import { restoreOriginalCardForm } from "../../zone-actions.js";
 import { resolveWorldsBeyondTrigger } from "./effect-resolver.js";
 
 export function runWorldsBeyondTurnStart(session, playerIndex) {
@@ -48,6 +49,7 @@ function destroyCountdownAmulet(session, playerIndex, amulet) {
     payload: { owner: playerIndex, card: session.cardView(amulet), reason: "countdown" }
   });
   resolveWorldsBeyondTrigger(session, { trigger: "last-words", playerIndex, source: amulet });
+  restoreOriginalCardForm(amulet);
   return amulet;
 }
 
