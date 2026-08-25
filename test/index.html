@@ -4,24 +4,26 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#090b14">
-  <title>ShadowBattle AI Test Lab</title>
-  <link rel="stylesheet" href="../src/ui/shadowbattle.css?v=0.4.12">
-  <script type="module" src="../src/ui/version-guard.js?v=0.4.12"></script>
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <title>ShadowBattle Internal AI Test Lab</title>
+  <link rel="stylesheet" href="../src/ui/shadowbattle.css?v=0.4.13">
+  <script type="module" src="../src/ui/version-guard.js?v=0.4.13"></script>
 </head>
 <body data-game="shadowverse-ccg">
   <main class="sb-shell">
     <header class="sb-topbar">
       <a class="sb-brand" href="../"><span class="sb-mark">✦</span><span>ShadowBattle</span></a>
-      <nav class="sb-nav" aria-label="Main navigation">
+      <nav class="sb-nav" aria-label="Internal navigation">
+        <a href="../">Public hub</a>
         <a href="../decks/">Deckbuilder</a>
         <a href="../library/">Deck Library</a>
         <a href="../api/">API</a>
-        <a href="./" aria-current="page">AI Test Lab</a>
+        <a href="./" aria-current="page">Internal AI Lab</a>
       </nav>
     </header>
 
     <section class="sb-hero">
-      <div class="sb-eyebrow">Logic sandbox</div>
+      <div class="sb-eyebrow">Internal logic sandbox</div>
       <h1>/test</h1>
       <p>Deterministic scenarios for developing ShadowBattle's intermediate AI before those decisions are connected to the real interactive battle engine.</p>
     </section>
@@ -80,6 +82,6 @@
       <article class="sb-card"><div class="sb-eyebrow">Planned harness</div><h3>Next test inputs</h3><p>Deck list, known opponent cards, turn state, legal actions, hidden-information samples, candidate plans and replayable AI explanations.</p></article>
     </section>
   </main>
-  <script type="module" src="../src/test/test-page.js?v=0.4.12"></script>
+  <script type="module" src="../src/test/test-page.js?v=0.4.13"></script>
 </body>
 </html>
