@@ -86,7 +86,9 @@ await fs.writeFile(CCG_CATALOG_PATH, json({
   cards: ccgCards
 }));
 
-const cbSourceCards = sourceCards.filter(card => CHAMPIONS_BATTLE_BASE_SETS.has(Number(card.card_set_id)));
+const cbSourceCards = sourceCards.filter(card =>
+  CHAMPIONS_BATTLE_BASE_SETS.has(Number(card.card_set_id)) && Number(card.clan) !== 8
+);
 if (cbSourceCards.length < 600) throw new Error(`Champion's Battle base pool unexpectedly small: ${cbSourceCards.length}`);
 const cbCards = cbSourceCards.map(card => compactCard(card, "champions-battle", "svcb"));
 await fs.mkdir(CB_DIR, { recursive: true });
@@ -98,6 +100,7 @@ await fs.writeFile(CB_CARDS_PATH, json({
   source: "local Shadowverse CCG archive",
   basePoolComplete: true,
   exclusiveCardsComplete: false,
+  portalcraftIncluded: false,
   sourceSets: [...CHAMPIONS_BATTLE_BASE_SETS],
   cardCount: cbSourceCards.length,
   cards: cbSourceCards
@@ -110,6 +113,7 @@ await fs.writeFile(CB_CATALOG_PATH, json({
   source: "./cards.json",
   basePoolComplete: true,
   exclusiveCardsComplete: false,
+  portalcraftIncluded: false,
   cardCount: cbCards.length,
   cards: cbCards
 }));
@@ -131,6 +135,7 @@ await fs.writeFile(CB_MANIFEST_PATH, json({
   cardCount: cbCards.length,
   basePoolComplete: true,
   exclusiveCardsComplete: false,
+  portalcraftIncluded: false,
   sourceSets: [
     { id: 10000, name: "Basic" },
     { id: 10001, name: "Classic" },
@@ -141,7 +146,7 @@ await fs.writeFile(CB_MANIFEST_PATH, json({
     cards: "./cards.json",
     catalog: "./catalog.json"
   },
-  notes: "The shared launch-era card pool is materialized locally. Champion's Battle-exclusive cards must be added as a dedicated svcb-only layer after their dataset is audited."
+  notes: "The shared launch-era card pool is materialized locally without Portalcraft. Champion's Battle-exclusive cards must be added as a dedicated svcb-only layer after their dataset is audited."
 }));
 
 console.log(`Built ${ccgCards.length} CCG deckbuilding cards and ${cbCards.length} Champion's Battle base cards.`);
