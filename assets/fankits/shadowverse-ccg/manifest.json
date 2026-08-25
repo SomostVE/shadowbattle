@@ -1,0 +1,227 @@
+{
+  "schemaVersion": 1,
+  "gameId": "shadowverse-ccg",
+  "source": "official-cygames-fankit",
+  "sourcePage": "https://shadowverse.com/special/fankit/",
+  "fetchedAt": "2026-08-25T06:58:43.397Z",
+  "status": "archived",
+  "fileCount": 36,
+  "files": [
+    {
+      "file": "./downloads/9d33fe1601f90fdff2e0ca2c111d8793.png",
+      "sourceUrl": "https://shadowverse.com/news/wp-content/uploads/9d33fe1601f90fdff2e0ca2c111d8793.png",
+      "bytes": 466876,
+      "sha256": "c236067a4f57c4de412c96f44d1b3a95e728953114dad29f52afc2ff62a3f36b"
+    },
+    {
+      "file": "./downloads/182e1bc597b2b63126f7ab59fd98bc4e.png",
+      "sourceUrl": "https://shadowverse.com/news/wp-content/uploads/182e1bc597b2b63126f7ab59fd98bc4e.png",
+      "bytes": 2197702,
+      "sha256": "c3e280127854d41d9d9d36890f9e06ad0b5a4ef7e210dbe75e628a25a21123c3"
+    },
+    {
+      "file": "./downloads/b27639c9784ca278a691caeb9d4e93e0.png",
+      "sourceUrl": "https://shadowverse.com/news/wp-content/uploads/b27639c9784ca278a691caeb9d4e93e0.png",
+      "bytes": 1356082,
+      "sha256": "7c7336f0c64dc7e06a981a579f185eb9b7e1b02044ede3570e9b2787595488bf"
+    },
+    {
+      "file": "./downloads/253dd1e883b4d7321f7ac1beafe70ed8.png",
+      "sourceUrl": "https://shadowverse.com/news/wp-content/uploads/253dd1e883b4d7321f7ac1beafe70ed8.png",
+      "bytes": 2231389,
+      "sha256": "d65d580ec69dcdff5a8ff0129a778e8162c6ce94d60b0f06476ef48dfa4241ff"
+    },
+    {
+      "file": "./downloads/901c3e6a67997c9371bf6cd567b4ab50.png",
+      "sourceUrl": "https://shadowverse.com/news/wp-content/uploads/901c3e6a67997c9371bf6cd567b4ab50.png",
+      "bytes": 2458341,
+      "sha256": "fb2900de712e2c4ab628410d410bd3a6003f4b291dede968de26e0edabca1102"
+    },
+    {
+      "file": "./downloads/e6e42e368446f7e2d4e856a41f728ffa.png",
+      "sourceUrl": "https://shadowverse.com/news/wp-content/uploads/e6e42e368446f7e2d4e856a41f728ffa.png",
+      "bytes": 2779274,
+      "sha256": "688c5c3ac685930bbf118a209301653f0db2b9bf316c49e7f47d7b5803971f28"
+    },
+    {
+      "file": "./downloads/d5cb2687046af048ec9e8b58d0bd1578.png",
+      "sourceUrl": "https://shadowverse.com/news/wp-content/uploads/d5cb2687046af048ec9e8b58d0bd1578.png",
+      "bytes": 1552911,
+      "sha256": "38d990e63d24aecfc69b1dc9f433a85ebcc34bb7fa519c971fb51d2eb5752415"
+    },
+    {
+      "file": "./downloads/a1da70f362b8a8fe998ee1393a109190.png",
+      "sourceUrl": "https://shadowverse.com/news/wp-content/uploads/a1da70f362b8a8fe998ee1393a109190.png",
+      "bytes": 1942982,
+      "sha256": "bb77a9be61f62a297d1984a58201669f84fb3abd8214dd9bdd9009d08c4a62ee"
+    },
+    {
+      "file": "./downloads/8d2045b7236b8e863037906a6ae47569.png",
+      "sourceUrl": "https://shadowverse.com/news/wp-content/uploads/8d2045b7236b8e863037906a6ae47569.png",
+      "bytes": 1973164,
+      "sha256": "5ca02a45c9f9cfea4028794b71a07bcdbdaf210f1e2f123e19e314c63aa1c2d3"
+    },
+    {
+      "file": "./downloads/418e8a2e678ea9b970f595013f8c20a9.png",
+      "sourceUrl": "https://shadowverse.com/news/wp-content/uploads/418e8a2e678ea9b970f595013f8c20a9.png",
+      "bytes": 2151171,
+      "sha256": "a8609101b2e125ec1693c3d4d8fa7798b612c84708d4329e76dcdd71905fad77"
+    },
+    {
+      "file": "./downloads/c07ce04205b3ba41bb284d84aec512e7.png",
+      "sourceUrl": "https://shadowverse.com/news/wp-content/uploads/c07ce04205b3ba41bb284d84aec512e7.png",
+      "bytes": 2173302,
+      "sha256": "fe42037326c77e1e47a3103912624e7e51b4c52e191a17b66340f24d717871f8"
+    },
+    {
+      "file": "./downloads/a8f52b35b96d67a36bb05e9256794f24.png",
+      "sourceUrl": "https://shadowverse.com/news/wp-content/uploads/a8f52b35b96d67a36bb05e9256794f24.png",
+      "bytes": 2293141,
+      "sha256": "7d346e11911a5fa5f7da09b778d8228c41404bbac4b00f6a9e9b3b7ae0f74804"
+    },
+    {
+      "file": "./downloads/b7a811e41bf1539258f5e64e31aeae41.png",
+      "sourceUrl": "https://shadowverse.com/news/wp-content/uploads/b7a811e41bf1539258f5e64e31aeae41.png",
+      "bytes": 1854193,
+      "sha256": "fbada1a474366defa2f4f9fb18b96e03a043072f2755547f34cf7493a26eb596"
+    },
+    {
+      "file": "./downloads/e53e1637c275081f72cc3f244bb75acf.png",
+      "sourceUrl": "https://shadowverse.com/news/wp-content/uploads/e53e1637c275081f72cc3f244bb75acf.png",
+      "bytes": 2028063,
+      "sha256": "19631995d889ebf98462adac9777cd905ab1b882d0c08814a6617198802cdc06"
+    },
+    {
+      "file": "./downloads/1ceb345123df141e8d4468d234c61d92.png",
+      "sourceUrl": "https://shadowverse.com/news/wp-content/uploads/1ceb345123df141e8d4468d234c61d92.png",
+      "bytes": 2433390,
+      "sha256": "42dbc725267122f7c682fc8d0b5ec4b74ecee9512503df3b620f06300cecb12f"
+    },
+    {
+      "file": "./downloads/2c8984ef1f120afc34503b8329f7efa9.png",
+      "sourceUrl": "https://shadowverse.com/news/wp-content/uploads/2c8984ef1f120afc34503b8329f7efa9.png",
+      "bytes": 2423939,
+      "sha256": "4c419f20add0d1ac03131c062d59fd9859c6b9c7dedbc3a4035ff148550e742b"
+    },
+    {
+      "file": "./downloads/cf69f9353fb3f26e2e7de2d9aec24340.png",
+      "sourceUrl": "https://shadowverse.com/news/wp-content/uploads/cf69f9353fb3f26e2e7de2d9aec24340.png",
+      "bytes": 2750427,
+      "sha256": "510bb8b0600905bf7b0003cf30d07a360362f1a0f4162d75fe92cc58ed839f5a"
+    },
+    {
+      "file": "./downloads/eea3c56f10503b6eca8e7aa58246940d.png",
+      "sourceUrl": "https://shadowverse.com/news/wp-content/uploads/eea3c56f10503b6eca8e7aa58246940d.png",
+      "bytes": 3133598,
+      "sha256": "04a5d3476b95e71fcc5a98da3d3476a06cf28f9cacd95a61b416f2b85be5e2bf"
+    },
+    {
+      "file": "./downloads/a03e6c0c89eff2f959600d0546e6226a.png",
+      "sourceUrl": "https://shadowverse.com/news/wp-content/uploads/a03e6c0c89eff2f959600d0546e6226a.png",
+      "bytes": 2613275,
+      "sha256": "f0044260c6f292eb56c12d9889d3c50eedb2ea61388a13fb140d85925c06b3f6"
+    },
+    {
+      "file": "./downloads/acdfe0c2d1f00abda8c1d16e39973df8.png",
+      "sourceUrl": "https://shadowverse.com/news/wp-content/uploads/acdfe0c2d1f00abda8c1d16e39973df8.png",
+      "bytes": 2840269,
+      "sha256": "14044427f00dcdd192fa812e6b021a0b92a391ab9be02c8c2b9728e32e28a7aa"
+    },
+    {
+      "file": "./downloads/da870d915420a85aae62fb363f4646ce.png",
+      "sourceUrl": "https://shadowverse.com/news/wp-content/uploads/da870d915420a85aae62fb363f4646ce.png",
+      "bytes": 2812845,
+      "sha256": "e94a06e1d1036f803da6d5c7e21e793c63b6950e80ab015192ff6dbda1303e03"
+    },
+    {
+      "file": "./downloads/303be7de1470fba1d575ebd6805e01e3.png",
+      "sourceUrl": "https://shadowverse.com/news/wp-content/uploads/303be7de1470fba1d575ebd6805e01e3.png",
+      "bytes": 2269878,
+      "sha256": "11285ae9094debd4212a6f14521e11db203a6e96fb5f376463b2307ad3c912e6"
+    },
+    {
+      "file": "./downloads/e169003e0740a80a750eecbcb12785ca.png",
+      "sourceUrl": "https://shadowverse.com/news/wp-content/uploads/e169003e0740a80a750eecbcb12785ca.png",
+      "bytes": 1659170,
+      "sha256": "46bc61521e1008a753879b4e88cc9975e586c9ff7f2029b85c124c8196709567"
+    },
+    {
+      "file": "./downloads/997be027bb36db5c32ab86c3d9859555.png",
+      "sourceUrl": "https://shadowverse.com/news/wp-content/uploads/997be027bb36db5c32ab86c3d9859555.png",
+      "bytes": 1917855,
+      "sha256": "4c3add3a1929f0f264aa4e7aa75a42b9cb8f3cae3d877ebd533318b589247535"
+    },
+    {
+      "file": "./downloads/27efea4b2a60e2aa7606ffa9a21b79d0.png",
+      "sourceUrl": "https://shadowverse.com/news/wp-content/uploads/27efea4b2a60e2aa7606ffa9a21b79d0.png",
+      "bytes": 2251320,
+      "sha256": "2e5b3a75f3008a0a35d7c2b341ffb8bc3bc7f12392d68206260ebd277d642575"
+    },
+    {
+      "file": "./downloads/929b02a61636e24814a77ec445a4ebbd.png",
+      "sourceUrl": "https://shadowverse.com/news/wp-content/uploads/929b02a61636e24814a77ec445a4ebbd.png",
+      "bytes": 2750786,
+      "sha256": "15eccab21c231c6635e7f687c7a23c7292115a018e308eecb9869cca4591ea46"
+    },
+    {
+      "file": "./downloads/29ea740060c7bfd0b0114bececa56afe.png",
+      "sourceUrl": "https://shadowverse.com/news/wp-content/uploads/29ea740060c7bfd0b0114bececa56afe.png",
+      "bytes": 1982678,
+      "sha256": "b4d523ecc4d6a3dcab573d2e913ac7fe70b44bd0a19af7b5421ffc12b2a558f9"
+    },
+    {
+      "file": "./downloads/033ff5c5e37290cd5dd1194bbf32c40a.png",
+      "sourceUrl": "https://shadowverse.com/news/wp-content/uploads/033ff5c5e37290cd5dd1194bbf32c40a.png",
+      "bytes": 2651319,
+      "sha256": "c74bf9d4219303d667235933f77be00813e9c17c12a4731377ade2e0556e0140"
+    },
+    {
+      "file": "./downloads/c086889080437cd3b89e609e1de482e5.png",
+      "sourceUrl": "https://shadowverse.com/news/wp-content/uploads/c086889080437cd3b89e609e1de482e5.png",
+      "bytes": 2748602,
+      "sha256": "0857ef999355d91dc6ae7de6b0f99a04e7cdd5f70632668a2167e9c222cffbc0"
+    },
+    {
+      "file": "./downloads/e21775026d7e6d71c7377369dcfc4e4d.png",
+      "sourceUrl": "https://shadowverse.com/news/wp-content/uploads/e21775026d7e6d71c7377369dcfc4e4d.png",
+      "bytes": 2779009,
+      "sha256": "57020f900ae68cb42fb44fc38f1e692c2ed9e2195c5c7e7c13eb12605f4b70a0"
+    },
+    {
+      "file": "./downloads/520608726b94564769c031d78acc4c27.png",
+      "sourceUrl": "https://shadowverse.com/news/wp-content/uploads/520608726b94564769c031d78acc4c27.png",
+      "bytes": 1949531,
+      "sha256": "0baf0896038b2f2bc824b27fb0a50c1342c86a7a778ca15a1ed95f06575dc332"
+    },
+    {
+      "file": "./downloads/a29098b137032a2aecd3e2f4468cda7d.png",
+      "sourceUrl": "https://shadowverse.com/news/wp-content/uploads/a29098b137032a2aecd3e2f4468cda7d.png",
+      "bytes": 2186334,
+      "sha256": "9655a839c20fb24dd9872c935e10bd2515fffc4f7ce9041bc256c425fcd1755c"
+    },
+    {
+      "file": "./downloads/48113ee0dacc285c2bdc6d7a814bba58.png",
+      "sourceUrl": "https://shadowverse.com/news/wp-content/uploads/48113ee0dacc285c2bdc6d7a814bba58.png",
+      "bytes": 2411316,
+      "sha256": "5e27298fa49f21eb21f902017bf719dc3dce392b8b9e8c57c1aa7844d9932023"
+    },
+    {
+      "file": "./downloads/Characters-1.zip",
+      "sourceUrl": "https://shadowverse.com/news/wp-content/uploads/Characters-1.zip",
+      "bytes": 59648873,
+      "sha256": "537cd478b8d07258e759ae87c55d36a6383a14fb7ee44a30db97cc1ad9ec1d37"
+    },
+    {
+      "file": "./downloads/RankIcons-1.zip",
+      "sourceUrl": "https://shadowverse.com/news/wp-content/uploads/RankIcons-1.zip",
+      "bytes": 8260888,
+      "sha256": "f685e5c6ca0a59fa540fa82714c223e47a33e333e4107fbb163f5687057f21d2"
+    },
+    {
+      "file": "./downloads/Backgrounds.zip",
+      "sourceUrl": "https://shadowverse.com/news/wp-content/uploads/Backgrounds.zip",
+      "bytes": 65734266,
+      "sha256": "77f622f25bd57491623f94bc78206d0d021b55c96f005b9eb741456ee16613c7"
+    }
+  ]
+}

@@ -1,10 +1,152 @@
 {
+  "schemaVersion": 1,
   "gameId": "shadowverse-ccg",
-  "namespace": "sv1",
-  "status": "source-validation",
-  "provider": "Shadowverse Portal adapter (planned)",
-  "source": "https://shadowverse-portal.com/cards",
-  "materializedCardsEndpoint": "./cards.json",
-  "materialized": false,
-  "notes": "Legacy Shadowverse CCG data must be normalized independently from Worlds Beyond before this endpoint is materialized."
+  "dataNamespace": "sv1",
+  "available": true,
+  "archival": true,
+  "runtimeSource": "local",
+  "sourceEndpoint": "https://shadowverse-portal.com/api/v1/cards",
+  "fetchedAt": "2026-08-25T06:58:25.839Z",
+  "cardCount": 5933,
+  "cardsSha256": "71aba7612c35d128fa8f1406e41b97dd00bd2e4054eb90370aa8526b1478e236",
+  "languages": {
+    "en": {
+      "cardCount": 5933,
+      "sha256": "5a5dd8e07fe4914886d85bc105689ee3387b0438f64eda4f576299b3f51d531d"
+    },
+    "ja": {
+      "cardCount": 5933,
+      "sha256": "e8e277785f71efb2e91cd28fa42832c0c7a9872885b4e2a2ad11bd21ce6e31a0"
+    },
+    "ko": {
+      "cardCount": 5933,
+      "sha256": "5c289595be5bb3d485391dfcc9b4536612caa36f0c3db92c0918525cdadd4f27"
+    },
+    "zh-tw": {
+      "cardCount": 5933,
+      "sha256": "fc0c930c19cd045aafe95e0e0865c89597b45e9c947109557dcc55146e7a125c"
+    },
+    "fr": {
+      "cardCount": 5933,
+      "sha256": "b985c107623e22b47696e34def36fa0137f4e867d2df8d2e8a75f500da98970a"
+    },
+    "it": {
+      "cardCount": 5933,
+      "sha256": "cde915ecf296978bdd53b18440a7503934ab4a976ab4df073bbd63b4105927d8"
+    },
+    "de": {
+      "cardCount": 5933,
+      "sha256": "2fca7b5c223dcc1787cb1e199226bb3197dfb77ded9f692d55e152ac62fc444e"
+    },
+    "es": {
+      "cardCount": 5933,
+      "sha256": "ee11b8a413d477d23eac0816b7f95b16fc0e04a9e47ff7792e50b32846eb8f15"
+    }
+  },
+  "counts": {
+    "clan": {
+      "0": 536,
+      "1": 637,
+      "2": 689,
+      "3": 689,
+      "4": 703,
+      "5": 701,
+      "6": 664,
+      "7": 667,
+      "8": 647
+    },
+    "cardSet": {
+      "10000": 97,
+      "10001": 320,
+      "10002": 109,
+      "10003": 108,
+      "10004": 104,
+      "10005": 105,
+      "10006": 106,
+      "10007": 141,
+      "10008": 117,
+      "10009": 114,
+      "10010": 119,
+      "10011": 115,
+      "10012": 116,
+      "10013": 118,
+      "10014": 118,
+      "10015": 118,
+      "10016": 116,
+      "10017": 118,
+      "10018": 117,
+      "10019": 115,
+      "10020": 117,
+      "10021": 121,
+      "10022": 121,
+      "10023": 129,
+      "10024": 120,
+      "10025": 121,
+      "10026": 117,
+      "10027": 123,
+      "10028": 117,
+      "10029": 118,
+      "10030": 116,
+      "10031": 115,
+      "10032": 125,
+      "20001": 1,
+      "20002": 4,
+      "70001": 7,
+      "70002": 7,
+      "70003": 2,
+      "70004": 15,
+      "70005": 8,
+      "70006": 2,
+      "70008": 3,
+      "70009": 3,
+      "70010": 3,
+      "70011": 2,
+      "70012": 9,
+      "70013": 3,
+      "70014": 2,
+      "70016": 2,
+      "70017": 8,
+      "70018": 7,
+      "70019": 2,
+      "70020": 3,
+      "70021": 28,
+      "70022": 1,
+      "70023": 6,
+      "70024": 8,
+      "70025": 9,
+      "70026": 8,
+      "70027": 7,
+      "70028": 4,
+      "70029": 5,
+      "70030": 1,
+      "90000": 1712
+    },
+    "cardType": {
+      "1": 3983,
+      "2": 164,
+      "3": 308,
+      "4": 1478
+    },
+    "rarity": {
+      "1": 1632,
+      "2": 1240,
+      "3": 1292,
+      "4": 1769
+    }
+  },
+  "files": {
+    "cards": "./cards.json",
+    "dataHeaders": "./data-headers.json",
+    "imageIndex": "./image-index.json",
+    "locales": {
+      "en": "./locales/cards.en.json",
+      "ja": "./locales/cards.ja.json",
+      "ko": "./locales/cards.ko.json",
+      "zh-tw": "./locales/cards.zh-tw.json",
+      "fr": "./locales/cards.fr.json",
+      "it": "./locales/cards.it.json",
+      "de": "./locales/cards.de.json",
+      "es": "./locales/cards.es.json"
+    }
+  }
 }
