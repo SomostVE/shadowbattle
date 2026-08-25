@@ -7,10 +7,11 @@
   <title>ShadowBattle Decks</title>
   <link rel="dns-prefetch" href="//shadowverse-portal.com">
   <link rel="preconnect" href="https://shadowverse-portal.com">
-  <link rel="stylesheet" href="../src/ui/deckbuilder.css?v=0.4.6">
-  <link rel="stylesheet" href="../src/ui/deck-enhancements.css?v=0.4.6">
-  <link rel="stylesheet" href="../src/ui/beyond-decks-v2.css?v=0.4.6">
-  <script type="module" src="../src/ui/version-guard.js?v=0.4.6"></script>
+  <link rel="stylesheet" href="../src/ui/deckbuilder.css?v=0.4.7">
+  <link rel="stylesheet" href="../src/ui/deck-enhancements.css?v=0.4.7">
+  <link rel="stylesheet" href="../src/ui/beyond-decks-v2.css?v=0.4.7">
+  <link rel="stylesheet" href="../src/ui/deck-assistant.css?v=0.4.7">
+  <script type="module" src="../src/ui/version-guard.js?v=0.4.7"></script>
 </head>
 <body class="db-page" data-game="shadowverse-ccg">
   <header class="db-app-header">
@@ -95,9 +96,25 @@
         <select id="deck-set" class="db-input"><option value="all">All sets</option></select>
       </section>
 
+      <section>
+        <div class="db-assistant-filter-head">
+          <h2>Traits</h2>
+          <small>deck synergy</small>
+        </div>
+        <div id="deck-trait-filter" class="db-assistant-filter-list" aria-label="Trait filters"></div>
+      </section>
+
+      <section>
+        <div class="db-assistant-filter-head">
+          <h2>Keywords</h2>
+          <small>effect mechanics</small>
+        </div>
+        <div id="deck-keyword-filter" class="db-assistant-filter-list" aria-label="Keyword filters"></div>
+      </section>
+
       <section class="db-sidebar-note">
-        <h2>Card art</h2>
-        <p>Click a card to add it. Use ⤢ to inspect it. Followers expose Normal and Evolved art through the C_&lt;id&gt; / E_&lt;id&gt; pair.</p>
+        <h2>Card assistant</h2>
+        <p>Hover a card to inspect traits, keywords, effect text, cards it creates or summons, and deckbuilding cards that reference it. Pin the panel to browse linked cards.</p>
       </section>
     </aside>
 
@@ -196,7 +213,8 @@
     </div>
   </dialog>
 
-  <script src="../src/ui/deck-ui-enhancements.js?v=0.4.6"></script>
-  <script type="module" src="../src/decks/deckbuilder-page.js?v=0.4.6"></script>
+  <script src="../src/ui/deck-ui-enhancements.js?v=0.4.7"></script>
+  <script type="module" src="../src/decks/deckbuilder-page.js?v=0.4.7"></script>
+  <script type="module" src="../src/decks/deck-assistant-page.js?v=0.4.7"></script>
 </body>
 </html>
