@@ -44,6 +44,7 @@
 
     const getMode = () => localStorage.getItem(CARD_POOL_MODE_KEY) === "neutral" ? "neutral" : "class";
     const setMode = mode => localStorage.setItem(CARD_POOL_MODE_KEY, mode === "neutral" ? "neutral" : "class");
+    const refreshCards = () => document.getElementById("deck-search")?.dispatchEvent(new Event("input", { bubbles: true }));
 
     const sync = button => {
       const neutral = getMode() === "neutral";
@@ -76,7 +77,7 @@
         event.stopPropagation();
         setMode("neutral");
         sync(neutralButton);
-        document.getElementById("deck-search")?.dispatchEvent(new Event("input", { bubbles: true }));
+        refreshCards();
         return;
       }
 
@@ -86,6 +87,10 @@
         setMode("class");
         const button = root.querySelector("[data-neutral-toggle]");
         if (button) sync(button);
+        // Clicking the already-selected craft while viewing Neutral would make
+        // the main craft handler no-op. Refresh it here so class ↔ Neutral is
+        // seamless in both directions.
+        if (classButton.classList.contains("active")) refreshCards();
       }
     }, true);
 
