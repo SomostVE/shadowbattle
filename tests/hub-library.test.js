@@ -9,6 +9,7 @@ const hubBeyondCss = await fs.readFile(new URL("src/ui/hub-beyond.css", root), "
 const hubJs = await fs.readFile(new URL("src/ui/hub.js", root), "utf8");
 const referenceDeckLoader = await fs.readFile(new URL("src/ai/reference-decks.js", root), "utf8");
 const botDecks = JSON.parse(await fs.readFile(new URL("api/v1/worlds-beyond/bot-decks.json", root), "utf8"));
+const wbFanKit = JSON.parse(await fs.readFile(new URL("assets/fankits/worlds-beyond/manifest.json", root), "utf8"));
 const deckPage = await fs.readFile(new URL("decks/index.html", root), "utf8");
 const library = await fs.readFile(new URL("library/index.html", root), "utf8");
 const apiPage = await fs.readFile(new URL("api/index.html", root), "utf8");
@@ -38,6 +39,7 @@ test("landing page is a compact game-first ShadowBattle hub", () => {
   assert.match(hub, /id="hub-cb-player-count"/);
   assert.match(hub, /id="hub-wb-player-count"/);
   assert.match(hubBeyondCss, /grid-template-rows:\s*auto repeat\(3, minmax\(0, 1fr\)\)/);
+  assert.match(hubBeyondCss, /grid-template-columns:\s*minmax\(0, 1\.68fr\) minmax\(430px, \.82fr\)/);
   assert.doesNotMatch(hub, /hub-topbar|hub-nav/);
   assert.doesNotMatch(hub, /href="\.\/test\/"/);
   assert.doesNotMatch(hub, /AI Test Lab/);
@@ -48,13 +50,37 @@ test("landing page is a compact game-first ShadowBattle hub", () => {
   assert.match(hubCss, /--accent:\s*#72b8ff/);
 });
 
-test("hub rotates official fan-kit backgrounds and is ready for Worlds Beyond assets", () => {
+test("landing page exposes the official fan-kit background behind translucent glass panels", () => {
+  assert.match(hubBeyondCss, /body\.hub-page::before\s*\{[\s\S]*?z-index:\s*0/);
+  assert.match(hubBeyondCss, /body\.hub-page::after\s*\{[\s\S]*?z-index:\s*1/);
+  assert.match(hubBeyondCss, /\.hub-page \.hub-shell\s*\{[\s\S]*?z-index:\s*2/);
+  assert.match(hubBeyondCss, /rgba\(35,50,70,\.64\)/);
+  assert.match(hubBeyondCss, /backdrop-filter:\s*blur\(3px\)/);
+});
+
+test("hub rotates archived CCG and Worlds Beyond Fan Kit backgrounds", async () => {
   assert.match(hubJs, /background_Castle\.png/);
   assert.match(hubJs, /background_Lake_Night\.png/);
+  assert.match(hubJs, /background_Morning_Star\.png/);
+  assert.match(hubJs, /background_Track_Night\.png/);
   assert.match(hubJs, /readWorldsBeyondBackgrounds/);
   assert.match(hubJs, /worlds-beyond\/manifest\.json/);
   assert.match(hubJs, /Math\.random/);
   assert.match(hub, /© Cygames, Inc\./);
+
+  assert.equal(wbFanKit.status, "archived");
+  assert.equal(wbFanKit.source, "official-cygames-fankit");
+  assert.equal(wbFanKit.backgrounds.length, 9);
+  assert.equal(wbFanKit.logo, "./logo_ShadowverseWB.png");
+  assert.match(hub, /assets\/fankits\/worlds-beyond\/logo_ShadowverseWB\.png/);
+
+  for (const entry of wbFanKit.files) {
+    assert.ok(entry.bytes > 100_000, `${entry.file} should be a real archived asset`);
+    assert.match(entry.sourceUrl, /shadowverse-wb\.com\/uploads\/fankit\//);
+    const file = new URL(`assets/fankits/worlds-beyond/${entry.file.replace(/^\.\//, "")}`, root);
+    const bytes = await fs.readFile(file);
+    assert.deepEqual([...bytes.subarray(0, 8)], [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  }
 });
 
 test("Beyond Decks AI reference pool is vendored under the svwb namespace", () => {
