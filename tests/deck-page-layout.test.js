@@ -5,8 +5,12 @@ import fs from "node:fs/promises";
 const html = await fs.readFile(new URL("../decks/index.html", import.meta.url), "utf8");
 const pageJs = await fs.readFile(new URL("../src/decks/deckbuilder-page.js", import.meta.url), "utf8");
 const gridJs = await fs.readFile(new URL("../src/decks/card-grid.js", import.meta.url), "utf8");
+const catalogJs = await fs.readFile(new URL("../src/decks/catalog.js", import.meta.url), "utf8");
+const assistantJs = await fs.readFile(new URL("../src/decks/card-assistant.js", import.meta.url), "utf8");
+const assistantPageJs = await fs.readFile(new URL("../src/decks/deck-assistant-page.js", import.meta.url), "utf8");
 const enhancementsJs = await fs.readFile(new URL("../src/ui/deck-ui-enhancements.js", import.meta.url), "utf8");
 const beyondTheme = await fs.readFile(new URL("../src/ui/beyond-decks-v2.css", import.meta.url), "utf8");
+const assistantCss = await fs.readFile(new URL("../src/ui/deck-assistant.css", import.meta.url), "utf8");
 
 test("deckbuilder exposes OG and Champion's Battle editors", () => {
   assert.match(html, /value="shadowverse-ccg"/);
@@ -67,9 +71,31 @@ test("Neutral cards are a separate selectable pool", () => {
   assert.match(enhancementsJs, /Neutral:\s*0/);
   assert.match(enhancementsJs, /data-neutral-toggle/);
   assert.match(enhancementsJs, /shadowbattle:card-pool-mode/);
-  assert.match(gridJs, /poolMode === "neutral"/);
-  assert.match(gridJs, /card\.craft === "Neutral"/);
-  assert.match(gridJs, /card\.craft !== "Neutral"/);
+  assert.match(catalogJs, /poolMode === "neutral"/);
+  assert.match(catalogJs, /card\.craft !== "Neutral"/);
+});
+
+test("deck assistant exposes trait and keyword deck filters", () => {
+  assert.match(html, /id="deck-trait-filter"/);
+  assert.match(html, /id="deck-keyword-filter"/);
+  assert.match(html, /deck-assistant\.css/);
+  assert.match(html, /deck-assistant-page\.js/);
+  assert.match(assistantPageJs, /cardTraits/);
+  assert.match(assistantPageJs, /cardKeywords/);
+  assert.match(assistantPageJs, /selectedTraits/);
+  assert.match(assistantPageJs, /selectedKeywords/);
+  assert.match(assistantCss, /db-assistant-filter-chip/);
+});
+
+test("deck assistant hovers cards and resolves generated cards plus their sources locally", () => {
+  assert.match(assistantJs, /PREVIEW_DELAY/);
+  assert.match(assistantJs, /Generated \/ summoned/);
+  assert.match(assistantJs, /Sources/);
+  assert.match(assistantJs, /buildRelations/);
+  assert.match(assistantJs, /extractReferences/);
+  assert.match(catalogJs, /loadDeckReferenceCards/);
+  assert.match(catalogJs, /api\/v1\/shadowverse-ccg\/cards\.json|shadowverse-ccg\/cards\.json/);
+  assert.match(catalogJs, /deckSelectable:\s*false/);
 });
 
 test("deckbuilder exposes both Beyond Decks import paths", () => {
