@@ -3,81 +3,103 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#090b14">
+  <meta name="theme-color" content="#141d28">
   <title>ShadowBattle</title>
-  <link rel="stylesheet" href="./src/ui/shadowbattle.css?v=0.4.8">
-  <script type="module" src="./src/ui/version-guard.js?v=0.4.8"></script>
+  <link rel="stylesheet" href="./src/ui/hub.css?v=0.4.9">
+  <script type="module" src="./src/ui/version-guard.js?v=0.4.9"></script>
 </head>
-<body data-game="shadowverse-ccg">
-  <main class="sb-shell">
-    <header class="sb-topbar">
-      <a class="sb-brand" href="./">
-        <span class="sb-mark">✦</span>
-        <span>ShadowBattle</span>
+<body>
+  <main class="hub-shell">
+    <header class="hub-topbar">
+      <a class="hub-brand" href="./">
+        <span class="hub-brand-mark">✦</span>
+        <strong>ShadowBattle</strong>
+        <span id="hub-version" class="hub-version">v0.4.9</span>
       </a>
-      <nav class="sb-nav" aria-label="Main navigation">
-        <a href="./decks/">Decks</a>
+      <nav class="hub-nav" aria-label="Main navigation">
+        <a href="./decks/">Deckbuilder</a>
+        <a href="./library/">Deck Library</a>
+        <a href="./test/">AI Test</a>
         <a href="./api/">API</a>
-        <a href="./test/">AI Test Lab</a>
       </nav>
     </header>
 
-    <section class="sb-hero">
-      <div class="sb-eyebrow">Human vs AI Shadowverse sandbox</div>
-      <h1>ShadowBattle</h1>
-      <p>One interactive battle platform for Shadowverse, Shadowverse: Champion's Battle and Shadowverse: Worlds Beyond, with game-specific rules, data and visual profiles kept strictly separated.</p>
-    </section>
-
-    <section class="sb-grid" aria-label="Project areas">
-      <a class="sb-card sb-card-link" href="./decks/">
-        <div class="sb-eyebrow">Deck library</div>
-        <h2>/decks</h2>
-        <p>Build and save original Shadowverse and Champion's Battle decks, and import existing Worlds Beyond decks from Beyond Decks.</p>
-      </a>
-      <a class="sb-card sb-card-link" href="./api/">
-        <div class="sb-eyebrow">Data layer</div>
-        <h2>/api</h2>
-        <p>Namespaced ShadowBattle API. Each game owns its own card IDs, source manifest and normalization boundary.</p>
-      </a>
-      <a class="sb-card sb-card-link" href="./test/">
-        <div class="sb-eyebrow">Development lab</div>
-        <h2>/test</h2>
-        <p>AI logic sandbox for deterministic scenarios, candidate scoring, hidden-information experiments and the intermediate skill profile.</p>
-      </a>
-    </section>
-
-    <section class="sb-section sb-panel">
-      <div class="sb-section-title">
-        <div>
-          <div class="sb-eyebrow">Supported universes</div>
-          <h2>Three isolated game profiles</h2>
+    <section class="hub-hero">
+      <div class="hub-hero-main">
+        <span class="hub-kicker">Human vs AI</span>
+        <h1>ShadowBattle</h1>
+        <p class="hub-tagline">Build. Test. Play.</p>
+        <div class="hub-hero-actions">
+          <a class="hub-primary" href="./decks/">Open Deckbuilder</a>
+          <a class="hub-secondary" href="./library/">Browse Deck Library</a>
         </div>
       </div>
-      <div class="sb-grid">
-        <article>
-          <h3>Shadowverse</h3>
-          <p><code>sv1</code> · archived CCG data + official fan-kit atmosphere + local deckbuilding.</p>
-        </article>
-        <article>
-          <h3>Champion's Battle</h3>
-          <p><code>svcb</code> · local launch-era card pool and separate Switch deck library; exclusive cards remain isolated additions.</p>
-        </article>
-        <article>
-          <h3>Worlds Beyond</h3>
-          <p><code>svwb</code> · Beyond Codex remains the validated upstream data source, with Beyond Decks imports supported.</p>
-        </article>
+
+      <aside class="hub-universe-panel" aria-label="Game profiles">
+        <div class="hub-universe-head">
+          <strong>Game profiles</strong>
+          <span>isolated data + rules</span>
+        </div>
+        <div class="hub-game">
+          <span class="hub-game-code">SV1</span>
+          <div><strong>Shadowverse CCG</strong><small>Original CCG</small></div>
+          <span id="hub-sv1-count" class="hub-game-count">0 saved</span>
+        </div>
+        <div class="hub-game">
+          <span class="hub-game-code">CB</span>
+          <div><strong>Champion's Battle</strong><small>Switch ruleset</small></div>
+          <span id="hub-svcb-count" class="hub-game-count">0 saved</span>
+        </div>
+        <div class="hub-game" data-state="future">
+          <span class="hub-game-code">WB</span>
+          <div><strong>Worlds Beyond</strong><small>Human vs AI provider</small></div>
+          <span class="hub-game-count">Later</span>
+        </div>
+      </aside>
+    </section>
+
+    <section class="hub-statusbar" aria-label="Project status">
+      <div class="hub-stat"><span>CCG archive</span><strong>5,933 cards</strong></div>
+      <div class="hub-stat"><span>Champion's Battle</span><strong>623 base cards</strong></div>
+      <div class="hub-stat"><span>Saved decks</span><strong id="hub-saved-count">0</strong></div>
+      <div class="hub-stat"><span>Battle model</span><strong>Human vs AI</strong></div>
+    </section>
+
+    <div class="hub-section-title">
+      <h2>Workspace</h2>
+      <span>ShadowBattle tools</span>
+    </div>
+
+    <section class="hub-grid" aria-label="ShadowBattle tools">
+      <a class="hub-card" href="./decks/">
+        <span class="hub-card-icon">▦</span>
+        <h3>Deckbuilder</h3>
+        <small>SV1 · CB</small>
+      </a>
+      <a class="hub-card" href="./library/">
+        <span class="hub-card-icon">◆</span>
+        <h3>Deck Library</h3>
+        <small>Filters · event rules</small>
+      </a>
+      <div class="hub-card" data-disabled="true">
+        <span class="hub-card-badge">Coming soon</span>
+        <span class="hub-card-icon">⚔</span>
+        <h3>Battle</h3>
+        <small>Human vs AI</small>
       </div>
+      <a class="hub-card" href="./test/">
+        <span class="hub-card-icon">◈</span>
+        <h3>AI Test Lab</h3>
+        <small>Decision logic</small>
+      </a>
+      <a class="hub-card" href="./api/">
+        <span class="hub-card-icon">{ }</span>
+        <h3>Data / API</h3>
+        <small>sv1 · svcb · svwb</small>
+      </a>
     </section>
-
-    <section class="sb-section sb-panel">
-      <div class="sb-eyebrow">Next</div>
-      <h2>Interactive Battle</h2>
-      <p>The production play surface will run one action at a time: human input, legal-action resolution, then a visible AI turn instead of simulating the whole match at once.</p>
-    </section>
-
-    <footer class="sb-fankit-notice">
-      ShadowBattle is an independent fan project and is not affiliated with or endorsed by Cygames. Shadowverse and related intellectual property are © Cygames, Inc. Official fan-kit material, when enabled, is used subject to the Shadowverse Fan Kit Agreement.
-    </footer>
   </main>
+
+  <script type="module" src="./src/ui/hub.js?v=0.4.9"></script>
 </body>
 </html>
