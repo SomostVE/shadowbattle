@@ -1,11 +1,15 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
+import { resolveEffectCommands } from "../../effect-commands.js";
 import { banishBoardCard, returnBoardCardToHand } from "../../zone-actions.js";
 import { evaluateWorldsBeyondClassCondition } from "./class-conditions.js";
-import { gainWorldsBeyondCrest } from "./crests.js";
 import { getWorldsBeyondEngageInfo } from "./engage.js";
 import { preprocessWorldsBeyondFuseText } from "./fuse.js";
 import { baseText, section } from "./v5/battle-engine-v5-text.js";
 import { targetEffectSpec } from "./v5/battle-engine-v5-targeting.js";
+import {
+  compileWorldsBeyondPostTargetCommands,
+  compileWorldsBeyondPreTargetCommands
+} from "./v6/effect-commands.js";
 
 const SUPPORTED_TARGET_KINDS = new Set(["damage", "destroy", "banish", "return"]);
 
@@ -147,10 +151,10 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
   const enemyIndex = 1 - playerIndex;
   let applied = false;
 
-  for (const match of text.matchAll(/\bGain Crest\s*:\s*([^.;\n]+)/gi)) {
-    const result = gainWorldsBeyondCrest(session, playerIndex, match[1].trim(), source?.card ?? null);
-    applied ||= result.gained;
-  }
+  applied ||= commandsApplied(resolveEffectCommands(
+    session,
+    compileWorldsBeyondPreTargetCommands(text, { playerIndex, source })
+  ));
 
   if (targetSpec && target) {
     if (targetSpec.kind === "damage") {
@@ -166,29 +170,10 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
     }
   }
 
-  for (const match of text.matchAll(/\bdraw\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+cards?\b/gi)) {
-    const amount = numberWord(match[1]);
-    if (amount > 0) {
-      session.draw(playerIndex, amount, { reason: "ability" });
-      applied = true;
-    }
-  }
-
-  for (const match of text.matchAll(/\b(?:restore|recover)\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+defense to your leader\b/gi)) {
-    const amount = numberWord(match[1]);
-    if (amount > 0) {
-      healLeader(session, playerIndex, amount, source);
-      applied = true;
-    }
-  }
-
-  for (const match of text.matchAll(/\bdeal\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+damage to (?:the )?enemy leader\b/gi)) {
-    const amount = numberWord(match[1]);
-    if (amount > 0) {
-      session.damageLeader(enemyIndex, amount, { actor: playerIndex, source, reason: "ability" });
-      applied = true;
-    }
-  }
+  applied ||= commandsApplied(resolveEffectCommands(
+    session,
+    compileWorldsBeyondPostTargetCommands(text, { playerIndex, source })
+  ));
 
   for (const match of text.matchAll(/\bdeal\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+damage to (?:all|each) enemy followers?\b/gi)) {
     const amount = numberWord(match[1]);
@@ -234,20 +219,12 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
   return { applied, unresolved: false, text, targetSpec, target, notes };
 }
 
-function targetableEnemyFollowers(board) {
-  return board.filter(unit => cardType(unit) === "follower" && !unit.aura && !unit.ambush);
+function commandsApplied(results) {
+  return results.some(result => Boolean(result?.applied));
 }
 
-function healLeader(session, playerIndex, amount, source) {
-  const player = session.getPlayer(playerIndex);
-  const before = player.hp;
-  player.hp = Math.min(player.maxHp, player.hp + Math.max(0, Number(amount) || 0));
-  const healed = player.hp - before;
-  session.emit(BATTLE_EVENT.HEAL, {
-    actor: playerIndex,
-    payload: { targetPlayer: playerIndex, amount: healed, hp: player.hp, source: source ? session.cardView(source) : null, reason: "ability" }
-  });
-  return healed;
+function targetableEnemyFollowers(board) {
+  return board.filter(unit => cardType(unit) === "follower" && !unit.aura && !unit.ambush);
 }
 
 function randomEnemyFollower(session, playerIndex) {

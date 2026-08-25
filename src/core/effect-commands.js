@@ -1,3 +1,5 @@
+const EFFECT_COMMAND_LOGS = new WeakMap();
+
 export function createEffectCommand(type, payload = {}, metadata = {}) {
   const normalizedType = String(type ?? "").trim();
   if (!normalizedType) throw new Error("Effect command requires a type");
@@ -32,6 +34,7 @@ export function resolveEffectCommands(session, commands = []) {
   const results = [];
   for (const command of commands) {
     if (!isEffectCommand(command)) throw new Error("Invalid effect command");
+    recordEffectCommand(session, command);
     const id = session.resolutionQueue.enqueue(
       `effect:${command.type}`,
       () => session.ruleset.resolveEffectCommand(session, command),
@@ -42,6 +45,23 @@ export function resolveEffectCommands(session, commands = []) {
     results.push(resolved?.result ?? null);
   }
   return results;
+}
+
+export function getEffectCommandLog(session) {
+  return [...(EFFECT_COMMAND_LOGS.get(session) ?? [])];
+}
+
+function recordEffectCommand(session, command) {
+  const log = EFFECT_COMMAND_LOGS.get(session) ?? [];
+  const entry = deepFreeze({
+    sequence: log.length,
+    turn: Number(session?.turn ?? 0),
+    eventSequence: Number(session?.eventSequence ?? 0),
+    command
+  });
+  log.push(entry);
+  EFFECT_COMMAND_LOGS.set(session, log);
+  return entry;
 }
 
 function isRecord(value) {

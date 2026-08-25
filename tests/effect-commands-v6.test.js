@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { BATTLE_EVENT } from "../src/core/battle-events.js";
 import {
   createEffectCommand,
+  getEffectCommandLog,
   isEffectCommand,
   resolveEffectCommands
 } from "../src/core/effect-commands.js";
@@ -10,6 +11,9 @@ import { GAME_IDS } from "../src/core/game-catalog.js";
 import { GameSession } from "../src/core/game-session.js";
 import { gainWorldsBeyondCrest } from "../src/core/rulesets/svwb/crests.js";
 import {
+  SVWB_EFFECT_COMMAND,
+  compileWorldsBeyondPostTargetCommands,
+  compileWorldsBeyondPreTargetCommands,
   createWorldsBeyondDrawCommand,
   createWorldsBeyondGainCrestCommand,
   createWorldsBeyondLeaderDamageCommand,
@@ -109,6 +113,67 @@ test("V6 draw and Gain Crest commands preserve hidden information boundaries", (
   const opponentDraw = game.getEvents({ since: cursor, viewer: 1 }).find(event => event.type === BATTLE_EVENT.DRAW);
   assert.ok(ownerDraw?.payload.cards?.[0]?.name);
   assert.equal(opponentDraw, undefined);
+});
+
+test("V6 card-text compiler preserves the legacy simple-effect order", () => {
+  const source = {
+    instanceId: "qa-source",
+    cardId: 99201,
+    card: { id: 99201, name: "QA Command Spell" }
+  };
+  const text = "Gain Crest: QA Command Crest. Draw 1 card. Restore 1 defense to your leader. Deal 2 damage to the enemy leader.";
+  const commands = [
+    ...compileWorldsBeyondPreTargetCommands(text, { playerIndex: 0, source }),
+    ...compileWorldsBeyondPostTargetCommands(text, { playerIndex: 0, source })
+  ];
+  assert.deepEqual(commands.map(command => command.type), [
+    SVWB_EFFECT_COMMAND.GAIN_CREST,
+    SVWB_EFFECT_COMMAND.DRAW,
+    SVWB_EFFECT_COMMAND.HEAL_LEADER,
+    SVWB_EFFECT_COMMAND.DAMAGE_LEADER
+  ]);
+  assert.doesNotThrow(() => JSON.stringify(commands));
+});
+
+test("real simple card text is executed through the V6 effect-command log", () => {
+  const game = readyGame();
+  game.players[0].resources.pp = 10;
+  game.players[0].resources.maxPp = 10;
+  game.players[0].hp = 19;
+  gainWorldsBeyondCrest(game, 0, "Burnite, Anathema of Flame", {
+    id: 99301,
+    name: "Burnite, Anathema of Flame"
+  });
+
+  const item = game.players[0].hand[0];
+  const card = {
+    id: 99302,
+    name: "QA V6 Command Spell",
+    class: "Neutral",
+    type: "Spell",
+    cost: 0,
+    keywords: [],
+    traits: [],
+    text: "Gain Crest: QA Card Text Crest. Draw 1 card. Restore 1 defense to your leader. Deal 2 damage to the enemy leader."
+  };
+  item.card = card;
+  item.cardId = card.id;
+  const logCursor = getEffectCommandLog(game).length;
+  const action = game.listLegalActions(0).find(candidate => candidate.type === "play-card" && candidate.cardInstanceId === item.instanceId);
+  assert.ok(action);
+
+  game.dispatch(action);
+
+  const commands = getEffectCommandLog(game).slice(logCursor).map(entry => entry.command.type);
+  assert.deepEqual(commands, [
+    SVWB_EFFECT_COMMAND.GAIN_CREST,
+    SVWB_EFFECT_COMMAND.DRAW,
+    SVWB_EFFECT_COMMAND.HEAL_LEADER,
+    SVWB_EFFECT_COMMAND.DAMAGE_LEADER
+  ]);
+  assert.equal(game.players[0].resources.crests.some(crest => crest.name === "QA Card Text Crest"), true);
+  assert.equal(game.players[0].hp, 19, "the card heal resolves before Burnite and before enemy damage");
+  assert.equal(game.players[1].hp, 18);
 });
 
 test("V6 engine profile marks the effect-command migration as active", () => {

@@ -53,6 +53,37 @@ export function createWorldsBeyondGainCrestCommand(playerIndex, crestName, optio
   }, options.metadata);
 }
 
+export function compileWorldsBeyondPreTargetCommands(text, { playerIndex, source } = {}) {
+  const commands = [];
+  const sourceOptions = cardSourceOptions(source, "pre-target");
+  for (const match of String(text ?? "").matchAll(/\bGain Crest\s*:\s*([^.;\n]+)/gi)) {
+    commands.push(createWorldsBeyondGainCrestCommand(playerIndex, match[1].trim(), sourceOptions));
+  }
+  return commands;
+}
+
+export function compileWorldsBeyondPostTargetCommands(text, { playerIndex, source } = {}) {
+  const commands = [];
+  const sourceOptions = cardSourceOptions(source, "post-target");
+
+  for (const match of String(text ?? "").matchAll(/\bdraw\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+cards?\b/gi)) {
+    const amount = numberWord(match[1]);
+    if (amount > 0) commands.push(createWorldsBeyondDrawCommand(playerIndex, amount, sourceOptions));
+  }
+
+  for (const match of String(text ?? "").matchAll(/\b(?:restore|recover)\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+defense to your leader\b/gi)) {
+    const amount = numberWord(match[1]);
+    if (amount > 0) commands.push(createWorldsBeyondLeaderHealCommand(playerIndex, amount, sourceOptions));
+  }
+
+  for (const match of String(text ?? "").matchAll(/\bdeal\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+damage to (?:the )?enemy leader\b/gi)) {
+    const amount = numberWord(match[1]);
+    if (amount > 0) commands.push(createWorldsBeyondLeaderDamageCommand(playerIndex, 1 - Number(playerIndex), amount, sourceOptions));
+  }
+
+  return commands;
+}
+
 export function resolveWorldsBeyondEffectCommand(session, command) {
   const payload = command?.payload ?? {};
   const playerIndex = validPlayer(payload.playerIndex);
@@ -107,6 +138,19 @@ export function resolveWorldsBeyondEffectCommand(session, command) {
   throw new Error(`Unsupported Worlds Beyond effect command: ${command?.type ?? "unknown"}`);
 }
 
+function cardSourceOptions(source, stage) {
+  return {
+    reason: "ability",
+    sourceCardId: source?.cardId ?? source?.card?.id ?? source?.card?.cardId ?? null,
+    sourceCardName: source?.card?.name ?? null,
+    metadata: {
+      source: "card-text",
+      stage,
+      sourceInstanceId: source?.instanceId ?? null
+    }
+  };
+}
+
 function resolveSource(session, payload) {
   if (payload.sourceCardId == null && !payload.sourceCardName) return null;
   const card = session.findCardDefinition({
@@ -130,4 +174,9 @@ function validPlayer(value) {
 
 function positiveAmount(value) {
   return Math.max(0, Number(value) || 0);
+}
+
+function numberWord(value) {
+  if (/^\d+$/.test(String(value))) return Number(value);
+  return ({ a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 })[String(value).toLowerCase()] ?? 0;
 }
