@@ -146,16 +146,20 @@ test("deckbuilder no longer exposes Beyond Decks import as a visible tool", () =
   assert.match(deckPage, /deck-session\.js/);
 });
 
-test("dedicated library filters saved SV1 and Champion's Battle decks for event rules", () => {
+test("dedicated library filters saved SV1 and Champion's Battle decks by vial value", () => {
   assert.match(library, /id="library-game-filter"/);
   assert.match(library, /id="library-craft"/);
   assert.match(library, /id="library-legendary-max"/);
-  assert.match(library, /id="library-average-max"/);
-  assert.match(library, /id="library-total-max"/);
-  assert.match(library, /Event filters/);
-  assert.match(libraryJs, /legendary/);
-  assert.match(libraryJs, /averageCost/);
-  assert.match(libraryJs, /totalCost/);
+  assert.match(library, /id="library-vial-max"/);
+  assert.doesNotMatch(library, /Average PP|Total PP|library-average-max|library-total-max/);
+  assert.match(library, /Budget ≤ 20k vials/);
+  assert.match(library, /Budget ≤ 40k vials/);
+  assert.match(libraryJs, /VIAL_COST_BY_RARITY/);
+  assert.match(libraryJs, /Bronze:\s*50/);
+  assert.match(libraryJs, /Legendary:\s*3500/);
+  assert.match(libraryJs, /vialCost/);
+  assert.match(libraryJs, /phase2\/common\/C\/C_/);
+  assert.match(libraryJs, /data-library-art/);
   assert.match(libraryJs, /Open in deckbuilder/);
   assert.match(libraryJs, /shadowverse-ccg/);
   assert.match(libraryJs, /champions-battle/);
