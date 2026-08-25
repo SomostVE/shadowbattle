@@ -117,7 +117,7 @@ a { color: inherit; }
 
 .lib-filterbar {
   display: grid;
-  grid-template-columns: auto minmax(180px, 1fr) repeat(5, minmax(118px, auto)) auto;
+  grid-template-columns: auto minmax(180px, 1fr) repeat(4, minmax(118px, auto)) auto;
   gap: .45rem;
   align-items: end;
   padding: .7rem;
@@ -218,7 +218,7 @@ a { color: inherit; }
 
 .lib-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
   gap: .7rem;
 }
 
@@ -283,7 +283,7 @@ a { color: inherit; }
 
 .lib-metrics {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: .28rem;
   padding: 0 .75rem .62rem;
 }
@@ -294,6 +294,10 @@ a { color: inherit; }
   padding: .4rem .32rem;
   background: #203044;
   text-align: center;
+}
+.lib-metric-vials {
+  border-color: rgba(239, 197, 93, .38);
+  background: linear-gradient(180deg, rgba(95, 74, 28, .24), #203044);
 }
 .lib-metric span {
   display: block;
@@ -308,32 +312,39 @@ a { color: inherit; }
   color: #fff;
   font-size: .78rem;
 }
+.lib-metric-vials strong { color: #ffe39a; }
 
 .lib-thumbs {
   display: flex;
-  gap: .3rem;
-  min-height: 74px;
-  padding: 0 .75rem .65rem;
+  gap: .32rem;
+  min-height: 84px;
+  padding: 0 .75rem .7rem;
   overflow: hidden;
 }
 .lib-thumbs img {
-  width: 48px;
-  height: 70px;
+  width: 54px;
+  height: 80px;
   flex: 0 0 auto;
   object-fit: cover;
+  object-position: center top;
   border: 1px solid #50647c;
-  border-radius: .35rem;
-  background: #121b26;
+  border-radius: .38rem;
+  background: linear-gradient(160deg, #22364d, #111b28);
+  box-shadow: 0 4px 10px rgba(0,0,0,.18);
+}
+.lib-thumbs img.art-missing {
+  opacity: .28;
 }
 .lib-thumbs .lib-more {
   display: grid;
   place-items: center;
-  width: 48px;
-  height: 70px;
+  width: 46px;
+  height: 80px;
   flex: 0 0 auto;
   border: 1px dashed #50647c;
-  border-radius: .35rem;
+  border-radius: .38rem;
   color: #9faebe;
+  background: rgba(11,20,30,.18);
   font-size: .64rem;
 }
 
@@ -387,5 +398,7 @@ a { color: inherit; }
   .lib-filterbar { grid-template-columns: 1fr 1fr; padding: .55rem; }
   .lib-segments, .lib-search { grid-column: 1 / -1; }
   .lib-grid { grid-template-columns: 1fr; }
-  .lib-metrics { grid-template-columns: repeat(2, 1fr); }
+  .lib-metrics { grid-template-columns: repeat(3, 1fr); }
+  .lib-thumbs img { width: 50px; height: 74px; }
+  .lib-thumbs .lib-more { height: 74px; }
 }
