@@ -13,28 +13,52 @@ const CCG_BACKGROUNDS = [
   "./assets/fankits/shadowverse-ccg/extracted/Backgrounds/Backgrounds/background_Map.png"
 ];
 
-renderSavedCount();
+renderDeckCounts();
+renderDatasetCounts();
 renderBotDeckCount();
 applyRandomFanKitBackground();
 bindGameProfileButtons();
 
-function renderSavedCount() {
-  const saved = document.getElementById("hub-saved-count");
-  if (!saved) return;
+function renderDeckCounts() {
   const library = readLibrary();
-  const sv1Decks = Object.keys(library?.games?.["shadowverse-ccg"]?.decks ?? {}).length;
-  const svcbDecks = Object.keys(library?.games?.["champions-battle"]?.decks ?? {}).length;
-  saved.textContent = String(sv1Decks + svcbDecks);
+  const counts = {
+    "shadowverse-ccg": Object.keys(library?.games?.["shadowverse-ccg"]?.decks ?? {}).length,
+    "champions-battle": Object.keys(library?.games?.["champions-battle"]?.decks ?? {}).length,
+    "worlds-beyond": Object.keys(library?.games?.["worlds-beyond"]?.decks ?? {}).length
+  };
+
+  setText("hub-sv1-player-count", counts["shadowverse-ccg"]);
+  setText("hub-cb-player-count", counts["champions-battle"]);
+  setText("hub-wb-player-count", counts["worlds-beyond"]);
+  setText("hub-saved-count", counts["shadowverse-ccg"] + counts["champions-battle"] + counts["worlds-beyond"]);
+}
+
+async function renderDatasetCounts() {
+  const sources = [
+    ["hub-sv1-card-count", "./api/v1/shadowverse-ccg/manifest.json", payload => payload.cardCount],
+    ["hub-cb-card-count", "./api/v1/champions-battle/manifest.json", payload => payload.cardCount],
+    ["hub-wb-card-count", "https://somostve.github.io/beyond_codex/api/v1/manifest.json", payload => payload.counts?.cards]
+  ];
+
+  await Promise.all(sources.map(async ([targetId, url, readCount]) => {
+    try {
+      const response = await fetch(url, { cache: "no-store" });
+      if (!response.ok) return;
+      const payload = await response.json();
+      const count = Number(readCount(payload));
+      if (Number.isFinite(count)) setText(targetId, formatCount(count));
+    } catch {
+      // Keep the static fallback when a dataset manifest is temporarily unavailable.
+    }
+  }));
 }
 
 async function renderBotDeckCount() {
-  const target = document.getElementById("hub-wb-bot-count");
-  if (!target) return;
   try {
     const response = await fetch("./api/v1/worlds-beyond/bot-decks.json", { cache: "no-store" });
     if (!response.ok) return;
     const payload = await response.json();
-    target.textContent = String(payload.decks?.length ?? 0);
+    setText("hub-wb-bot-count", payload.decks?.length ?? 0);
   } catch {
     // Keep the static fallback when the synchronized pool is temporarily unavailable.
   }
@@ -96,6 +120,15 @@ function imageExists(src) {
     image.onerror = () => done(false);
     image.src = src;
   });
+}
+
+function setText(id, value) {
+  const target = document.getElementById(id);
+  if (target) target.textContent = String(value);
+}
+
+function formatCount(value) {
+  return Number(value).toLocaleString("en-US");
 }
 
 function readLibrary() {
