@@ -3,7 +3,9 @@
   "namespace": "svwb",
   "status": "upstream-ready",
   "provider": "Beyond Codex",
-  "source": "https://somostve.github.io/beyond_codex/api/v1/",
+  "source": "https://somostve.github.io/beyond_codex/",
+  "apiBase": "https://somostve.github.io/beyond_codex/api/v1/",
+  "upstreamCardsEndpoint": "https://somostve.github.io/beyond_codex/api/v1/cards.json",
   "materializedCardsEndpoint": "./cards.json",
   "materialized": false,
   "notes": "ShadowBattle will materialize a namespaced copy here when the API sync pipeline is enabled. Beyond Codex remains the validated acquisition/normalization source for Worlds Beyond."
