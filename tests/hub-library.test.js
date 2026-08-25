@@ -9,14 +9,17 @@ const deckPage = await fs.readFile(new URL("decks/index.html", root), "utf8");
 const library = await fs.readFile(new URL("library/index.html", root), "utf8");
 const libraryJs = await fs.readFile(new URL("src/decks/library-page.js", root), "utf8");
 
-test("landing page is a compact ShadowBattle hub", () => {
-  assert.match(hub, /class="hub-hero"/);
-  assert.match(hub, /Build\. Test\. Play\./);
+test("landing page puts Human vs AI battle before deck tools", () => {
+  assert.match(hub, /id="battle" class="hub-hero hub-battle-hero"/);
+  assert.match(hub, /Battle Arena/);
+  assert.match(hub, /Play Shadowverse turn by turn/);
+  assert.match(hub, /Choose your Shadowverse/);
+  assert.match(hub, /Prepare your match/);
+  assert.ok(hub.indexOf("Battle Arena") < hub.indexOf("Deckbuilder"));
   assert.match(hub, /href="\.\/decks\/"/);
   assert.match(hub, /href="\.\/library\/"/);
-  assert.match(hub, /5,933 cards/);
-  assert.match(hub, /623 base cards/);
-  assert.doesNotMatch(hub, /One interactive battle platform/);
+  assert.match(hub, /5,933 CCG · 623 CB/);
+  assert.match(hubCss, /background_Lake_Night\.png/);
   assert.match(hubCss, /--panel:\s*#1c2938/);
 });
 
