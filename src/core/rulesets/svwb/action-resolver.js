@@ -1,5 +1,10 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
-import { destroyWorldsBeyondFollower, resolveWorldsBeyondTrigger } from "./effect-resolver.js";
+import {
+  destroyWorldsBeyondFollower,
+  getWorldsBeyondTargetOptions,
+  getWorldsBeyondTargetRequirement,
+  resolveWorldsBeyondTrigger
+} from "./effect-resolver.js";
 import { costOf } from "./v5/battle-engine-v5-state.js";
 
 export const SVWB_ACTION = Object.freeze({
@@ -37,14 +42,35 @@ export function listWorldsBeyondActions(session, playerIndex) {
   const player = session.getPlayer(playerIndex);
   const enemy = session.getPlayer(1 - playerIndex);
   const actions = [];
+
   for (const card of player.hand) {
     const type = cardType(card);
     const cost = costOf(card);
     const needsBoard = type === "follower" || type === "amulet";
-    if (cost <= player.resources.pp && (!needsBoard || player.board.length < session.ruleset.maxBoardSize)) {
-      actions.push({ type: SVWB_ACTION.PLAY_CARD, player: playerIndex, cardInstanceId: card.instanceId, cost });
+    if (cost > player.resources.pp || (needsBoard && player.board.length >= session.ruleset.maxBoardSize)) continue;
+
+    const baseAction = { type: SVWB_ACTION.PLAY_CARD, player: playerIndex, cardInstanceId: card.instanceId, cost };
+    const targetRequirement = getWorldsBeyondTargetRequirement(card, "play");
+    if (!targetRequirement) {
+      actions.push(baseAction);
+      continue;
+    }
+
+    const targets = getWorldsBeyondTargetOptions(session, { trigger: "play", playerIndex, source: card });
+    if (targets.length) {
+      for (const target of targets) {
+        actions.push({
+          ...baseAction,
+          targetInstanceId: target.instanceId,
+          targetKind: targetRequirement.kind,
+          targetAmount: targetRequirement.amount ?? 0
+        });
+      }
+    } else if (type !== "spell") {
+      actions.push(baseAction);
     }
   }
+
   const wards = enemy.board.filter(unit => cardType(unit) === "follower" && hasKeyword(unit, "Ward"));
   for (const unit of player.board) {
     if (cardType(unit) !== "follower" || Number(unit.attacksRemaining ?? 0) <= 0) continue;
@@ -71,11 +97,19 @@ function playCard(session, action) {
   if (cost > player.resources.pp) throw new Error(`Not enough PP to play ${instance.card?.name ?? "card"}`);
   if ((type === "follower" || type === "amulet") && player.board.length >= session.ruleset.maxBoardSize) throw new Error("The board is full");
   if (!new Set(["follower", "spell", "amulet"]).has(type)) throw new Error(`Unsupported card type: ${instance.card?.type ?? "unknown"}`);
+
+  const requirement = getWorldsBeyondTargetRequirement(instance, "play");
+  const targets = requirement ? getWorldsBeyondTargetOptions(session, { trigger: "play", playerIndex, source: instance }) : [];
+  if (targets.length && !action.targetInstanceId) throw new Error("This card requires an effect target");
+  if (action.targetInstanceId && !targets.some(target => target.instanceId === action.targetInstanceId)) throw new Error("Selected effect target is not legal");
+  if (requirement && type === "spell" && !targets.length) throw new Error("This spell has no legal target");
+
   player.resources.pp -= cost;
   player.hand.splice(index, 1);
   player.cardsPlayedThisTurn = Number(player.cardsPlayedThisTurn ?? 0) + 1;
   if (type === "spell") player.spellsPlayedThisTurn = Number(player.spellsPlayedThisTurn ?? 0) + 1;
   session.emit(BATTLE_EVENT.CARD_PLAY, { actor: playerIndex, payload: { card: session.cardView(instance), cost, ppRemaining: player.resources.pp, type } });
+
   if (type === "follower") {
     prepareFollower(instance, session.turn);
     player.board.push(instance);
@@ -89,7 +123,8 @@ function playCard(session, action) {
     player.cemetery.push(instance);
     session.emit(BATTLE_EVENT.SPELL_CAST, { actor: playerIndex, payload: { card: session.cardView(instance) } });
   }
-  resolveWorldsBeyondTrigger(session, { trigger: "play", playerIndex, source: instance });
+
+  resolveWorldsBeyondTrigger(session, { trigger: "play", playerIndex, source: instance, targetInstanceId: action.targetInstanceId ?? null });
   return session.getSnapshot(playerIndex);
 }
 
@@ -204,5 +239,5 @@ function hasKeyword(instance, keyword) {
   if (keywords.some(value => String(value).toLowerCase() === wanted)) return true;
   return new RegExp(`\\b${escapeRegex(keyword)}\\b`, "i").test(String(instance?.card?.text ?? ""));
 }
-function readCountdown(text) { const value = String(text ?? "").match(/Countdown\s*\((\d+)\)/i)?.[1]; return value == null ? null : Number(value); }
+function readCountdown(text) { const value = String(text ?? "").match(/Countdown\s*\(?\s*(\d+)\s*\)?/i)?.[1]; return value == null ? null : Number(value); }
 function escapeRegex(value) { return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
