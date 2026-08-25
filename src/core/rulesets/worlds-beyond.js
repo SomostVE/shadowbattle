@@ -1,5 +1,6 @@
 import { GAME_IDS } from "../game-catalog.js";
 import { applyWorldsBeyondAction, listWorldsBeyondActions, prepareWorldsBeyondTurn } from "./svwb/action-resolver.js";
+import { installWorldsBeyondEventReactions } from "./svwb/event-reactions.js";
 import { runWorldsBeyondTurnEnd, runWorldsBeyondTurnStart } from "./svwb/lifecycle.js";
 
 export const WORLDS_BEYOND_RULESET = Object.freeze({
@@ -42,6 +43,7 @@ export const WORLDS_BEYOND_RULESET = Object.freeze({
     prepareWorldsBeyondTurn(player);
   },
   afterTurnStart(player, session) {
+    installWorldsBeyondEventReactions(session);
     runWorldsBeyondTurnStart(session, player.index);
   },
   beforeTurnEnd(player, session) {
