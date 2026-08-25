@@ -31,6 +31,18 @@ test("targeted card plays share the legal action graph with attacks and CPU", ()
   assert.match(controller, /is-effect-target/);
 });
 
+test("V5 alternative modes require an explicit human choice when multiple modes are legal", () => {
+  assert.match(controller, /selectedPlayModeKey/);
+  assert.match(controller, /uniqueModeActions/);
+  assert.match(controller, /choosePlayMode/);
+  assert.match(controller, /renderModeMenu/);
+  assert.match(controller, /Enhance \$\{action\.cost\}/);
+  assert.match(controller, /Accelerate \$\{action\.cost\}/);
+  assert.match(controller, /Crystallize \$\{action\.cost\}/);
+  assert.match(css, /\.sb-battle-mode-menu/);
+  assert.match(css, /\.sb-battle-mode-button/);
+});
+
 test("CPU lab driver executes legal actions instead of auto-passing", () => {
   assert.match(controller, /runCpuTurnIfNeeded/);
   assert.match(controller, /chooseCpuAction/);
