@@ -100,7 +100,7 @@ export function runWorldsBeyondCrestTurnStart(session, playerIndex, { beforeTick
 
   const expired = [];
   for (const crest of [...crests]) {
-    if (!Number.isFinite(Number(crest.countdown))) continue;
+    if (!hasFiniteCountdown(crest)) continue;
     if ((Number(crest.gainedTurn) || 0) >= Number(player.personalTurn || 0)) continue;
     crest.countdown = Math.max(0, Number(crest.countdown) - 1);
     session.emit(BATTLE_EVENT.CREST_TICK, {
@@ -126,7 +126,7 @@ export function runWorldsBeyondCrestTurnStart(session, playerIndex, { beforeTick
 export function delayWorldsBeyondCrest(session, playerIndex, name, amount = 1) {
   const crest = findCrest(session.getPlayer(playerIndex), name);
   const value = Math.max(0, Number(amount) || 0);
-  if (!crest || !value || !Number.isFinite(Number(crest.countdown))) return false;
+  if (!crest || !value || !hasFiniteCountdown(crest)) return false;
   crest.countdown = Number(crest.countdown) + value;
   session.emit(BATTLE_EVENT.CREST_ACTIVATE, {
     actor: playerIndex,
@@ -138,7 +138,7 @@ export function delayWorldsBeyondCrest(session, playerIndex, name, amount = 1) {
 export function advanceWorldsBeyondCrest(session, playerIndex, name, amount = 1) {
   const crest = findCrest(session.getPlayer(playerIndex), name);
   const value = Math.max(0, Number(amount) || 0);
-  if (!crest || !value || !Number.isFinite(Number(crest.countdown))) return false;
+  if (!crest || !value || !hasFiniteCountdown(crest)) return false;
   crest.countdown = Math.max(0, Number(crest.countdown) - value);
   session.emit(BATTLE_EVENT.CREST_ACTIVATE, {
     actor: playerIndex,
@@ -165,9 +165,13 @@ export function crestView(crest) {
     id: crest?.id ?? null,
     name: crest?.name ?? null,
     cardId: crest?.cardId ?? null,
-    countdown: Number.isFinite(Number(crest?.countdown)) ? Number(crest.countdown) : null,
+    countdown: hasFiniteCountdown(crest) ? Number(crest.countdown) : null,
     gainedTurn: Number(crest?.gainedTurn ?? 0)
   };
+}
+
+function hasFiniteCountdown(crest) {
+  return crest?.countdown != null && Number.isFinite(Number(crest.countdown));
 }
 
 function findCrest(player, name) {
