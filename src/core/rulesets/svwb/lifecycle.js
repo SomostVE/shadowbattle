@@ -1,5 +1,5 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
-import { restoreOriginalCardForm } from "../../zone-actions.js";
+import { banishBoardCard, restoreOriginalCardForm } from "../../zone-actions.js";
 import {
   resolveWorldsBeyondCrestLastWords,
   resolveWorldsBeyondCrestTurnEnd,
@@ -43,6 +43,19 @@ export function runWorldsBeyondTurnEnd(session, playerIndex) {
     if (!getWorldsBeyondCrests(player).includes(crest)) continue;
     resolveWorldsBeyondCrestTurnEnd(session, playerIndex, crest);
     if (session.phase !== "main") return;
+  }
+
+  // Himeka's delayed banish resolves after the marked follower's own turn-end
+  // abilities and Crests, matching the V5 marked-end-turn cleanup ordering.
+  banishHimekaMarkedFollowers(session, playerIndex);
+}
+
+function banishHimekaMarkedFollowers(session, playerIndex) {
+  const player = session.getPlayer(playerIndex);
+  for (const unit of [...player.board]) {
+    if (!unit.himekaBanishAtOwnTurnEnd) continue;
+    const actor = unit.himekaBanishActor === 0 || unit.himekaBanishActor === 1 ? unit.himekaBanishActor : null;
+    banishBoardCard(session, playerIndex, unit.instanceId, { actor, reason: "himeka-crest" });
   }
 }
 
