@@ -14,6 +14,12 @@ export function resolveWorldsBeyondTrigger(session, { trigger, playerIndex, sour
   return executeSimpleEffects(session, { text, playerIndex, source });
 }
 
+export function destroyWorldsBeyondFollower(session, playerIndex, instanceId, options = {}) {
+  const destroyed = session.destroyFollower(playerIndex, instanceId, options);
+  if (destroyed) resolveWorldsBeyondTrigger(session, { trigger: "last-words", playerIndex, source: destroyed });
+  return destroyed;
+}
+
 function triggerText(card, trigger) {
   const text = String(card?.text ?? "");
   if (trigger === "play") return baseText(text);
@@ -50,7 +56,7 @@ function executeSimpleEffects(session, { text, playerIndex, source }) {
   for (const match of text.matchAll(/\b(?:restore|recover)\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+defense to your leader\b/gi)) {
     const amount = numberWord(match[1]);
     if (amount > 0) {
-      session.healLeader(playerIndex, amount, { actor: playerIndex, source, reason: "ability" });
+      healLeader(session, playerIndex, amount, source);
       applied = true;
     }
   }
@@ -66,14 +72,18 @@ function executeSimpleEffects(session, { text, playerIndex, source }) {
   for (const match of text.matchAll(/\bdeal\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+damage to (?:all|each) enemy followers?\b/gi)) {
     const amount = numberWord(match[1]);
     const targets = [...session.players[enemyIndex].board].filter(unit => String(unit.card?.type ?? "").toLowerCase() === "follower");
-    for (const target of targets) session.damageFollower(enemyIndex, target.instanceId, amount, { actor: playerIndex, source, reason: "ability" });
+    for (const target of targets) {
+      session.damageFollower(enemyIndex, target.instanceId, amount, { actor: playerIndex, source, reason: "ability", resolveDeath: false });
+      if (Number(target.defense ?? 0) <= 0) destroyWorldsBeyondFollower(session, enemyIndex, target.instanceId, { actor: playerIndex, source, reason: "ability", byAbility: true });
+    }
     applied ||= targets.length > 0;
   }
 
   for (const match of text.matchAll(/\bdeal\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+damage to (?:a random|random) enemy follower\b/gi)) {
     const target = randomEnemyFollower(session, enemyIndex);
     if (target) {
-      session.damageFollower(enemyIndex, target.instanceId, numberWord(match[1]), { actor: playerIndex, source, reason: "ability" });
+      session.damageFollower(enemyIndex, target.instanceId, numberWord(match[1]), { actor: playerIndex, source, reason: "ability", resolveDeath: false });
+      if (Number(target.defense ?? 0) <= 0) destroyWorldsBeyondFollower(session, enemyIndex, target.instanceId, { actor: playerIndex, source, reason: "ability", byAbility: true });
       applied = true;
     }
   }
@@ -81,7 +91,7 @@ function executeSimpleEffects(session, { text, playerIndex, source }) {
   if (/\bdestroy (?:a random|random) enemy follower\b/i.test(text)) {
     const target = randomEnemyFollower(session, enemyIndex);
     if (target) {
-      session.destroyFollower(enemyIndex, target.instanceId, { actor: playerIndex, source, reason: "ability", byAbility: true });
+      destroyWorldsBeyondFollower(session, enemyIndex, target.instanceId, { actor: playerIndex, source, reason: "ability", byAbility: true });
       applied = true;
     }
   }
@@ -101,6 +111,18 @@ function executeSimpleEffects(session, { text, playerIndex, source }) {
   }
 
   return { applied, unresolved: false, text };
+}
+
+function healLeader(session, playerIndex, amount, source) {
+  const player = session.getPlayer(playerIndex);
+  const before = player.hp;
+  player.hp = Math.min(player.maxHp, player.hp + Math.max(0, Number(amount) || 0));
+  const healed = player.hp - before;
+  session.emit(BATTLE_EVENT.HEAL, {
+    actor: playerIndex,
+    payload: { targetPlayer: playerIndex, amount: healed, hp: player.hp, source: source ? session.cardView(source) : null, reason: "ability" }
+  });
+  return healed;
 }
 
 function randomEnemyFollower(session, playerIndex) {
