@@ -32,6 +32,7 @@ export class GameSession {
     this.turn = 0;
     this.round = 0;
     this.winner = null;
+    this.endReason = null;
     this.events = [];
     this.eventSequence = 0;
     this.started = false;
@@ -62,7 +63,7 @@ export class GameSession {
       this.emit(BATTLE_EVENT.OPENING_DRAW, {
         actor: player.index,
         visibility: BATTLE_VISIBILITY.OWNER,
-        payload: { count: drawn.length, cards: drawn.map(card => publicCard(card)) }
+        payload: { count: drawn.length, cards: drawn.map(card => this.cardView(card)) }
       });
     }
 
@@ -76,6 +77,11 @@ export class GameSession {
     if (action.type === ACTION.USE_BONUS_PP) return this.useBonusPp(action.player);
     if (typeof this.ruleset.applyAction === "function") return this.ruleset.applyAction(this, action);
     throw new Error(`Unsupported GameSession action: ${action.type}`);
+  }
+
+  listLegalActions(playerIndex = this.activePlayer) {
+    if (typeof this.ruleset.listLegalActions !== "function") return [];
+    return this.ruleset.listLegalActions(this, playerIndex);
   }
 
   submitMulligan(playerIndex, cardInstanceIds = []) {
@@ -103,7 +109,7 @@ export class GameSession {
       this.emit(BATTLE_EVENT.DRAW, {
         actor: playerIndex,
         visibility: BATTLE_VISIBILITY.OWNER,
-        payload: { reason: "mulligan", count: replacements.length, cards: replacements.map(publicCard) }
+        payload: { reason: "mulligan", count: replacements.length, cards: replacements.map(card => this.cardView(card)) }
       });
     }
 
@@ -155,7 +161,7 @@ export class GameSession {
       actor: playerIndex,
       payload: { turn: this.turn, personalTurn: player.personalTurn, ppRemaining: player.resources.pp }
     });
-    this.beginTurn(1 - playerIndex);
+    if (this.phase === PHASE.MAIN) this.beginTurn(1 - playerIndex);
     return this.getSnapshot(playerIndex);
   }
 
@@ -166,6 +172,7 @@ export class GameSession {
       const card = player.deck.shift();
       if (!card) {
         player.deckOut = true;
+        if (this.phase === PHASE.MAIN) this.finishMatch(1 - playerIndex, "deck-out", { loser: playerIndex });
         break;
       }
       if (player.hand.length >= this.ruleset.maxHandSize) {
@@ -173,7 +180,7 @@ export class GameSession {
         this.emit(BATTLE_EVENT.CARD_BURNED, {
           actor: playerIndex,
           visibility: BATTLE_VISIBILITY.OWNER,
-          payload: { card: publicCard(card), reason }
+          payload: { card: this.cardView(card), reason }
         });
         continue;
       }
@@ -183,11 +190,76 @@ export class GameSession {
         this.emit(BATTLE_EVENT.DRAW, {
           actor: playerIndex,
           visibility: BATTLE_VISIBILITY.OWNER,
-          payload: { reason, count: 1, cards: [publicCard(card)] }
+          payload: { reason, count: 1, cards: [this.cardView(card)] }
         });
       }
     }
     return drawn;
+  }
+
+  damageLeader(playerIndex, amount, { actor = null, source = null, reason = "damage" } = {}) {
+    if (this.phase === PHASE.ENDED) return 0;
+    const player = this.getPlayer(playerIndex);
+    const damage = Math.max(0, Number(amount) || 0);
+    if (!damage) return 0;
+    player.hp = Math.max(0, player.hp - damage);
+    this.emit(BATTLE_EVENT.LEADER_DAMAGE, {
+      actor,
+      payload: { targetPlayer: playerIndex, amount: damage, hp: player.hp, source: source ? this.cardView(source) : null, reason }
+    });
+    if (player.hp <= 0) this.finishMatch(1 - playerIndex, "leader-defense-zero", { loser: playerIndex });
+    return damage;
+  }
+
+  damageFollower(playerIndex, instanceId, amount, { actor = null, source = null, reason = "damage", resolveDeath = true } = {}) {
+    const unit = this.findBoardCard(playerIndex, instanceId);
+    if (!unit) throw new Error("Follower damage target is not on the board");
+    const requested = Math.max(0, Number(amount) || 0);
+    const invincible = Boolean(unit.superEvolved && this.activePlayer === playerIndex && this.phase === PHASE.MAIN);
+    const damage = invincible ? 0 : requested;
+    if (damage) unit.defense = Number(unit.defense ?? unit.card?.defense ?? 0) - damage;
+    this.emit(BATTLE_EVENT.FOLLOWER_DAMAGE, {
+      actor,
+      payload: { targetPlayer: playerIndex, target: this.cardView(unit), amount: damage, prevented: requested - damage, source: source ? this.cardView(source) : null, reason }
+    });
+    if (resolveDeath && Number(unit.defense ?? 0) <= 0) this.destroyFollower(playerIndex, instanceId, { actor, source, reason });
+    return damage;
+  }
+
+  destroyFollower(playerIndex, instanceId, { actor = null, source = null, reason = "destroy", byAbility = false } = {}) {
+    const player = this.getPlayer(playerIndex);
+    const index = player.board.findIndex(unit => unit.instanceId === instanceId);
+    if (index < 0) return null;
+    const unit = player.board[index];
+    if (byAbility && unit.superEvolved && this.activePlayer === playerIndex && this.phase === PHASE.MAIN) return null;
+    player.board.splice(index, 1);
+    player.cemetery.push(unit);
+    this.emit(BATTLE_EVENT.FOLLOWER_DESTROYED, {
+      actor,
+      payload: { owner: playerIndex, card: this.cardView(unit), source: source ? this.cardView(source) : null, reason }
+    });
+    return unit;
+  }
+
+  finishMatch(winner, reason = "resolved", payload = {}) {
+    if (this.phase === PHASE.ENDED) return this.getSnapshot();
+    this.winner = winner;
+    this.endReason = reason;
+    this.phase = PHASE.ENDED;
+    this.emit(BATTLE_EVENT.MATCH_END, { actor: winner, payload: { winner, reason, ...payload } });
+    return this.getSnapshot();
+  }
+
+  findBoardCard(playerIndex, instanceId) {
+    return this.getPlayer(playerIndex).board.find(unit => unit.instanceId === instanceId) ?? null;
+  }
+
+  findHandCard(playerIndex, instanceId) {
+    return this.getPlayer(playerIndex).hand.find(card => card.instanceId === instanceId) ?? null;
+  }
+
+  cardView(instance) {
+    return publicCard(instance);
   }
 
   emit(type, options = {}) {
@@ -209,6 +281,7 @@ export class GameSession {
       round: this.round,
       activePlayer: this.activePlayer,
       winner: this.winner,
+      endReason: this.endReason,
       players: this.players.map(player => snapshotPlayer(player, viewer, revealHands)),
       nextEventSequence: this.eventSequence
     };
@@ -245,7 +318,10 @@ function makePlayerShell(input, index) {
     goingFirst: false,
     personalTurn: 0,
     mulliganDone: false,
-    deckOut: false
+    deckOut: false,
+    cardsPlayedThisTurn: 0,
+    spellsPlayedThisTurn: 0,
+    evolutionActionUsed: false
   };
 }
 
@@ -256,7 +332,11 @@ function createCardInstance(card, owner, index) {
     instanceId: `${owner}:${index}:${String(cardId)}`,
     owner,
     cardId,
-    card: source
+    card: source,
+    costDelta: 0,
+    attackBonus: 0,
+    defenseBonus: 0,
+    spellboost: 0
   };
 }
 
@@ -279,18 +359,30 @@ function snapshotPlayer(player, viewer, revealHands) {
     cemeteryCount: player.cemetery.length,
     banishedCount: player.banished.length,
     mulliganDone: player.mulliganDone,
-    deckOut: player.deckOut
+    deckOut: player.deckOut,
+    evolutionActionUsed: player.evolutionActionUsed
   };
 }
 
 function publicCard(instance) {
+  const evolved = Boolean(instance.evolved);
   return {
     instanceId: instance.instanceId,
     cardId: instance.cardId,
     name: instance.card?.name ?? null,
-    image: instance.card?.image ?? null,
+    image: instance.imageOverride ?? (evolved ? instance.card?.evolved?.image : null) ?? instance.card?.image ?? null,
     type: instance.card?.type ?? null,
-    cost: Number(instance.card?.cost ?? 0)
+    cost: Math.max(0, Number(instance.card?.cost ?? 0) + Number(instance.costDelta ?? 0)),
+    attack: instance.attack == null ? Number(instance.card?.attack ?? 0) + Number(instance.attackBonus ?? 0) : Number(instance.attack),
+    defense: instance.defense == null ? Number(instance.card?.defense ?? 0) + Number(instance.defenseBonus ?? 0) : Number(instance.defense),
+    maxDefense: instance.maxDefense == null ? Number(instance.card?.defense ?? 0) + Number(instance.defenseBonus ?? 0) : Number(instance.maxDefense),
+    evolved,
+    superEvolved: Boolean(instance.superEvolved),
+    attacksRemaining: Number(instance.attacksRemaining ?? 0),
+    canAttackFollowers: Boolean(instance.canAttackFollowers),
+    canAttackLeader: Boolean(instance.canAttackLeader),
+    countdown: instance.countdown ?? null,
+    keywords: [...(instance.card?.keywords ?? [])]
   };
 }
 
