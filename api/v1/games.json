@@ -1,0 +1,25 @@
+{
+  "games": [
+    {
+      "id": "worlds-beyond",
+      "name": "Shadowverse: Worlds Beyond",
+      "namespace": "svwb",
+      "status": "upstream-ready",
+      "manifest": "./worlds-beyond/manifest.json"
+    },
+    {
+      "id": "shadowverse-ccg",
+      "name": "Shadowverse",
+      "namespace": "sv1",
+      "status": "source-validation",
+      "manifest": "./shadowverse-ccg/manifest.json"
+    },
+    {
+      "id": "champions-battle",
+      "name": "Shadowverse: Champion's Battle",
+      "namespace": "svcb",
+      "status": "dataset-planned",
+      "manifest": "./champions-battle/manifest.json"
+    }
+  ]
+}
