@@ -1,15 +1,17 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
 import { restoreOriginalCardForm } from "../../zone-actions.js";
-import { resolveWorldsBeyondCrestTurnEnd } from "./crest-effects.js";
+import { resolveWorldsBeyondCrestLastWords, resolveWorldsBeyondCrestTurnEnd } from "./crest-effects.js";
 import { getWorldsBeyondCrests, runWorldsBeyondCrestTurnStart } from "./crests.js";
 import { gainWorldsBeyondShadows, resolveWorldsBeyondTrigger } from "./effect-resolver.js";
 
 export function runWorldsBeyondTurnStart(session, playerIndex) {
   const player = session.getPlayer(playerIndex);
 
-  // V5 resolves Crest start-of-turn effects and Crest Countdown before board
-  // amulets. Named Crest effects are injected into this lifecycle incrementally.
-  runWorldsBeyondCrestTurnStart(session, playerIndex);
+  // V5 resolves Crest start-of-turn effects before Crest Countdown, then
+  // resolves Last Words for the Crests that expire on that tick.
+  runWorldsBeyondCrestTurnStart(session, playerIndex, {
+    onExpire: crest => resolveWorldsBeyondCrestLastWords(session, playerIndex, crest)
+  });
   if (session.phase !== "main") return;
 
   tickCountdownAmulets(session, playerIndex);
