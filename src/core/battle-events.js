@@ -12,6 +12,8 @@ export const BATTLE_EVENT = Object.freeze({
   FOLLOWER_ENTER: "follower-enter",
   AMULET_ENTER: "amulet-enter",
   SPELL_CAST: "spell-cast",
+  ABILITY_TRIGGER: "ability-trigger",
+  FOLLOWER_BUFF: "follower-buff",
   ATTACK_START: "attack-start",
   ATTACK_IMPACT: "attack-impact",
   LEADER_DAMAGE: "leader-damage",
