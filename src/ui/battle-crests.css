@@ -24,6 +24,8 @@
   opacity: .48;
 }
 .sb-crest-slot.is-active {
+  pointer-events: auto;
+  cursor: help;
   border-color: rgba(213, 187, 255, .66);
   background:
     radial-gradient(circle at 38% 30%, rgba(233, 221, 255, .5), transparent 18%),
