@@ -19,7 +19,7 @@ const libraryJs = await fs.readFile(new URL("src/decks/library-page.js", root), 
 test("landing page is a compact game-first ShadowBattle hub", () => {
   assert.match(hub, /<body class="hub-page">/);
   assert.match(hub, /id="battle" class="hub-stage"/);
-  assert.match(hub, /Human vs AI/);
+  assert.match(hub, /Human vs CPU/);
   assert.match(hub, /Mulligan, play every action yourself/);
   assert.match(hub, /Choose a ruleset/);
   assert.ok(hub.indexOf("hub-battle-card") < hub.indexOf("hub-tools"));
@@ -30,8 +30,12 @@ test("landing page is a compact game-first ShadowBattle hub", () => {
   assert.match(hub, /alt="Shadowverse: Champion's Battle"/);
   assert.match(hub, /alt="Shadowverse: Worlds Beyond"/);
   assert.match(hub, /<small>Cards<\/small>/);
-  assert.match(hub, /<small>AI decks<\/small>/);
+  assert.match(hub, /<small>CPU decks<\/small>/);
   assert.match(hub, /<small>Your decks<\/small>/);
+  assert.match(hub, /CPU difficulty/);
+  assert.match(hub, /data-cpu-difficulty="intermediate"/);
+  assert.match(hub, /data-cpu-difficulty="expert"/);
+  assert.doesNotMatch(hub, /\bAI\b/);
   assert.match(hub, /id="hub-sv1-card-count">5,933/);
   assert.match(hub, /id="hub-cb-card-count">623/);
   assert.match(hub, /id="hub-wb-card-count">826/);
@@ -50,12 +54,12 @@ test("landing page is a compact game-first ShadowBattle hub", () => {
   assert.match(hubCss, /--accent:\s*#72b8ff/);
 });
 
-test("landing page exposes the official fan-kit background behind translucent glass panels", () => {
+test("landing page exposes the official fan-kit background behind lighter glass panels", () => {
   assert.match(hubBeyondCss, /body\.hub-page::before\s*\{[\s\S]*?z-index:\s*0/);
   assert.match(hubBeyondCss, /body\.hub-page::after\s*\{[\s\S]*?z-index:\s*1/);
   assert.match(hubBeyondCss, /\.hub-page \.hub-shell\s*\{[\s\S]*?z-index:\s*2/);
-  assert.match(hubBeyondCss, /rgba\(35,50,70,\.64\)/);
-  assert.match(hubBeyondCss, /backdrop-filter:\s*blur\(3px\)/);
+  assert.match(hubBeyondCss, /rgba\(35,50,70,\.43\)/);
+  assert.match(hubBeyondCss, /backdrop-filter:\s*blur\(2\.2px\)/);
 });
 
 test("hub rotates archived CCG and Worlds Beyond Fan Kit backgrounds", async () => {
@@ -84,7 +88,7 @@ test("hub rotates archived CCG and Worlds Beyond Fan Kit backgrounds", async () 
   }
 });
 
-test("Beyond Decks AI reference pool is vendored under the svwb namespace", () => {
+test("Beyond Decks CPU reference pool is vendored under the svwb namespace", () => {
   assert.equal(botDecks.format, "svwb-reference-decks");
   assert.ok(botDecks.decks.length >= 7);
   assert.equal(botDecks.shadowBattle.namespace, "svwb");
@@ -97,6 +101,24 @@ test("Beyond Decks AI reference pool is vendored under the svwb namespace", () =
   assert.match(referenceDeckLoader, /qualifiedId:\s*`\$\{namespace\}:\$\{card\.cardId\}`/);
   assert.match(hub, /id="hub-wb-bot-count">7/);
   assert.match(hubJs, /api\/v1\/worlds-beyond\/bot-decks\.json/);
+});
+
+test("Worlds Beyond ruleset and CPU difficulty are selectable and persisted", () => {
+  assert.match(hub, /class="hub-game active" type="button" data-game="worlds-beyond"/);
+  assert.doesNotMatch(hub, /hub-game muted[^>]*data-game="worlds-beyond"/);
+  assert.match(hubJs, /RULESET_KEY/);
+  assert.match(hubJs, /CPU_DIFFICULTY_KEY/);
+  assert.match(hubJs, /selectRuleset/);
+  assert.match(hubJs, /selectCpuDifficulty/);
+  assert.match(hubJs, /worlds-beyond/);
+  assert.match(hubBeyondCss, /cursor:\s*pointer/);
+});
+
+test("hub has a dedicated stacked mobile layout", () => {
+  assert.match(hubBeyondCss, /@media \(max-width: 980px\)/);
+  assert.match(hubBeyondCss, /overflow-y:\s*auto/);
+  assert.match(hubBeyondCss, /grid-template-columns:\s*1fr/);
+  assert.match(hubBeyondCss, /@media \(max-width: 420px\)/);
 });
 
 test("ruleset metrics resolve dataset and player-deck counts dynamically", () => {
