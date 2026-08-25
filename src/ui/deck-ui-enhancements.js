@@ -35,6 +35,8 @@
 
     const renderIcons = () => {
       for (const button of root.querySelectorAll("[data-craft]")) {
+        if (button.dataset.iconFallback === "true") continue;
+
         const craft = button.dataset.craft;
         const src = officialCraftIcon(craft);
         if (!src) continue;
@@ -50,8 +52,8 @@
         image.draggable = false;
         image.referrerPolicy = "no-referrer";
         image.addEventListener("error", () => {
-          button.textContent = FALLBACK_GLYPHS[craft] ?? craft.slice(0, 1);
           button.dataset.iconFallback = "true";
+          button.textContent = FALLBACK_GLYPHS[craft] ?? craft.slice(0, 1);
         }, { once: true });
         button.replaceChildren(image);
       }
