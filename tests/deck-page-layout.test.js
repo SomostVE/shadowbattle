@@ -6,6 +6,7 @@ const html = await fs.readFile(new URL("../decks/index.html", import.meta.url), 
 const pageJs = await fs.readFile(new URL("../src/decks/deckbuilder-page.js", import.meta.url), "utf8");
 const gridJs = await fs.readFile(new URL("../src/decks/card-grid.js", import.meta.url), "utf8");
 const enhancementsJs = await fs.readFile(new URL("../src/ui/deck-ui-enhancements.js", import.meta.url), "utf8");
+const beyondTheme = await fs.readFile(new URL("../src/ui/beyond-decks-v2.css", import.meta.url), "utf8");
 
 test("deckbuilder exposes OG and Champion's Battle editors", () => {
   assert.match(html, /value="shadowverse-ccg"/);
@@ -30,6 +31,16 @@ test("deckbuilder mirrors the Beyond Decks card-first working layout", () => {
   assert.match(html, /id="card-preview-evolved"/);
 });
 
+test("deckbuilder uses the Beyond Decks modern UI v2 palette", () => {
+  assert.match(html, /beyond-decks-v2\.css/);
+  assert.match(beyondTheme, /--bg:\s*#141d28/);
+  assert.match(beyondTheme, /--panel:\s*#1c2938/);
+  assert.match(beyondTheme, /--panel-2:\s*#263648/);
+  assert.match(beyondTheme, /--accent:\s*#72b8ff/);
+  assert.match(beyondTheme, /select option/);
+  assert.match(beyondTheme, /color-scheme:\s*dark/);
+});
+
 test("deckbuilder uses the Beyond Decks adaptive card sizing model", () => {
   assert.match(html, /min="74" max="190"/);
   assert.match(html, /data-card-size-preset="90">S/);
@@ -50,6 +61,15 @@ test("class switching follows the Beyond Decks seamless renderer pattern", () =>
   assert.match(gridJs, /requestIdleCallback/);
   assert.match(gridJs, /batchSize/);
   assert.match(gridJs, /root\.dataset\.renderId/);
+});
+
+test("Neutral cards are a separate selectable pool", () => {
+  assert.match(enhancementsJs, /Neutral:\s*0/);
+  assert.match(enhancementsJs, /data-neutral-toggle/);
+  assert.match(enhancementsJs, /shadowbattle:card-pool-mode/);
+  assert.match(gridJs, /poolMode === "neutral"/);
+  assert.match(gridJs, /card\.craft === "Neutral"/);
+  assert.match(gridJs, /card\.craft !== "Neutral"/);
 });
 
 test("deckbuilder exposes both Beyond Decks import paths", () => {
