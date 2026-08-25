@@ -45,9 +45,13 @@ test("a default Worlds Beyond GameSession reports the V6 ruleset and native queu
   assert.equal(game.getResolutionState().maxSteps, 512);
 });
 
-test("the internal Battle Lab identifies V6 Alpha instead of the inherited V5 engine", async () => {
-  const html = await fs.readFile(new URL("../test/index.html", import.meta.url), "utf8");
+test("the internal Battle Lab identifies V6 Alpha and follows the current release version", async () => {
+  const [html, versionSource] = await Promise.all([
+    fs.readFile(new URL("../test/index.html", import.meta.url), "utf8"),
+    fs.readFile(new URL("../version.json", import.meta.url), "utf8")
+  ]);
+  const { version } = JSON.parse(versionSource);
   assert.match(html, /ShadowBattle Engine V6 Alpha/);
   assert.doesNotMatch(html, /ruleset v5/i);
-  assert.match(html, /v=0\.4\.45/);
+  assert.match(html, new RegExp(`v=${version.replaceAll(".", "\\.")}`));
 });
