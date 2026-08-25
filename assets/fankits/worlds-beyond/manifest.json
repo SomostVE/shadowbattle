@@ -4,7 +4,7 @@
   "source": "official-cygames-fankit",
   "sourcePage": "https://shadowverse-wb.com/en/special/fankit/",
   "apiEndpoint": "https://shadowverse-wb.com/web/Fankit/index",
-  "fetchedAt": "2026-08-25T13:11:58.593Z",
+  "fetchedAt": "2026-08-25T13:13:47.005Z",
   "status": "archived",
   "fileCount": 10,
   "logo": "./logo_ShadowverseWB.png",
@@ -22,72 +22,72 @@
   "files": [
     {
       "file": "./backgrounds/background_Abysscraft.png",
-      "sourceUrl": "https://shadowverse-wb.com/web/Fankit/background_Abysscraft.png",
-      "bytes": 66,
-      "sha256": "766acbf126729e324fb91599d483af17b373ebd6a3fcdec4a0994515f9e38b3b",
+      "sourceUrl": "https://shadowverse-wb.com/uploads/fankit/jpn/1627f4fee650e03e73790c1b7e895ecf.png",
+      "bytes": 3566042,
+      "sha256": "93fd9f79e692fdb2904409ad0b2d660eefa58712a9ac30414f6b0e985ff7d443",
       "kind": "background"
     },
     {
       "file": "./backgrounds/background_Dragoncraft.png",
-      "sourceUrl": "https://shadowverse-wb.com/web/Fankit/background_Dragoncraft.png",
-      "bytes": 66,
-      "sha256": "766acbf126729e324fb91599d483af17b373ebd6a3fcdec4a0994515f9e38b3b",
+      "sourceUrl": "https://shadowverse-wb.com/uploads/fankit/jpn/48ba9c507ea54166b81881ec14183a9d.png",
+      "bytes": 3199295,
+      "sha256": "1da9d688b36de79435b1e76f3f269e641e32406ef824369171c79611c9e4403e",
       "kind": "background"
     },
     {
       "file": "./backgrounds/background_FeastofWolves.png",
-      "sourceUrl": "https://shadowverse-wb.com/web/Fankit/background_FeastofWolves.png",
-      "bytes": 66,
-      "sha256": "766acbf126729e324fb91599d483af17b373ebd6a3fcdec4a0994515f9e38b3b",
+      "sourceUrl": "https://shadowverse-wb.com/uploads/fankit/jpn/13b1841883e586d2aa2bb9339a4876d9.png",
+      "bytes": 3041064,
+      "sha256": "e8cef0d07f267deed4a8f5d79fd0b3a88b1cc3e48879686a128d17c1e9da53b2",
       "kind": "background"
     },
     {
       "file": "./backgrounds/background_Forestcraft.png",
-      "sourceUrl": "https://shadowverse-wb.com/web/Fankit/background_Forestcraft.png",
-      "bytes": 66,
-      "sha256": "766acbf126729e324fb91599d483af17b373ebd6a3fcdec4a0994515f9e38b3b",
+      "sourceUrl": "https://shadowverse-wb.com/uploads/fankit/jpn/543a8ce74c15a2f77d44c1b05571ca37.png",
+      "bytes": 3740083,
+      "sha256": "aa8f95e2a914daaa192be762fc040a3765f3cd99a6460a594acd5f6918dac68c",
       "kind": "background"
     },
     {
       "file": "./backgrounds/background_Havencraft.png",
-      "sourceUrl": "https://shadowverse-wb.com/web/Fankit/background_Havencraft.png",
-      "bytes": 66,
-      "sha256": "766acbf126729e324fb91599d483af17b373ebd6a3fcdec4a0994515f9e38b3b",
+      "sourceUrl": "https://shadowverse-wb.com/uploads/fankit/jpn/c67e991c5470fd1fed03e576f7dcdd81.png",
+      "bytes": 3073911,
+      "sha256": "a5c8a34002b95cea6d0221df4fe67d3bb51d6ab0bb9093fc3477f382d1308a2d",
       "kind": "background"
     },
     {
       "file": "./backgrounds/background_LibraryofLambs.png",
-      "sourceUrl": "https://shadowverse-wb.com/web/Fankit/background_LibraryofLambs.png",
-      "bytes": 66,
-      "sha256": "766acbf126729e324fb91599d483af17b373ebd6a3fcdec4a0994515f9e38b3b",
+      "sourceUrl": "https://shadowverse-wb.com/uploads/fankit/jpn/099a346a471d2a03c6dc2a0f219351ad.png",
+      "bytes": 3436061,
+      "sha256": "fcf4ebb98ea864d37c63e18a33f616e49d06fa1d5dc64c7248e01353e6cde655",
       "kind": "background"
     },
     {
       "file": "./backgrounds/background_Portalcraft.png",
-      "sourceUrl": "https://shadowverse-wb.com/web/Fankit/background_Portalcraft.png",
-      "bytes": 66,
-      "sha256": "766acbf126729e324fb91599d483af17b373ebd6a3fcdec4a0994515f9e38b3b",
+      "sourceUrl": "https://shadowverse-wb.com/uploads/fankit/jpn/f1ed5b78337c68569c85f3034f4808e1.png",
+      "bytes": 3299529,
+      "sha256": "6cf4e553f4ac7f41a4686f2462bb868aaefae04ae7d60067bb9891a11140c73d",
       "kind": "background"
     },
     {
       "file": "./backgrounds/background_Runecraft.png",
-      "sourceUrl": "https://shadowverse-wb.com/web/Fankit/background_Runecraft.png",
-      "bytes": 66,
-      "sha256": "766acbf126729e324fb91599d483af17b373ebd6a3fcdec4a0994515f9e38b3b",
+      "sourceUrl": "https://shadowverse-wb.com/uploads/fankit/jpn/ddf095118b8b69cfe4f7e214ef37ef4d.png",
+      "bytes": 4194048,
+      "sha256": "76bc5c19fae893f3536d55cfa4ae4ff4de4d1a594f9890f07abd0826350adc47",
       "kind": "background"
     },
     {
       "file": "./backgrounds/background_Swordcraft.png",
-      "sourceUrl": "https://shadowverse-wb.com/web/Fankit/background_Swordcraft.png",
-      "bytes": 66,
-      "sha256": "766acbf126729e324fb91599d483af17b373ebd6a3fcdec4a0994515f9e38b3b",
+      "sourceUrl": "https://shadowverse-wb.com/uploads/fankit/jpn/f1cbbc7cb21ad2fc2ffee26d568e1d2b.png",
+      "bytes": 3059818,
+      "sha256": "15ec2d24552d93f22e2a31ddcab633a1f124888f5f2716f6e83ed92e5d49079a",
       "kind": "background"
     },
     {
       "file": "./logo_ShadowverseWB.png",
-      "sourceUrl": "https://shadowverse-wb.com/web/Fankit/logo_ShadowverseWB.png",
-      "bytes": 66,
-      "sha256": "766acbf126729e324fb91599d483af17b373ebd6a3fcdec4a0994515f9e38b3b",
+      "sourceUrl": "https://shadowverse-wb.com/uploads/fankit/jpn/e3be0bd12612e33c8cf7a56233309b53.png",
+      "bytes": 741634,
+      "sha256": "ca8d1e4aaeac0a92e29ae4d6daac4847c2479cf8ba6c01e4f115d279074902d4",
       "kind": "logo"
     }
   ]
