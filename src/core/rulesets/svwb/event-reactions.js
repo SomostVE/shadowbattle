@@ -10,10 +10,21 @@ export function installWorldsBeyondEventReactions(session) {
 
   session.emit = function emitWithWorldsBeyondReactions(type, options = {}) {
     const event = emit(type, options);
+    if (type === BATTLE_EVENT.TURN_START) restorePersistentAttackLocks(session, event);
     if (type === BATTLE_EVENT.HEAL) resolveHealCrestReactions(session, event);
     return event;
   };
   return session;
+}
+
+function restorePersistentAttackLocks(session, event) {
+  const playerIndex = Number(event.actor);
+  if ((playerIndex !== 0 && playerIndex !== 1) || session.phase !== "main") return;
+  for (const unit of session.getPlayer(playerIndex).board ?? []) {
+    if (!unit.permanentAttackLock) continue;
+    unit.canAttackFollowers = false;
+    unit.canAttackLeader = false;
+  }
 }
 
 function resolveHealCrestReactions(session, event) {
