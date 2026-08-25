@@ -141,8 +141,6 @@ function hasUnsupportedChoiceOrCondition(text, { targetSpec = null } = {}) {
       .replace(/\bbanish (?:an|a|the) enemy follower\b/gi, "")
       .replace(/\breturn (?:an|a|the) enemy follower to (?:its owner'?s|their) hand\b/gi, "");
   }
-  // Gain Crest is a resolved primitive. Keep all other Crest wording guarded so
-  // advance/delay/destroy and named Crest effects are not falsely marked Full.
   inspect = inspect.replace(/\bGain Crest\s*:\s*[^.;\n]+[.;]?/gi, "");
   return /\b(?:select|choose)\b|\bif\b|\bunless\b|\bfor each\b|\bwhenever\b|\bwhen(?:ever)?\b|\brandomly select\b|\bX\b|\b(?:Earth Rite|Engage|Fuse|Transmute|Crest|Faith|Reanimate)\b/i.test(inspect);
 }
@@ -151,29 +149,34 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
   const enemyIndex = 1 - playerIndex;
   let applied = false;
 
-  applied ||= commandsApplied(resolveEffectCommands(
+  const preApplied = commandsApplied(resolveEffectCommands(
     session,
     compileWorldsBeyondPreTargetCommands(text, { playerIndex, source })
   ));
+  applied = preApplied || applied;
 
   if (targetSpec && target) {
     if (targetSpec.kind === "damage") {
       const damage = session.damageFollower(enemyIndex, target.instanceId, targetSpec.amount, { actor: playerIndex, source, reason: "ability", resolveDeath: false });
       if (Number(target.defense ?? 0) <= 0) destroyWorldsBeyondFollower(session, enemyIndex, target.instanceId, { actor: playerIndex, source, reason: "ability", byAbility: true });
-      applied ||= damage > 0;
+      applied = damage > 0 || applied;
     } else if (targetSpec.kind === "destroy") {
-      applied ||= Boolean(destroyWorldsBeyondFollower(session, enemyIndex, target.instanceId, { actor: playerIndex, source, reason: "ability", byAbility: true }));
+      const destroyed = Boolean(destroyWorldsBeyondFollower(session, enemyIndex, target.instanceId, { actor: playerIndex, source, reason: "ability", byAbility: true }));
+      applied = destroyed || applied;
     } else if (targetSpec.kind === "banish") {
-      applied ||= Boolean(banishBoardCard(session, enemyIndex, target.instanceId, { actor: playerIndex, source, reason: "ability" }));
+      const banished = Boolean(banishBoardCard(session, enemyIndex, target.instanceId, { actor: playerIndex, source, reason: "ability" }));
+      applied = banished || applied;
     } else if (targetSpec.kind === "return") {
-      applied ||= Boolean(returnBoardCardToHand(session, enemyIndex, target.instanceId, { actor: playerIndex, source, reason: "ability" }));
+      const returned = Boolean(returnBoardCardToHand(session, enemyIndex, target.instanceId, { actor: playerIndex, source, reason: "ability" }));
+      applied = returned || applied;
     }
   }
 
-  applied ||= commandsApplied(resolveEffectCommands(
+  const postApplied = commandsApplied(resolveEffectCommands(
     session,
     compileWorldsBeyondPostTargetCommands(text, { playerIndex, source })
   ));
+  applied = postApplied || applied;
 
   for (const match of text.matchAll(/\bdeal\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+damage to (?:all|each) enemy followers?\b/gi)) {
     const amount = numberWord(match[1]);
@@ -182,7 +185,7 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
       session.damageFollower(enemyIndex, unit.instanceId, amount, { actor: playerIndex, source, reason: "ability", resolveDeath: false });
       if (Number(unit.defense ?? 0) <= 0) destroyWorldsBeyondFollower(session, enemyIndex, unit.instanceId, { actor: playerIndex, source, reason: "ability", byAbility: true });
     }
-    applied ||= targets.length > 0;
+    applied = targets.length > 0 || applied;
   }
 
   for (const match of text.matchAll(/\bdeal\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+damage to (?:a random|random) enemy follower\b/gi)) {

@@ -1,8 +1,14 @@
+import { BATTLE_EVENT } from "../battle-events.js";
 import { GAME_IDS } from "../game-catalog.js";
 import { applyWorldsBeyondAction, listWorldsBeyondActions, prepareWorldsBeyondTurn } from "./svwb/action-resolver.js";
+import {
+  assertWorldsBeyondCombatAction,
+  filterWorldsBeyondCombatActions,
+  normalizeWorldsBeyondCombatEvent,
+  normalizeWorldsBeyondTurnCombatReadiness
+} from "./svwb/combat-readiness.js";
 import { resolveWorldsBeyondEventReaction } from "./svwb/event-reactions.js";
 import { runWorldsBeyondTurnEnd, runWorldsBeyondTurnStart } from "./svwb/lifecycle.js";
-import { resolveWorldsBeyondEffectCommand } from "./svwb/v6/effect-commands.js";
 import { SHADOWBATTLE_V6_ENGINE_PROFILE } from "./svwb/v6/engine-profile.js";
 
 export const WORLDS_BEYOND_RULESET = Object.freeze({
@@ -47,8 +53,10 @@ export const WORLDS_BEYOND_RULESET = Object.freeze({
     player.resources.superEvolutionAvailable = player.personalTurn >= (player.goingFirst ? this.superEvolutionUnlockTurn.first : this.superEvolutionUnlockTurn.second);
     if (!player.goingFirst && player.personalTurn === 6 && player.resources.bonusPpUses < 2) player.resources.bonusPpAvailable = true;
     prepareWorldsBeyondTurn(player);
+    normalizeWorldsBeyondTurnCombatReadiness(player);
   },
   afterEvent(session, event) {
+    if (event.type === BATTLE_EVENT.FOLLOWER_ENTER) normalizeWorldsBeyondCombatEvent(session, event);
     resolveWorldsBeyondEventReaction(session, event);
   },
   afterTurnStart(player, session) {
@@ -57,13 +65,11 @@ export const WORLDS_BEYOND_RULESET = Object.freeze({
   beforeTurnEnd(player, session) {
     runWorldsBeyondTurnEnd(session, player.index);
   },
-  resolveEffectCommand(session, command) {
-    return resolveWorldsBeyondEffectCommand(session, command);
-  },
   applyAction(session, action) {
+    assertWorldsBeyondCombatAction(session, action);
     return applyWorldsBeyondAction(session, action);
   },
   listLegalActions(session, playerIndex) {
-    return listWorldsBeyondActions(session, playerIndex);
+    return filterWorldsBeyondCombatActions(session, listWorldsBeyondActions(session, playerIndex));
   }
 });
