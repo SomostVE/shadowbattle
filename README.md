@@ -33,16 +33,34 @@ Each game is treated as a separate ruleset, data namespace and visual profile.
 ├─ manifest.json
 ├─ games.json
 ├─ worlds-beyond/
-│  └─ manifest.json       # namespace svwb
+│  └─ manifest.json                    # namespace svwb
 ├─ shadowverse-ccg/
-│  └─ manifest.json       # namespace sv1
+│  ├─ manifest.json                    # namespace sv1
+│  ├─ cards.json                       # frozen English snapshot
+│  ├─ data-headers.json                # original Portal field metadata
+│  ├─ image-index.json                 # preserved card-art URL index
+│  └─ locales/
+│     └─ cards.<lang>.json             # 8 official Portal languages
 └─ champions-battle/
-   └─ manifest.json       # namespace svcb
+   └─ manifest.json                    # namespace svcb
 ```
 
-Future materialized card endpoints will live inside those same game folders.
-
 A normalized card UID is always qualified with the game namespace, such as `svwb:...`, `sv1:...` or `svcb:...`.
+
+### Original Shadowverse CCG archive
+
+ShadowBattle contains a **complete frozen copy of the Shadowverse Portal card API** captured on 2026-08-25:
+
+- **5,933 cards**;
+- identical card-ID coverage across all archived locales;
+- **8 officially supported languages**: English, Japanese, Korean, Traditional Chinese, French, Italian, German and Spanish;
+- the original raw API response for every language under `archive/shadowverse-ccg/raw/`;
+- a runtime-ready local API under `api/v1/shadowverse-ccg/`;
+- SHA-256 hashes and population checks in the manifest.
+
+The Shadowverse CCG provider reads this local snapshot. **Normal ShadowBattle runtime does not call `shadowverse-portal.com` for card data.** The original endpoint is retained only as provenance and for an explicit archival refresh while it remains online.
+
+Card-art URL patterns are indexed separately. Mirroring every card image would be a multi-gigabyte asset archive and is intentionally not mixed into the code/data snapshot.
 
 ## Data architecture
 
@@ -54,8 +72,10 @@ Shadowverse: Worlds Beyond
 Worlds Beyond provider
 
 Shadowverse CCG
+        ↓ archival capture only
+Shadowverse Portal
         ↓
-Shadowverse Portal / normalized source
+local frozen sv1 API
         ↓
 Classic provider
 
@@ -79,11 +99,15 @@ It deliberately limits search depth and breadth, then selects among near-best le
 
 The `/test/` page is the development surface for this behavior before it is connected to a real `GameSession`.
 
-## Visual direction
+## Visual archive
 
-ShadowBattle has game-specific visual themes and an asset registry. For the original Shadowverse CCG, the preferred source is the **official Cygames Shadowverse Fan Kit**, which still publishes logos, character material, rank icons and background packs.
+Official Fan Kit material is isolated by game under `assets/fankits/`.
 
-See `docs/visual-assets.md` for the asset policy and planned directory structure.
+The original Shadowverse CCG Fan Kit has been archived locally from Cygames: **36 official downloads**, including the `Characters`, `RankIcons` and `Backgrounds` ZIP packs. Those ZIPs are also extracted under `assets/fankits/shadowverse-ccg/extracted/` so the UI can use individual files directly.
+
+Worlds Beyond has its own official Fan Kit namespace. Its current download controls are dynamically generated, so its source page is recorded separately until those direct asset URLs are resolved. Champion's Battle remains source-audited before any game files are copied into its namespace.
+
+See `assets/fankits/README.md` and `docs/visual-assets.md` for asset provenance and usage rules.
 
 ## Current architecture
 
@@ -119,4 +143,4 @@ src/
 
 ## Status
 
-Architecture + API/Test surfaces bootstrapped. The board visible in `/test/` is currently a development mock; there is no full playable `GameSession` yet.
+ShadowBattle 0.3.0 has a namespaced API, permanent original-CCG data archive, official CCG Fan Kit archive and AI test surface. The board visible in `/test/` is currently a development mock; there is no full playable `GameSession` yet.
