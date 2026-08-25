@@ -5,10 +5,11 @@ const GAME_CONFIG = Object.freeze({
   }
 });
 
-export async function loadReferenceDecks(gameId, { baseUrl = document?.baseURI ?? import.meta.url } = {}) {
+export async function loadReferenceDecks(gameId, options = {}) {
   const config = GAME_CONFIG[gameId];
   if (!config) return [];
 
+  const baseUrl = options.baseUrl ?? (typeof document !== "undefined" ? document.baseURI : import.meta.url);
   const endpoint = new URL(config.endpoint, baseUrl);
   const response = await fetch(endpoint, { cache: "no-store" });
   if (!response.ok) throw new Error(`Reference deck pool unavailable for ${gameId}: ${response.status}`);
