@@ -5,11 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#090b14">
   <meta name="robots" content="noindex,nofollow,noarchive">
-  <title>ShadowBattle Internal AI Test Lab</title>
-  <link rel="stylesheet" href="../src/ui/shadowbattle.css?v=0.4.22">
-  <script type="module" src="../src/ui/version-guard.js?v=0.4.22"></script>
+  <title>ShadowBattle Internal Battle Lab</title>
+  <link rel="stylesheet" href="../src/ui/shadowbattle.css?v=0.4.24">
+  <link rel="stylesheet" href="../src/ui/battle-lab.css?v=0.4.24">
+  <script type="module" src="../src/ui/version-guard.js?v=0.4.24"></script>
 </head>
-<body data-game="shadowverse-ccg">
+<body data-game="worlds-beyond">
   <main class="sb-shell">
     <header class="sb-topbar">
       <a class="sb-brand" href="../"><span class="sb-mark">✦</span><span>ShadowBattle</span></a>
@@ -18,14 +19,14 @@
         <a href="../decks/">Deckbuilder</a>
         <a href="../library/">Deck Library</a>
         <a href="../api/">API</a>
-        <a href="./" aria-current="page">Internal AI Lab</a>
+        <a href="./" aria-current="page">Internal Battle Lab</a>
       </nav>
     </header>
 
-    <section class="sb-hero">
-      <div class="sb-eyebrow">Internal logic sandbox</div>
+    <section class="sb-hero sb-lab-hero">
+      <div class="sb-eyebrow">Internal battle sandbox</div>
       <h1>/test</h1>
-      <p>Deterministic scenarios for developing ShadowBattle's intermediate AI before those decisions are connected to the real interactive battle engine.</p>
+      <p>Interactive GameSession development for Worlds Beyond. This page is the private proving ground for mulligan, turn flow, hidden information, CPU decisions and the animation pipeline before Battle becomes public.</p>
     </section>
 
     <section class="sb-panel">
@@ -33,55 +34,89 @@
         <div class="sb-field">
           <label for="test-game">Game</label>
           <select id="test-game" class="sb-control">
+            <option value="worlds-beyond" selected>Worlds Beyond</option>
             <option value="shadowverse-ccg">Shadowverse CCG</option>
             <option value="champions-battle">Champion's Battle</option>
-            <option value="worlds-beyond">Worlds Beyond</option>
           </select>
         </div>
         <div class="sb-field">
           <label for="test-seed">Deterministic seed</label>
           <input id="test-seed" class="sb-control" value="shadowbattle-demo" autocomplete="off">
         </div>
-        <button id="run-decision" class="sb-button sb-button-primary" type="button">Run AI decision</button>
-        <button id="reset-test" class="sb-button" type="button">Reset</button>
+        <button id="run-decision" class="sb-button" type="button">Run AI decision</button>
+        <button id="reset-test" class="sb-button" type="button">Reset AI log</button>
       </div>
     </section>
 
-    <section class="sb-section sb-test-layout">
-      <div class="sb-board" aria-label="Prototype ShadowBattle board">
-        <div class="sb-board-half">
-          <div class="sb-player-line">
-            <div class="sb-leader"><span class="sb-avatar"></span><div><strong>AI opponent</strong><div class="sb-resource">PP 6/6 · Evo 2</div></div></div>
-            <span class="sb-hp">20</span>
-          </div>
-          <div class="sb-zone"><span class="sb-slot" data-active="true"></span><span class="sb-slot"></span><span class="sb-slot"></span><span class="sb-slot"></span><span class="sb-slot"></span></div>
-          <div class="sb-hand"><span class="sb-slot"></span><span class="sb-slot"></span><span class="sb-slot"></span><span class="sb-slot"></span></div>
+    <section id="game-session-lab" class="sb-section">
+      <div class="sb-section-title">
+        <div>
+          <div class="sb-eyebrow">GameSession · SVWB ruleset v5</div>
+          <h2>Interactive battle foundation</h2>
         </div>
+        <span id="battle-lab-status" class="sb-status" data-status="planned">Loading Beyond Codex…</span>
+      </div>
 
-        <div class="sb-board-half">
-          <div class="sb-hand"><span class="sb-slot"></span><span class="sb-slot"></span><span class="sb-slot"></span><span class="sb-slot"></span><span class="sb-slot"></span></div>
-          <div class="sb-zone"><span class="sb-slot" data-active="true"></span><span class="sb-slot"></span><span class="sb-slot"></span><span class="sb-slot"></span><span class="sb-slot"></span></div>
-          <div class="sb-player-line">
-            <div class="sb-leader"><span class="sb-avatar"></span><div><strong>Human player</strong><div class="sb-resource">PP 5/5 · Evo 2</div></div></div>
-            <span class="sb-hp">17</span>
+      <div class="sb-panel sb-battle-controls">
+        <div class="sb-controls">
+          <div class="sb-field sb-field-grow">
+            <label for="battle-player-deck">Human deck</label>
+            <select id="battle-player-deck" class="sb-control" disabled></select>
           </div>
+          <div class="sb-field sb-field-grow">
+            <label for="battle-cpu-deck">CPU deck</label>
+            <select id="battle-cpu-deck" class="sb-control" disabled></select>
+          </div>
+          <button id="battle-start" class="sb-button sb-button-primary" type="button" disabled>Start GameSession</button>
+          <button id="battle-mulligan" class="sb-button sb-button-primary" type="button" disabled>Confirm mulligan</button>
+          <button id="battle-bonus-pp" class="sb-button" type="button" disabled>Bonus PP</button>
+          <button id="battle-end-turn" class="sb-button" type="button" disabled>End turn</button>
         </div>
       </div>
 
-      <aside class="sb-panel sb-log">
-        <div class="sb-eyebrow">Intermediate AI</div>
-        <h2 id="chosen-action">No decision yet</h2>
-        <p>The test currently compares several legal lines. Obviously illegal actions are discarded, but the AI may select a near-best line rather than perfectly maximizing every position.</p>
-        <div id="decision-log"></div>
-      </aside>
+      <div class="sb-test-layout sb-battle-layout">
+        <div id="battle-stage" class="sb-board sb-battle-stage" data-phase="loading" aria-label="Worlds Beyond GameSession battle board">
+          <section class="sb-battle-side sb-battle-side-opponent" data-player="1">
+            <div class="sb-player-line">
+              <div class="sb-leader"><span class="sb-avatar"></span><div><strong id="battle-opponent-name">CPU</strong><div id="battle-opponent-resource" class="sb-resource">Waiting for session</div></div></div>
+              <span id="battle-opponent-hp" class="sb-hp">20</span>
+            </div>
+            <div id="battle-opponent-hand" class="sb-battle-hand sb-battle-hand-opponent" aria-label="Opponent hand"></div>
+            <div id="battle-opponent-board" class="sb-battle-field" aria-label="Opponent field"></div>
+          </section>
+
+          <div class="sb-battle-divider" aria-hidden="true"><span id="battle-turn-label">GameSession</span></div>
+
+          <section class="sb-battle-side sb-battle-side-player" data-player="0">
+            <div id="battle-player-board" class="sb-battle-field" aria-label="Player field"></div>
+            <div id="battle-player-hand" class="sb-battle-hand sb-battle-hand-player" aria-label="Player hand"></div>
+            <div class="sb-player-line">
+              <div class="sb-leader"><span class="sb-avatar"></span><div><strong id="battle-player-name">Human</strong><div id="battle-player-resource" class="sb-resource">Waiting for session</div></div></div>
+              <span id="battle-player-hp" class="sb-hp">20</span>
+            </div>
+          </section>
+
+          <div id="battle-overlay" class="sb-battle-overlay" aria-live="polite">
+            <strong>Worlds Beyond battle lab</strong>
+            <span>Select two reference decks and start a deterministic session.</span>
+          </div>
+        </div>
+
+        <aside class="sb-panel sb-log sb-battle-log-panel">
+          <div class="sb-eyebrow">Event stream</div>
+          <h2 id="battle-phase-label">No session</h2>
+          <p id="battle-help">The renderer consumes semantic GameSession events in order. Hidden opponent draws are never exposed to the human view.</p>
+          <div id="battle-event-log" class="sb-battle-event-log"></div>
+        </aside>
+      </div>
     </section>
 
     <section class="sb-section sb-grid">
+      <article class="sb-card"><div class="sb-eyebrow">Intermediate AI</div><h3 id="chosen-action">No decision yet</h3><p>The existing decision sandbox stays available while the real GameSession replaces synthetic battle state step by step.</p><div id="decision-log"></div></article>
       <article class="sb-card"><div class="sb-eyebrow">Skill budget</div><h3>Intermediate profile</h3><pre id="profile-json" class="sb-code"></pre></article>
       <article class="sb-card"><div class="sb-eyebrow">Visual boundary</div><h3>Selected game profile</h3><pre id="visual-json" class="sb-code"></pre></article>
-      <article class="sb-card"><div class="sb-eyebrow">Planned harness</div><h3>Next test inputs</h3><p>Deck list, known opponent cards, turn state, legal actions, hidden-information samples, candidate plans and replayable AI explanations.</p></article>
     </section>
   </main>
-  <script type="module" src="../src/test/test-page.js?v=0.4.22"></script>
+  <script type="module" src="../src/test/test-page.js?v=0.4.24"></script>
 </body>
 </html>
