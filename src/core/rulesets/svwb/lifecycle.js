@@ -1,6 +1,6 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
 import { restoreOriginalCardForm } from "../../zone-actions.js";
-import { resolveWorldsBeyondTrigger } from "./effect-resolver.js";
+import { gainWorldsBeyondShadows, resolveWorldsBeyondTrigger } from "./effect-resolver.js";
 
 export function runWorldsBeyondTurnStart(session, playerIndex) {
   const player = session.getPlayer(playerIndex);
@@ -44,6 +44,7 @@ function destroyCountdownAmulet(session, playerIndex, amulet) {
   if (index < 0) return null;
   player.board.splice(index, 1);
   player.cemetery.push(amulet);
+  gainWorldsBeyondShadows(session, playerIndex, 1);
   session.emit(BATTLE_EVENT.AMULET_DESTROYED, {
     actor: playerIndex,
     payload: { owner: playerIndex, card: session.cardView(amulet), reason: "countdown" }
