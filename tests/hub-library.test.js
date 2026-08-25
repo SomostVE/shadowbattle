@@ -6,6 +6,8 @@ const root = new URL("../", import.meta.url);
 const hub = await fs.readFile(new URL("index.html", root), "utf8");
 const hubCss = await fs.readFile(new URL("src/ui/hub.css", root), "utf8");
 const hubJs = await fs.readFile(new URL("src/ui/hub.js", root), "utf8");
+const referenceDeckLoader = await fs.readFile(new URL("src/ai/reference-decks.js", root), "utf8");
+const botDecks = JSON.parse(await fs.readFile(new URL("api/v1/worlds-beyond/bot-decks.json", root), "utf8"));
 const deckPage = await fs.readFile(new URL("decks/index.html", root), "utf8");
 const library = await fs.readFile(new URL("library/index.html", root), "utf8");
 const apiPage = await fs.readFile(new URL("api/index.html", root), "utf8");
@@ -16,18 +18,21 @@ test("landing page is a compact game-first ShadowBattle hub", () => {
   assert.match(hub, /<body class="hub-page">/);
   assert.match(hub, /id="battle" class="hub-stage"/);
   assert.match(hub, /Human vs AI/);
-  assert.match(hub, /Play Shadowverse as a real match/);
+  assert.match(hub, /Mulligan, play every action yourself/);
   assert.match(hub, /Choose a ruleset/);
-  assert.ok(hub.indexOf("hub-battle-card") < hub.indexOf("hub-prep-grid"));
+  assert.ok(hub.indexOf("hub-battle-card") < hub.indexOf("hub-tools"));
   assert.match(hub, /href="\.\/decks\/"/);
   assert.match(hub, /href="\.\/library\/"/);
   assert.match(hub, /5,933 archived cards/);
   assert.match(hub, /623-card base pool/);
+  assert.doesNotMatch(hub, /hub-topbar|hub-nav/);
   assert.doesNotMatch(hub, /href="\.\/test\/"/);
   assert.doesNotMatch(hub, /AI Test Lab/);
   assert.match(hubCss, /\.hub-page\s*\{\s*overflow:\s*hidden/);
   assert.match(hubCss, /height:\s*100dvh/);
   assert.match(hubCss, /--panel:\s*#1c2938/);
+  assert.match(hubCss, /--panel-2:\s*#263648/);
+  assert.match(hubCss, /--accent:\s*#72b8ff/);
 });
 
 test("hub rotates official fan-kit backgrounds and is ready for Worlds Beyond assets", () => {
@@ -37,6 +42,20 @@ test("hub rotates official fan-kit backgrounds and is ready for Worlds Beyond as
   assert.match(hubJs, /worlds-beyond\/manifest\.json/);
   assert.match(hubJs, /Math\.random/);
   assert.match(hub, /© Cygames, Inc\./);
+});
+
+test("Beyond Decks AI reference pool is vendored under the svwb namespace", () => {
+  assert.equal(botDecks.format, "svwb-reference-decks");
+  assert.ok(botDecks.decks.length >= 7);
+  assert.equal(botDecks.shadowBattle.namespace, "svwb");
+  assert.equal(botDecks.shadowBattle.gameId, "worlds-beyond");
+  for (const deck of botDecks.decks) {
+    assert.equal(deck.cards.reduce((sum, card) => sum + card.qty, 0), 40, deck.id);
+  }
+  assert.match(referenceDeckLoader, /worlds-beyond/);
+  assert.match(referenceDeckLoader, /namespace:\s*"svwb"/);
+  assert.match(referenceDeckLoader, /qualifiedId:\s*`\$\{namespace\}:\$\{card\.cardId\}`/);
+  assert.match(hub, /synchronized AI decks/);
 });
 
 test("AI test lab is internal and absent from public navigation", () => {
