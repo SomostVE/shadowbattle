@@ -1,6 +1,7 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
 import { restoreOriginalCardForm } from "../../zone-actions.js";
-import { runWorldsBeyondCrestTurnStart } from "./crests.js";
+import { resolveWorldsBeyondCrestTurnEnd } from "./crest-effects.js";
+import { getWorldsBeyondCrests, runWorldsBeyondCrestTurnStart } from "./crests.js";
 import { gainWorldsBeyondShadows, resolveWorldsBeyondTrigger } from "./effect-resolver.js";
 
 export function runWorldsBeyondTurnStart(session, playerIndex) {
@@ -26,7 +27,15 @@ export function runWorldsBeyondTurnEnd(session, playerIndex) {
   for (const source of [...player.board]) {
     if (!session.findBoardCard(playerIndex, source.instanceId)) continue;
     resolveWorldsBeyondTrigger(session, { trigger: "turn-end", playerIndex, source });
-    if (session.phase !== "main") break;
+    if (session.phase !== "main") return;
+  }
+
+  // Battle Engine V5 resolves simultaneous Crest turn-end effects after board
+  // follower/amulet turn-end effects and in Crest acquisition order.
+  for (const crest of [...getWorldsBeyondCrests(player)]) {
+    if (!getWorldsBeyondCrests(player).includes(crest)) continue;
+    resolveWorldsBeyondCrestTurnEnd(session, playerIndex, crest);
+    if (session.phase !== "main") return;
   }
 }
 
