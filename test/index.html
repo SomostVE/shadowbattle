@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#090b14">
+  <title>ShadowBattle AI Test Lab</title>
+  <link rel="stylesheet" href="../src/ui/shadowbattle.css">
+</head>
+<body data-game="shadowverse-ccg">
+  <main class="sb-shell">
+    <header class="sb-topbar">
+      <a class="sb-brand" href="../">
+        <span class="sb-mark">✦</span>
+        <span>ShadowBattle</span>
+      </a>
+      <nav class="sb-nav" aria-label="Main navigation">
+        <a href="../api/">API</a>
+        <a href="./" aria-current="page">AI Test Lab</a>
+      </nav>
+    </header>
+
+    <section class="sb-hero">
+      <div class="sb-eyebrow">Logic sandbox</div>
+      <h1>/test</h1>
+      <p>Deterministic scenarios for developing ShadowBattle's intermediate AI before those decisions are connected to the real interactive battle engine.</p>
+    </section>
+
+    <section class="sb-panel">
+      <div class="sb-controls">
+        <div class="sb-field">
+          <label for="test-game">Game</label>
+          <select id="test-game" class="sb-control">
+            <option value="shadowverse-ccg">Shadowverse CCG</option>
+            <option value="champions-battle">Champion's Battle</option>
+            <option value="worlds-beyond">Worlds Beyond</option>
+          </select>
+        </div>
+        <div class="sb-field">
+          <label for="test-seed">Deterministic seed</label>
+          <input id="test-seed" class="sb-control" value="shadowbattle-demo" autocomplete="off">
+        </div>
+        <button id="run-decision" class="sb-button sb-button-primary" type="button">Run AI decision</button>
+        <button id="reset-test" class="sb-button" type="button">Reset</button>
+      </div>
+    </section>
+
+    <section class="sb-section sb-test-layout">
+      <div class="sb-board" aria-label="Prototype ShadowBattle board">
+        <div class="sb-board-half">
+          <div class="sb-player-line">
+            <div class="sb-leader"><span class="sb-avatar"></span><div><strong>AI opponent</strong><div class="sb-resource">PP 6/6 · Evo 2</div></div></div>
+            <span class="sb-hp">20</span>
+          </div>
+          <div class="sb-zone">
+            <span class="sb-slot" data-active="true"></span>
+            <span class="sb-slot"></span>
+            <span class="sb-slot"></span>
+            <span class="sb-slot"></span>
+            <span class="sb-slot"></span>
+          </div>
+          <div class="sb-hand"><span class="sb-slot"></span><span class="sb-slot"></span><span class="sb-slot"></span><span class="sb-slot"></span></div>
+        </div>
+
+        <div class="sb-board-half">
+          <div class="sb-hand"><span class="sb-slot"></span><span class="sb-slot"></span><span class="sb-slot"></span><span class="sb-slot"></span><span class="sb-slot"></span></div>
+          <div class="sb-zone">
+            <span class="sb-slot" data-active="true"></span>
+            <span class="sb-slot"></span>
+            <span class="sb-slot"></span>
+            <span class="sb-slot"></span>
+            <span class="sb-slot"></span>
+          </div>
+          <div class="sb-player-line">
+            <div class="sb-leader"><span class="sb-avatar"></span><div><strong>Human player</strong><div class="sb-resource">PP 5/5 · Evo 2</div></div></div>
+            <span class="sb-hp">17</span>
+          </div>
+        </div>
+      </div>
+
+      <aside class="sb-panel sb-log">
+        <div class="sb-eyebrow">Intermediate AI</div>
+        <h2 id="chosen-action">No decision yet</h2>
+        <p>The test currently compares several legal lines. Obviously illegal actions are discarded, but the AI may select a near-best line rather than perfectly maximizing every position.</p>
+        <div id="decision-log"></div>
+      </aside>
+    </section>
+
+    <section class="sb-section sb-grid">
+      <article class="sb-card">
+        <div class="sb-eyebrow">Skill budget</div>
+        <h3>Intermediate profile</h3>
+        <pre id="profile-json" class="sb-code"></pre>
+      </article>
+      <article class="sb-card">
+        <div class="sb-eyebrow">Visual boundary</div>
+        <h3>Selected game profile</h3>
+        <pre id="visual-json" class="sb-code"></pre>
+      </article>
+      <article class="sb-card">
+        <div class="sb-eyebrow">Planned harness</div>
+        <h3>Next test inputs</h3>
+        <p>Deck list, known opponent cards, turn state, legal actions, hidden-information samples, candidate plans and replayable AI explanations.</p>
+      </article>
+    </section>
+
+    <footer class="sb-fankit-notice">
+      ShadowBattle is an independent fan project and is not affiliated with or endorsed by Cygames. Shadowverse and related intellectual property are © Cygames, Inc. Official fan-kit material, when enabled, is used subject to the Shadowverse Fan Kit Agreement.
+    </footer>
+  </main>
+  <script type="module" src="../src/test/test-page.js"></script>
+</body>
+</html>
