@@ -17,7 +17,8 @@ export function modes(inst, player) {
   if (enhance.length && !milteoSuppressesEntryAbilities) {
     if (!canUseFieldSlot) return out;
     const cost = enhance[0];
-    for (const choice of expandModes(section(text, `enhance ${cost}`), player)) out.push({ kind: choice.i ? "mode" : "enhance", cost, text: choice.text, modeIndex: choice.i, selectedModeCount: choice.selectedModeCount ?? 0, scoreBonus: 5, enhanced: true });
+    const enhancedText = [baseText(text), section(text, `enhance ${cost}`)].filter(Boolean).join(" ");
+    for (const choice of expandModes(enhancedText, player)) out.push({ kind: choice.i ? "mode" : "enhance", cost, text: choice.text, modeIndex: choice.i, selectedModeCount: choice.selectedModeCount ?? 0, scoreBonus: 5, enhanced: true });
     return out;
   }
 
@@ -38,7 +39,7 @@ export function modes(inst, player) {
   if (highestAlternativeCost < 0) return out;
 
   if (player.board.length < 5 && crystallizeCosts.includes(highestAlternativeCost)) {
-    out.push({ kind: "crystallize", cost: highestAlternativeCost, text: crystallizeText(text, highestAlternativeCost), modeIndex: 0, scoreBonus: 5 });
+    out.push({ kind: "crystallize", cost: highestAlternativeCost, text: crystallizeText(text, highestAlternativeCost), modeIndex: 0, scoreBonus: 5, crystallized: true });
   }
   if (accelerateCosts.includes(highestAlternativeCost)) {
     for (const choice of expandModes(section(text, `accelerate ${highestAlternativeCost}`), player)) {
