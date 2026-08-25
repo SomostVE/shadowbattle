@@ -3,14 +3,25 @@
 // records and the game-specific art resolver.
 
 const DEFAULT_BATCH_SIZE = 96;
+const INCLUDE_NEUTRAL_KEY = "shadowbattle:include-neutral";
 
 export function renderCardGrid(root, cards, handlers = {}, options = {}) {
+  const includeNeutral = localStorage.getItem(INCLUDE_NEUTRAL_KEY) !== "false";
+  const visibleCards = includeNeutral
+    ? cards
+    : cards.filter(card => card.craft !== "Neutral");
+
   const batchSize = Math.max(24, Number(options.batchSize) || DEFAULT_BATCH_SIZE);
   const renderId = String((Number(root.dataset.renderId) || 0) + 1);
   root.dataset.renderId = renderId;
+  root.dataset.includeNeutral = includeNeutral ? "true" : "false";
+  root.dataset.totalCards = String(visibleCards.length);
   root.replaceChildren();
 
-  if (!cards.length) {
+  const resultCount = document.getElementById("deck-result-count");
+  if (resultCount) resultCount.textContent = `${visibleCards.length.toLocaleString()} cards`;
+
+  if (!visibleCards.length) {
     const empty = document.createElement("p");
     empty.className = "muted";
     empty.textContent = "No cards match these filters.";
@@ -22,9 +33,9 @@ export function renderCardGrid(root, cards, handlers = {}, options = {}) {
 
   const appendBatch = limit => {
     if (root.dataset.renderId !== renderId) return false;
-    const end = Math.min(cards.length, cursor + limit);
+    const end = Math.min(visibleCards.length, cursor + limit);
     const template = document.createElement("template");
-    template.innerHTML = cards.slice(cursor, end).map(card => cardMarkup(card, handlers)).join("");
+    template.innerHTML = visibleCards.slice(cursor, end).map(card => cardMarkup(card, handlers)).join("");
     const nodes = [...template.content.children];
     root.appendChild(template.content);
 
@@ -36,7 +47,7 @@ export function renderCardGrid(root, cards, handlers = {}, options = {}) {
     }
 
     cursor = end;
-    return cursor < cards.length;
+    return cursor < visibleCards.length;
   };
 
   // Paint enough cards for the visible viewport synchronously. The remainder is
@@ -90,7 +101,7 @@ function cardMarkup(card, handlers) {
     ? `<button class="db-card-control" type="button" data-art-toggle="${card.id}" title="Show evolved art" aria-label="Show evolved art">E</button>`
     : "";
 
-  return `<article class="db-card-tile${current >= 3 ? " is-capped" : ""}" data-card-id="${card.id}">
+  return `<article class="db-card-tile${current >= 3 ? " is-capped" : ""}" data-card-id="${card.id}" data-card-craft="${escapeHtml(card.craft ?? "")}">
     <button class="db-card-main" type="button" data-add="${card.id}" title="${escapeHtml(card.name)} — click to add" aria-label="Add ${escapeHtml(card.name)} to deck">
       <img loading="lazy" data-card-art="${card.id}" data-art-state="normal" alt="${escapeHtml(card.name)}" referrerpolicy="no-referrer">
     </button>
