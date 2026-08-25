@@ -1,6 +1,7 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
 import { banishBoardCard, returnBoardCardToHand } from "../../zone-actions.js";
 import { evaluateWorldsBeyondClassCondition } from "./class-conditions.js";
+import { getWorldsBeyondEngageInfo } from "./engage.js";
 import { baseText, section } from "./v5/battle-engine-v5-text.js";
 import { targetEffectSpec } from "./v5/battle-engine-v5-targeting.js";
 
@@ -106,6 +107,7 @@ export function destroyWorldsBeyondFollower(session, playerIndex, instanceId, op
 function triggerText(source, trigger, mode) {
   const text = String(source?.activeText ?? source?.card?.text ?? "");
   if (trigger === "play") return baseText(mode?.text ?? text);
+  if (trigger === "engage") return getWorldsBeyondEngageInfo(source)?.text ?? "";
   if (trigger === "strike") return section(text, "strike");
   if (trigger === "evolve") return section(text, "evolve") || naturalLifecycle(text, /when this follower evolves,\s*/i);
   if (trigger === "super-evolve") return section(text, "super-evolve");
