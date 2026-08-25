@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#141d28">
   <title>ShadowBattle Deck Library</title>
   <link rel="preconnect" href="https://shadowverse-portal.com">
-  <link rel="stylesheet" href="../src/ui/library.css?v=0.4.19">
-  <script type="module" src="../src/ui/version-guard.js?v=0.4.19"></script>
+  <link rel="stylesheet" href="../src/ui/library.css?v=0.4.21">
+  <script type="module" src="../src/ui/version-guard.js?v=0.4.21"></script>
 </head>
 <body>
   <header class="lib-topbar">
@@ -28,15 +28,14 @@
       <label class="lib-search"><span>Search</span><input id="library-search" type="search" placeholder="Deck name…"></label>
       <label><span>Class</span><select id="library-craft"><option value="all">All classes</option></select></label>
       <label><span>Legendary</span><select id="library-legendary-max"><option value="all">Any</option><option value="0">0 max</option><option value="3">3 max</option><option value="6">6 max</option><option value="9">9 max</option><option value="12">12 max</option></select></label>
-      <label><span>Average PP</span><select id="library-average-max"><option value="all">Any</option><option value="2.5">≤ 2.5</option><option value="3">≤ 3.0</option><option value="3.5">≤ 3.5</option><option value="4">≤ 4.0</option><option value="5">≤ 5.0</option></select></label>
-      <label><span>Total PP</span><select id="library-total-max"><option value="all">Any</option><option value="80">≤ 80</option><option value="100">≤ 100</option><option value="120">≤ 120</option><option value="140">≤ 140</option><option value="160">≤ 160</option></select></label>
-      <label><span>Sort</span><select id="library-sort"><option value="saved">Newest</option><option value="name">Name</option><option value="legendary">Legendary</option><option value="average">Average PP</option><option value="total">Total PP</option></select></label>
+      <label><span>Vial cost</span><select id="library-vial-max"><option value="all">Any</option><option value="10000">≤ 10,000</option><option value="20000">≤ 20,000</option><option value="30000">≤ 30,000</option><option value="40000">≤ 40,000</option><option value="50000">≤ 50,000</option><option value="75000">≤ 75,000</option><option value="100000">≤ 100,000</option></select></label>
+      <label><span>Sort</span><select id="library-sort"><option value="saved">Newest</option><option value="name">Name</option><option value="legendary">Legendary</option><option value="vials">Vial cost</option></select></label>
       <button id="library-reset" class="lib-reset" type="button">Reset</button>
     </section>
-    <section class="lib-events" aria-label="Quick event filters"><span>Event filters</span><button type="button" data-preset="no-legendary">No Legendary</button><button type="button" data-preset="six-legendary">≤ 6 Legendary</button><button type="button" data-preset="low-curve">Low curve ≤ 3 PP</button><button type="button" data-preset="cheap-total">Total PP ≤ 100</button></section>
+    <section class="lib-events" aria-label="Quick event filters"><span>Event filters</span><button type="button" data-preset="no-legendary">No Legendary</button><button type="button" data-preset="six-legendary">≤ 6 Legendary</button><button type="button" data-preset="budget-20k">Budget ≤ 20k vials</button><button type="button" data-preset="budget-40k">Budget ≤ 40k vials</button></section>
     <section id="library-grid" class="lib-grid" aria-live="polite"></section>
     <section id="library-empty" class="lib-empty" hidden><strong>No deck matches these filters.</strong><a href="../decks/">Build a deck</a></section>
   </main>
-  <script type="module" src="../src/decks/library-page.js?v=0.4.19"></script>
+  <script type="module" src="../src/decks/library-page.js?v=0.4.21"></script>
 </body>
 </html>
