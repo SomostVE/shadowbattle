@@ -2,6 +2,7 @@ import { BATTLE_EVENT } from "../../battle-events.js";
 import { restoreOriginalCardForm } from "../../zone-actions.js";
 import {
   destroyWorldsBeyondFollower,
+  gainWorldsBeyondShadows,
   getWorldsBeyondTargetOptions,
   getWorldsBeyondTargetRequirement,
   resolveWorldsBeyondTrigger
@@ -29,6 +30,7 @@ export function prepareWorldsBeyondTurn(player) {
   player.cardsPlayedThisTurn = 0;
   player.spellsPlayedThisTurn = 0;
   player.evolutionActionUsed = false;
+  if (player.resources) player.resources.combo = 0;
   for (const unit of player.board) {
     if (cardType(unit) !== "follower") continue;
     unit.attacksRemaining = 1;
@@ -59,7 +61,7 @@ export function listWorldsBeyondActions(session, playerIndex) {
         playMode: modeView(mode),
         effectiveType: type
       };
-      const targetRequirement = getWorldsBeyondTargetRequirement(card, "play", mode);
+      const targetRequirement = getWorldsBeyondTargetRequirement(card, "play", mode, player);
       if (!targetRequirement) {
         actions.push(baseAction);
         continue;
@@ -111,7 +113,7 @@ function playCard(session, action) {
   if ((type === "follower" || type === "amulet") && player.board.length >= session.ruleset.maxBoardSize) throw new Error("The board is full");
   if (!new Set(["follower", "spell", "amulet"]).has(type)) throw new Error(`Unsupported card type: ${instance.card?.type ?? "unknown"}`);
 
-  const requirement = getWorldsBeyondTargetRequirement(instance, "play", mode);
+  const requirement = getWorldsBeyondTargetRequirement(instance, "play", mode, player);
   const targets = requirement ? getWorldsBeyondTargetOptions(session, { trigger: "play", playerIndex, source: instance, mode }) : [];
   if (targets.length && !action.targetInstanceId) throw new Error("This card requires an effect target");
   if (action.targetInstanceId && !targets.some(target => target.instanceId === action.targetInstanceId)) throw new Error("Selected effect target is not legal");
@@ -120,6 +122,7 @@ function playCard(session, action) {
   player.resources.pp -= cost;
   player.hand.splice(index, 1);
   player.cardsPlayedThisTurn = Number(player.cardsPlayedThisTurn ?? 0) + 1;
+  player.resources.combo = player.cardsPlayedThisTurn;
   if (type === "spell") player.spellsPlayedThisTurn = Number(player.spellsPlayedThisTurn ?? 0) + 1;
 
   if (isAlternativeMode(mode)) activateAlternativeForm(instance, mode, type);
@@ -153,6 +156,7 @@ function playCard(session, action) {
   }
 
   resolveWorldsBeyondTrigger(session, { trigger: "play", playerIndex, source: instance, targetInstanceId: action.targetInstanceId ?? null, mode });
+  if (type === "spell") gainWorldsBeyondShadows(session, playerIndex, 1);
   if (mode.accelerated || mode.kind === "accelerate") restoreOriginalCardForm(instance);
   return session.getSnapshot(playerIndex);
 }
