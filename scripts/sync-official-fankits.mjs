@@ -5,11 +5,13 @@ import crypto from "node:crypto";
 const KITS = [
   {
     gameId: "shadowverse-ccg",
-    page: "https://shadowverse.com/special/fankit/"
+    page: "https://shadowverse.com/special/fankit/",
+    directLinksRequired: true
   },
   {
     gameId: "worlds-beyond",
-    page: "https://shadowverse-wb.com/ja/special/fankit/"
+    page: "https://shadowverse-wb.com/ja/special/fankit/",
+    directLinksRequired: false
   }
 ];
 
@@ -67,7 +69,23 @@ for (const kit of KITS) {
   console.log(`Discovering official Fan Kit: ${kit.page}`);
   const html = await fetchWithRetry(kit.page);
   const links = discoverDownloadLinks(html, kit.page);
-  if (links.length === 0) throw new Error(`No downloadable Fan Kit assets discovered for ${kit.gameId}`);
+
+  if (links.length === 0) {
+    if (kit.directLinksRequired) throw new Error(`No downloadable Fan Kit assets discovered for ${kit.gameId}`);
+    const manifest = {
+      schemaVersion: 1,
+      gameId: kit.gameId,
+      source: "official-cygames-fankit",
+      sourcePage: kit.page,
+      fetchedAt: new Date().toISOString(),
+      status: "dynamic-download-discovery-pending",
+      fileCount: 0,
+      files: []
+    };
+    await fs.writeFile(path.join(root, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+    console.warn(`${kit.gameId}: official page uses dynamic download links; recorded source page for a dedicated sync.`);
+    continue;
+  }
 
   const files = [];
   const usedNames = new Set();
@@ -99,6 +117,7 @@ for (const kit of KITS) {
     source: "official-cygames-fankit",
     sourcePage: kit.page,
     fetchedAt: new Date().toISOString(),
+    status: "archived",
     fileCount: files.length,
     files
   };
