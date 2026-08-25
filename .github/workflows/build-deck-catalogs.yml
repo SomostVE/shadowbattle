@@ -34,6 +34,8 @@ jobs:
           if (ccg.cardCount < 3000) throw new Error(`CCG catalog too small: ${ccg.cardCount}`);
           if (cb.cardCount < 600) throw new Error(`Champion's Battle catalog too small: ${cb.cardCount}`);
           if (cb.cards.some(card => card.dataNamespace !== 'svcb')) throw new Error('Champion\'s Battle namespace leak');
+          if (cb.cards.some(card => card.craft === 'Portalcraft')) throw new Error('Portalcraft leaked into Champion\'s Battle');
+          if (cb.portalcraftIncluded !== false) throw new Error('Champion\'s Battle Portalcraft boundary is not explicit');
           console.log(`Validated ${ccg.cardCount} CCG cards and ${cb.cardCount} Champion's Battle cards.`);
           NODE
           git diff --check
