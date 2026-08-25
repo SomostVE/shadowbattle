@@ -27,6 +27,7 @@ async function checkVersion() {
     const version = await readRemoteVersion();
     if (!version) return;
 
+    updateVersionLabels(version);
     console.info(`[ShadowBattle] Version ${version}`);
 
     const registration = await registerWorker(version);
@@ -38,8 +39,6 @@ async function checkVersion() {
       return;
     }
 
-    // A release changes application files/cache only. User data stays on the
-    // stable shadowbattle:decks:v1 key and is snapshotted before reloading.
     snapshotDeckData();
     localStorage.setItem(VERSION_KEY, version);
 
@@ -57,6 +56,12 @@ async function checkVersion() {
   } finally {
     checking = false;
   }
+}
+
+function updateVersionLabels(version) {
+  document.querySelectorAll(".hub-version").forEach(label => {
+    label.textContent = `v${version}`;
+  });
 }
 
 function snapshotDeckData() {
