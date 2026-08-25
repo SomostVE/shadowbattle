@@ -23,6 +23,8 @@
       "name": "Shadowverse: Champion's Battle",
       "namespace": "svcb",
       "status": "base-pool-ready",
+      "cardCount": 623,
+      "portalcraftIncluded": false,
       "exclusiveCardsComplete": false,
       "manifest": "./champions-battle/manifest.json",
       "cards": "./champions-battle/cards.json",
