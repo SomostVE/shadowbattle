@@ -18,5 +18,8 @@ jobs:
           for file in $(find src tests -type f -name '*.js' | sort); do
             node --check "$file"
           done
+      - name: Check API JSON
+        run: |
+          node -e "const fs=require('fs');for(const file of require('child_process').execSync('find api -type f -name \"*.json\"').toString().trim().split(/\n+/).filter(Boolean)){JSON.parse(fs.readFileSync(file,'utf8'));console.log('OK '+file)}"
       - name: Run tests
         run: npm test
