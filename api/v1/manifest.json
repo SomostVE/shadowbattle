@@ -1,0 +1,11 @@
+{
+  "name": "ShadowBattle API",
+  "version": "v1",
+  "schemaVersion": 1,
+  "gamesEndpoint": "./games.json",
+  "namespaces": ["svwb", "sv1", "svcb"],
+  "rules": {
+    "qualifiedCardIds": true,
+    "crossGameImplicitMerging": false
+  }
+}
