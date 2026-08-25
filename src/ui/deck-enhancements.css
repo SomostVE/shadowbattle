@@ -78,6 +78,41 @@
   animation: db-card-skeleton 1.15s linear infinite;
 }
 
+.db-tabs-two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.db-saved-compose {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: .38rem;
+  margin-bottom: .55rem;
+}
+
+.db-saved-compose .db-button {
+  min-width: 62px;
+}
+
+.db-library-link {
+  border: 1px solid #455970;
+  border-radius: .48rem;
+  padding: .28rem .5rem;
+  background: #26374a;
+  color: #eaf2fb;
+  text-decoration: none;
+  font-size: .64rem;
+  font-weight: 750;
+}
+
+.db-library-link:hover {
+  border-color: rgba(var(--class-accent-rgb), .72);
+  background: rgba(var(--class-accent-rgb), .15);
+}
+
+[data-db-panel="import"][hidden] {
+  display: none !important;
+}
+
 @keyframes db-card-skeleton {
   to { background-position: -220% 0; }
 }
