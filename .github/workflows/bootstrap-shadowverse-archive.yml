@@ -1,0 +1,69 @@
+name: Bootstrap Shadowverse Archive
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/bootstrap-shadowverse-archive.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Archive complete Shadowverse CCG card API
+        run: node scripts/archive-shadowverse-ccg.mjs
+
+      - name: Download official Fan Kits
+        run: node scripts/sync-official-fankits.mjs
+
+      - name: Extract Fan Kit ZIP archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' zip; do
+            game_root="$(dirname "$(dirname "$zip")")"
+            archive_name="$(basename "$zip" .zip)"
+            dest="$game_root/extracted/$archive_name"
+            mkdir -p "$dest"
+            unzip -q -o "$zip" -d "$dest"
+          done < <(find assets/fankits -type f -name '*.zip' -print0)
+
+      - name: Validate archived snapshot
+        shell: bash
+        run: |
+          node --check scripts/archive-shadowverse-ccg.mjs
+          node --check scripts/sync-official-fankits.mjs
+          node - <<'NODE'
+          const fs = require('fs');
+          const manifest = JSON.parse(fs.readFileSync('api/v1/shadowverse-ccg/manifest.json', 'utf8'));
+          if (!manifest.available || !manifest.archival || manifest.runtimeSource !== 'local') throw new Error('CCG archive manifest is not runtime-local');
+          if (manifest.cardCount < 4500) throw new Error(`CCG archive too small: ${manifest.cardCount}`);
+          if (Object.keys(manifest.languages || {}).length !== 9) throw new Error('Expected nine archived CCG languages');
+          console.log(`Validated ${manifest.cardCount} CCG cards across ${Object.keys(manifest.languages).length} languages.`);
+          NODE
+          git diff --check
+
+      - name: Commit archival data and Fan Kits
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add archive/shadowverse-ccg api/v1/shadowverse-ccg assets/fankits
+          if git diff --cached --quiet; then
+            echo "Archive already current."
+            exit 0
+          fi
+          git commit -m "data: archive Shadowverse CCG API and official Fan Kits"
+          git push
