@@ -15,14 +15,18 @@
       "cardCount": 5933,
       "languages": ["en", "ja", "ko", "zh-tw", "fr", "it", "de", "es"],
       "manifest": "./shadowverse-ccg/manifest.json",
-      "cards": "./shadowverse-ccg/cards.json"
+      "cards": "./shadowverse-ccg/cards.json",
+      "catalog": "./shadowverse-ccg/catalog.json"
     },
     {
       "id": "champions-battle",
       "name": "Shadowverse: Champion's Battle",
       "namespace": "svcb",
-      "status": "dataset-planned",
-      "manifest": "./champions-battle/manifest.json"
+      "status": "base-pool-ready",
+      "exclusiveCardsComplete": false,
+      "manifest": "./champions-battle/manifest.json",
+      "cards": "./champions-battle/cards.json",
+      "catalog": "./champions-battle/catalog.json"
     }
   ]
 }
