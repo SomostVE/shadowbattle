@@ -39,6 +39,7 @@ let session = null;
 let eventCursor = 0;
 let mulliganSelection = new Set();
 let selectedAttacker = null;
+let selectedPlayCard = null;
 let cpuBusy = false;
 let dataReady = false;
 let queue = createQueue();
@@ -95,7 +96,7 @@ function syncAvailability() {
     ui.help.textContent = "This action lab is currently bound to Worlds Beyond V5. SV1 and Champion's Battle will reuse the same GameSession action API.";
   } else if (!session && dataReady) {
     setStatus("SVWB action resolver ready", "ready");
-    ui.help.textContent = "Start a match. Cards, attacks, Ward, Storm, Evo and Super Evo are now resolved action by action.";
+    ui.help.textContent = "Start a match. Cards, targeted effects, attacks, Ward, Storm, Evo and Super Evo are resolved action by action.";
   }
 }
 
@@ -108,6 +109,7 @@ async function startMatch() {
   eventCursor = 0;
   mulliganSelection = new Set();
   selectedAttacker = null;
+  selectedPlayCard = null;
   ui.eventLog.replaceChildren();
   queue = createQueue();
   session = new GameSession({
@@ -146,6 +148,7 @@ async function useBonusPp() {
 async function endHumanTurn() {
   if (!isHumanTurn()) return;
   selectedAttacker = null;
+  selectedPlayCard = null;
   session.endTurn(0);
   await consumeEvents();
   render();
@@ -154,19 +157,38 @@ async function endHumanTurn() {
 
 async function playHumanCard(instanceId) {
   if (!isHumanTurn()) return;
-  await resolveAction({ type: "play-card", player: 0, cardInstanceId: instanceId });
+  const actions = legalActions(0).filter(action => action.type === "play-card" && action.cardInstanceId === instanceId);
+  if (!actions.length) return;
+  const targeted = actions.filter(action => action.targetInstanceId);
+  if (targeted.length) {
+    selectedAttacker = null;
+    selectedPlayCard = selectedPlayCard === instanceId ? null : instanceId;
+    render();
+    return;
+  }
+  selectedPlayCard = null;
+  await resolveAction(actions[0]);
 }
 
 async function selectAttacker(instanceId) {
   if (!isHumanTurn()) return;
   const attacks = legalActions(0).filter(action => action.type === "attack" && action.attackerInstanceId === instanceId);
   if (!attacks.length) return;
+  selectedPlayCard = null;
   selectedAttacker = selectedAttacker === instanceId ? null : instanceId;
   render();
 }
 
-async function attackFollower(instanceId) {
-  if (!isHumanTurn() || !selectedAttacker) return;
+async function resolveEnemyFollowerTarget(instanceId) {
+  if (!isHumanTurn()) return;
+  if (selectedPlayCard) {
+    const action = legalActions(0).find(item => item.type === "play-card" && item.cardInstanceId === selectedPlayCard && item.targetInstanceId === instanceId);
+    if (!action) return;
+    selectedPlayCard = null;
+    await resolveAction(action);
+    return;
+  }
+  if (!selectedAttacker) return;
   const action = legalActions(0).find(item => item.type === "attack" && item.attackerInstanceId === selectedAttacker && item.targetInstanceId === instanceId);
   if (!action) return;
   selectedAttacker = null;
@@ -174,7 +196,7 @@ async function attackFollower(instanceId) {
 }
 
 async function attackOpponentLeader() {
-  if (!isHumanTurn() || !selectedAttacker) return;
+  if (!isHumanTurn() || !selectedAttacker || selectedPlayCard) return;
   const action = legalActions(0).find(item => item.type === "attack" && item.attackerInstanceId === selectedAttacker && item.target === "leader");
   if (!action) return;
   selectedAttacker = null;
@@ -187,6 +209,7 @@ async function evolveFollower(instanceId, superEvolution) {
   const action = legalActions(0).find(item => item.type === type && item.followerInstanceId === instanceId);
   if (!action) return;
   selectedAttacker = null;
+  selectedPlayCard = null;
   await resolveAction(action);
 }
 
@@ -199,11 +222,13 @@ async function resolveAction(action) {
 async function runCpuTurnIfNeeded() {
   if (!session || session.phase !== GAME_PHASE.MAIN || session.activePlayer !== 1 || cpuBusy) return;
   cpuBusy = true;
+  selectedAttacker = null;
+  selectedPlayCard = null;
   render();
   try {
     for (let step = 0; step < 24 && session.phase === GAME_PHASE.MAIN && session.activePlayer === 1; step += 1) {
-      let actions = legalActions(1);
-      let action = chooseCpuAction(actions);
+      const actions = legalActions(1);
+      const action = chooseCpuAction(actions);
       if (!action && shouldCpuUseBonusPp()) {
         session.useBonusPp(1);
         await consumeEvents();
@@ -229,7 +254,9 @@ async function runCpuTurnIfNeeded() {
 }
 
 function chooseCpuAction(actions) {
-  const play = actions.filter(action => action.type === "play-card").sort((a, b) => b.cost - a.cost)[0];
+  const play = actions
+    .filter(action => action.type === "play-card")
+    .sort((a, b) => b.cost - a.cost || targetValue(0, b.targetInstanceId) - targetValue(0, a.targetInstanceId))[0];
   if (play) return play;
   const superEvolution = actions.filter(action => action.type === "super-evolve");
   if (superEvolution.length) return bestEvolution(superEvolution, 1);
@@ -259,6 +286,7 @@ function attackValue(playerIndex, instanceId) {
 }
 
 function targetValue(playerIndex, instanceId) {
+  if (!instanceId) return 0;
   const target = session.findBoardCard(playerIndex, instanceId);
   return Number(target?.attack ?? 0) * 2 + Number(target?.defense ?? 0);
 }
@@ -286,7 +314,7 @@ function render() {
   renderBoard(ui.opponentBoard, cpu.board, 1);
 
   const humanActions = isHumanTurn() ? legalActions(0) : [];
-  const canHitLeader = selectedAttacker && humanActions.some(action => action.type === "attack" && action.attackerInstanceId === selectedAttacker && action.target === "leader");
+  const canHitLeader = selectedAttacker && !selectedPlayCard && humanActions.some(action => action.type === "attack" && action.attackerInstanceId === selectedAttacker && action.target === "leader");
   ui.opponentLeader.classList.toggle("is-targetable", Boolean(canHitLeader));
 
   ui.mulligan.disabled = snapshot.phase !== GAME_PHASE.MULLIGAN || human.mulliganDone || cpuBusy;
@@ -310,11 +338,14 @@ function render() {
     if (cpuBusy || snapshot.activePlayer === 1) {
       ui.help.textContent = "CPU is executing legal GameSession actions. This temporary driver will later be replaced by the full V5 planner.";
       setStatus("CPU resolving actions", "ready");
+    } else if (selectedPlayCard) {
+      ui.help.textContent = "Choose a highlighted enemy follower as the card effect target. Click the selected card again to cancel.";
+      setStatus("Choose effect target", "ready");
     } else if (selectedAttacker) {
       ui.help.textContent = "Choose a highlighted enemy follower or the enemy leader as the attack target.";
       setStatus("Choose attack target", "ready");
     } else {
-      ui.help.textContent = "Playable cards glow. Select a ready follower to attack; Evo and Super Evo controls appear when legal. Card text effects are the next V5 migration layer.";
+      ui.help.textContent = "Playable cards glow. Targeted cards ask for a legal target; ready followers can attack, and Evo/Super Evo controls appear when legal.";
       setStatus("Human action phase", "ready");
     }
   } else if (snapshot.phase === GAME_PHASE.ENDED) {
@@ -371,6 +402,13 @@ function renderHand(root, player, human) {
       });
     } else if (human && playable.has(card.instanceId)) {
       button.classList.add("is-playable");
+      if (selectedPlayCard === card.instanceId) {
+        button.classList.add("is-selected");
+        const marker = document.createElement("span");
+        marker.className = "sb-battle-card-marker";
+        marker.textContent = "Target";
+        button.append(marker);
+      }
       button.addEventListener("click", () => playHumanCard(card.instanceId).catch(showError));
     } else {
       button.disabled = true;
@@ -426,10 +464,13 @@ function renderBoard(root, board, owner) {
         unit.append(controls);
       }
     } else {
-      const targetable = Boolean(selectedAttacker && actions.some(action => action.type === "attack" && action.attackerInstanceId === selectedAttacker && action.targetInstanceId === card.instanceId));
+      const attackTarget = Boolean(selectedAttacker && actions.some(action => action.type === "attack" && action.attackerInstanceId === selectedAttacker && action.targetInstanceId === card.instanceId));
+      const effectTarget = Boolean(selectedPlayCard && actions.some(action => action.type === "play-card" && action.cardInstanceId === selectedPlayCard && action.targetInstanceId === card.instanceId));
+      const targetable = attackTarget || effectTarget;
       hitbox.disabled = !targetable;
       unit.classList.toggle("is-targetable", targetable);
-      if (targetable) hitbox.addEventListener("click", () => attackFollower(card.instanceId).catch(showError));
+      unit.classList.toggle("is-effect-target", effectTarget);
+      if (targetable) hitbox.addEventListener("click", () => resolveEnemyFollowerTarget(card.instanceId).catch(showError));
     }
     root.append(unit);
   }
@@ -498,12 +539,17 @@ function eventTitle(event) {
     "card-play": `${actor} plays a card`,
     "follower-enter": `${actor} follower enters`,
     "amulet-enter": `${actor} amulet enters`,
+    "countdown-tick": `${actor} Countdown`,
+    "amulet-destroyed": `${actor} amulet destroyed`,
     "spell-cast": `${actor} casts a spell`,
+    "ability-trigger": `${actor} ability`,
+    "follower-buff": `${actor} follower buff`,
     "attack-start": `${actor} attacks`,
     "attack-impact": "Attack impact",
     "leader-damage": "Leader damage",
     "follower-damage": "Follower damage",
     "follower-destroyed": "Follower destroyed",
+    "heal": `${actor} heals`,
     "evolve": `${actor} evolves`,
     "super-evolve": `${actor} Super Evolves`,
     "turn-end": `${actor} turn end`,
@@ -514,12 +560,15 @@ function eventTitle(event) {
 
 function eventDetail(event) {
   const p = event.payload ?? {};
+  if (event.type === "ability-trigger") return `${p.card?.name ?? "Card"} · ${p.resolved ? "resolved" : "unresolved"}${p.target?.name ? ` → ${p.target.name}` : ""} · ${p.text ?? ""}`;
+  if (event.type === "countdown-tick") return `${p.card?.name ?? "Amulet"} · Countdown ${p.countdown ?? 0}`;
   if (p.card?.name) return `${p.card.name}${p.cost != null ? ` · ${p.cost} PP` : ""}`;
   if (event.type === "leader-damage") return `${p.amount ?? 0} damage · ${p.hp ?? 0} defense remaining`;
   if (event.type === "follower-damage") return `${p.target?.name ?? "Follower"} takes ${p.amount ?? 0}${p.prevented ? ` · ${p.prevented} prevented` : ""}`;
   if (event.type === "attack-impact") return p.target === "leader" ? `${p.damage ?? 0} damage to leader` : `${p.attackerDamage ?? 0} / ${p.counterDamage ?? 0} combat damage`;
   if (event.type === "turn-start") return `Turn ${p.personalTurn ?? 0} · PP ${p.pp ?? 0}/${p.maxPp ?? 0}`;
   if (event.type === "turn-end") return `${p.ppRemaining ?? 0} PP remaining`;
+  if (event.type === "heal") return `${p.amount ?? 0} defense restored · ${p.hp ?? 0} defense`;
   if (event.type === "match-end") return p.reason ?? "resolved";
   return "GameSession event";
 }
@@ -534,6 +583,11 @@ function createQueue() {
   ], options.duration));
   animations.register("follower-enter", (_event, options) => pulseStage(options.duration));
   animations.register("amulet-enter", (_event, options) => pulseStage(options.duration || 360));
+  animations.register("countdown-tick", (event, options) => animateCard(event.payload?.card?.instanceId, [{ transform: "scale(1)" }, { transform: "scale(1.12)" }, { transform: "scale(1)" }], options.duration));
+  animations.register("amulet-destroyed", (event, options) => animateCard(event.payload?.card?.instanceId, [{ opacity: 1, transform: "scale(1)" }, { opacity: .7, transform: "scale(1.12)" }, { opacity: 0, transform: "scale(.45)" }], options.duration));
+  animations.register("ability-trigger", (event, options) => event.payload?.target?.instanceId
+    ? animateCard(event.payload.target.instanceId, [{ filter: "brightness(1)" }, { filter: "brightness(1.65)" }, { filter: "brightness(1)" }], options.duration)
+    : pulseStage(Math.min(options.duration, 420)));
   animations.register("spell-cast", (_event, options) => flashStage(options.duration, "brightness(1.35) saturate(1.25)"));
   animations.register("attack-start", (event, options) => animateCard(event.payload?.attacker?.instanceId, [
     { transform: "translateY(0) scale(1)" },
@@ -613,8 +667,11 @@ function setStatus(text, status) {
 
 function showError(error) {
   console.error(error);
+  selectedPlayCard = null;
+  selectedAttacker = null;
   ui.help.textContent = error instanceof Error ? error.message : String(error);
   setStatus("Action rejected", "planned");
+  render();
 }
 
 function cssEscape(value) {
