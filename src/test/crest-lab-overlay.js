@@ -94,12 +94,14 @@ function animateCrestEvent(event) {
   if (reduced) return;
 
   if (event.type === BATTLE_EVENT.CREST_EXPIRED) {
-    animateNode(root, [
-      { filter: "brightness(1)", transform: "translateX(0)" },
-      { filter: "brightness(1.6)", transform: "translateX(-3px)" },
-      { filter: "brightness(.8)", transform: "translateX(3px)" },
-      { filter: "brightness(1)", transform: "translateX(0)" }
-    ], 420);
+    animateRoot(root, 420);
+    return;
+  }
+
+  if (event.type === BATTLE_EVENT.CREST_ACTIVATE && !node) {
+    // Crest Last Words activate after the expiring Crest has already left the
+    // active list, so pulse the owner's Crest rail instead of losing feedback.
+    animateRoot(root, 520);
     return;
   }
   if (!node) return;
@@ -124,6 +126,15 @@ function animateCrestEvent(event) {
       { transform: "scale(1)", filter: "brightness(1)", boxShadow: "0 0 8px rgba(177,136,255,.2)" }
     ], 520);
   }
+}
+
+function animateRoot(root, duration) {
+  animateNode(root, [
+    { filter: "brightness(1)", transform: "translateX(0)" },
+    { filter: "brightness(1.7)", transform: "translateX(-3px)" },
+    { filter: "brightness(.85)", transform: "translateX(3px)" },
+    { filter: "brightness(1)", transform: "translateX(0)" }
+  ], duration);
 }
 
 function crestTitle(crest) {
