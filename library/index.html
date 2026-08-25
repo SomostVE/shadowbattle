@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#141d28">
+  <title>ShadowBattle Deck Library</title>
+  <link rel="preconnect" href="https://shadowverse-portal.com">
+  <link rel="stylesheet" href="../src/ui/library.css?v=0.4.9">
+  <script type="module" src="../src/ui/version-guard.js?v=0.4.9"></script>
+</head>
+<body>
+  <header class="lib-topbar">
+    <a class="lib-brand" href="../"><span>✦</span><strong>ShadowBattle</strong></a>
+    <nav>
+      <a href="../decks/">Deckbuilder</a>
+      <a class="active" href="./">Deck Library</a>
+      <a href="../test/">AI Test</a>
+      <a href="../api/">API</a>
+    </nav>
+  </header>
+
+  <main class="lib-shell">
+    <section class="lib-titlebar">
+      <div>
+        <span class="lib-kicker">Saved decks</span>
+        <h1>Deck Library</h1>
+      </div>
+      <div class="lib-summary">
+        <strong id="library-match-count">0</strong>
+        <span>matching decks</span>
+      </div>
+    </section>
+
+    <section class="lib-filterbar" aria-label="Deck filters">
+      <div id="library-game-filter" class="lib-segments">
+        <button type="button" class="active" data-game="all">All</button>
+        <button type="button" data-game="shadowverse-ccg">SV1</button>
+        <button type="button" data-game="champions-battle">CB</button>
+      </div>
+
+      <label class="lib-search">
+        <span>Search</span>
+        <input id="library-search" type="search" placeholder="Deck name…">
+      </label>
+
+      <label>
+        <span>Class</span>
+        <select id="library-craft"><option value="all">All classes</option></select>
+      </label>
+
+      <label>
+        <span>Legendary</span>
+        <select id="library-legendary-max">
+          <option value="all">Any</option>
+          <option value="0">0 max</option>
+          <option value="3">3 max</option>
+          <option value="6">6 max</option>
+          <option value="9">9 max</option>
+          <option value="12">12 max</option>
+        </select>
+      </label>
+
+      <label>
+        <span>Average PP</span>
+        <select id="library-average-max">
+          <option value="all">Any</option>
+          <option value="2.5">≤ 2.5</option>
+          <option value="3">≤ 3.0</option>
+          <option value="3.5">≤ 3.5</option>
+          <option value="4">≤ 4.0</option>
+          <option value="5">≤ 5.0</option>
+        </select>
+      </label>
+
+      <label>
+        <span>Total PP</span>
+        <select id="library-total-max">
+          <option value="all">Any</option>
+          <option value="80">≤ 80</option>
+          <option value="100">≤ 100</option>
+          <option value="120">≤ 120</option>
+          <option value="140">≤ 140</option>
+          <option value="160">≤ 160</option>
+        </select>
+      </label>
+
+      <label>
+        <span>Sort</span>
+        <select id="library-sort">
+          <option value="saved">Newest</option>
+          <option value="name">Name</option>
+          <option value="legendary">Legendary</option>
+          <option value="average">Average PP</option>
+          <option value="total">Total PP</option>
+        </select>
+      </label>
+
+      <button id="library-reset" class="lib-reset" type="button">Reset</button>
+    </section>
+
+    <section class="lib-events" aria-label="Quick event filters">
+      <span>Event filters</span>
+      <button type="button" data-preset="no-legendary">No Legendary</button>
+      <button type="button" data-preset="six-legendary">≤ 6 Legendary</button>
+      <button type="button" data-preset="low-curve">Low curve ≤ 3 PP</button>
+      <button type="button" data-preset="cheap-total">Total PP ≤ 100</button>
+    </section>
+
+    <section id="library-grid" class="lib-grid" aria-live="polite"></section>
+    <section id="library-empty" class="lib-empty" hidden>
+      <strong>No deck matches these filters.</strong>
+      <a href="../decks/">Build a deck</a>
+    </section>
+  </main>
+
+  <script type="module" src="../src/decks/library-page.js?v=0.4.9"></script>
+</body>
+</html>
