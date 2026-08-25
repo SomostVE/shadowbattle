@@ -16,6 +16,7 @@ test("internal battle lab loads the playable action controller", () => {
 test("human battle controls dispatch real GameSession actions", () => {
   assert.match(controller, /listLegalActions/);
   assert.match(controller, /action\.type === "play-card"/);
+  assert.match(controller, /action\.type === "engage"/);
   assert.match(controller, /type === "attack"/);
   assert.match(controller, /type === "evolve"/);
   assert.match(controller, /type === "super-evolve"/);
@@ -23,11 +24,13 @@ test("human battle controls dispatch real GameSession actions", () => {
   assert.match(controller, /attackOpponentLeader/);
 });
 
-test("targeted card plays share the legal action graph with attacks and CPU", () => {
+test("targeted card and Engage effects share the legal target graph with attacks", () => {
   assert.match(controller, /selectedPlayCard/);
+  assert.match(controller, /selectedEngageAmulet/);
   assert.match(controller, /targetInstanceId/);
   assert.match(controller, /resolveEnemyFollowerTarget/);
   assert.match(controller, /Choose effect target/);
+  assert.match(controller, /Choose Engage target/);
   assert.match(controller, /is-effect-target/);
 });
 
@@ -43,9 +46,20 @@ test("V5 alternative modes require an explicit human choice when multiple modes 
   assert.match(css, /\.sb-battle-mode-button/);
 });
 
+test("Engage is visible as a dedicated amulet action and class resources are readable", () => {
+  assert.match(controller, /engageAmulet/);
+  assert.match(controller, /`Engage \$\{engage\.cost\}`/);
+  assert.match(controller, /Shadows \$\{resources\.shadows/);
+  assert.match(controller, /Combo \$\{resources\.combo/);
+  assert.match(controller, /Overflow \$\{Number\(resources\.maxPp/);
+  assert.match(css, /\.sb-battle-evolution-button\.is-engage/);
+  assert.match(css, /\.sb-battle-unit\.is-engage-selected/);
+});
+
 test("CPU lab driver executes legal actions instead of auto-passing", () => {
   assert.match(controller, /runCpuTurnIfNeeded/);
   assert.match(controller, /chooseCpuAction/);
+  assert.match(controller, /action\.type === "engage"/);
   assert.match(controller, /shouldCpuUseBonusPp/);
   assert.match(controller, /session\.endTurn\(1\)/);
 });
