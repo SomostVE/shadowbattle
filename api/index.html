@@ -15,6 +15,7 @@
         <span>ShadowBattle</span>
       </a>
       <nav class="sb-nav" aria-label="Main navigation">
+        <a href="../decks/">Decks</a>
         <a href="./" aria-current="page">API</a>
         <a href="../test/">AI Test Lab</a>
       </nav>
@@ -36,17 +37,19 @@
       <article class="sb-card">
         <span class="sb-status" data-status="ready">archived locally</span>
         <h2>Shadowverse CCG</h2>
-        <p><code>sv1</code> · complete frozen Shadowverse Portal snapshot: <strong>5,933 cards</strong> in 8 supported languages. Runtime calls to the Portal are not required.</p>
+        <p><code>sv1</code> · complete frozen Shadowverse Portal snapshot: <strong>5,933 cards</strong> in 8 supported languages. Runtime calls to the Portal are not required for card data.</p>
         <pre class="sb-code">/api/v1/shadowverse-ccg/manifest.json
 /api/v1/shadowverse-ccg/cards.json
-/api/v1/shadowverse-ccg/locales/cards.fr.json
-/api/v1/shadowverse-ccg/image-index.json</pre>
+/api/v1/shadowverse-ccg/catalog.json
+/api/v1/shadowverse-ccg/locales/cards.fr.json</pre>
       </article>
       <article class="sb-card">
-        <span class="sb-status" data-status="planned">dataset planned</span>
+        <span class="sb-status" data-status="ready">base pool ready</span>
         <h2>Champion's Battle</h2>
-        <p><code>svcb</code> · dedicated Switch dataset, including game-exclusive cards.</p>
-        <pre class="sb-code">/api/v1/champions-battle/manifest.json</pre>
+        <p><code>svcb</code> · local Switch launch-era pool from Basic, Classic, Darkness Evolved and Rise of Bahamut. Portalcraft is excluded; Switch-exclusive cards remain a separate pending layer.</p>
+        <pre class="sb-code">/api/v1/champions-battle/manifest.json
+/api/v1/champions-battle/cards.json
+/api/v1/champions-battle/catalog.json</pre>
       </article>
     </section>
 
@@ -57,9 +60,13 @@
 GET ./v1/games.json
 GET ./v1/shadowverse-ccg/manifest.json
 GET ./v1/shadowverse-ccg/cards.json
+GET ./v1/shadowverse-ccg/catalog.json
 GET ./v1/shadowverse-ccg/data-headers.json
 GET ./v1/shadowverse-ccg/image-index.json
-GET ./v1/shadowverse-ccg/locales/cards.&lt;lang&gt;.json</pre>
+GET ./v1/shadowverse-ccg/locales/cards.&lt;lang&gt;.json
+GET ./v1/champions-battle/manifest.json
+GET ./v1/champions-battle/cards.json
+GET ./v1/champions-battle/catalog.json</pre>
       <p>Archived CCG languages: <code>en</code>, <code>ja</code>, <code>ko</code>, <code>zh-tw</code>, <code>fr</code>, <code>it</code>, <code>de</code>, <code>es</code>.</p>
     </section>
 
