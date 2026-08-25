@@ -1,29 +1,54 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
 import { banishBoardCard, returnBoardCardToHand } from "../../zone-actions.js";
+import { evaluateWorldsBeyondClassCondition } from "./class-conditions.js";
 import { baseText, section } from "./v5/battle-engine-v5-text.js";
 import { targetEffectSpec } from "./v5/battle-engine-v5-targeting.js";
 
 const SUPPORTED_TARGET_KINDS = new Set(["damage", "destroy", "banish", "return"]);
 
-export function getWorldsBeyondTargetRequirement(source, trigger = "play", mode = null) {
+export function getWorldsBeyondTargetRequirement(source, trigger = "play", mode = null, player = null) {
   if (!source?.card) return null;
-  const text = triggerText(source, trigger, mode);
-  if (!text) return null;
-  const spec = targetEffectSpec({ mode: { text }, instance: source });
-  return spec ? { ...spec, text } : null;
+  const originalText = triggerText(source, trigger, mode);
+  if (!originalText) return null;
+  const conditional = player ? evaluateWorldsBeyondClassCondition(originalText, player, source.card) : { text: originalText, active: true };
+  if (!conditional.active || !conditional.text) return null;
+  const spec = targetEffectSpec({ mode: { text: conditional.text }, instance: source });
+  return spec ? { ...spec, text: conditional.text } : null;
 }
 
 export function getWorldsBeyondTargetOptions(session, { trigger = "play", playerIndex, source, mode = null } = {}) {
-  const requirement = getWorldsBeyondTargetRequirement(source, trigger, mode);
+  const player = session.getPlayer(playerIndex);
+  const requirement = getWorldsBeyondTargetRequirement(source, trigger, mode, player);
   if (!requirement) return [];
   return targetableEnemyFollowers(session.getPlayer(1 - playerIndex).board);
 }
 
 export function resolveWorldsBeyondTrigger(session, { trigger, playerIndex, source, targetInstanceId = null, mode = null }) {
   if (!source?.card) return { applied: false, unresolved: false, text: "" };
-  const text = triggerText(source, trigger, mode);
-  if (!text) return { applied: false, unresolved: false, text: "" };
+  const originalText = triggerText(source, trigger, mode);
+  if (!originalText) return { applied: false, unresolved: false, text: "" };
 
+  const player = session.getPlayer(playerIndex);
+  const conditional = evaluateWorldsBeyondClassCondition(originalText, player, source.card, { consume: true });
+  if (!conditional.active || !conditional.text) {
+    session.emit(BATTLE_EVENT.ABILITY_TRIGGER, {
+      actor: playerIndex,
+      payload: {
+        trigger,
+        mode: mode?.kind ?? null,
+        card: session.cardView(source),
+        text: originalText,
+        resolved: true,
+        applied: false,
+        conditionInactive: true,
+        conditionNotes: conditional.notes,
+        classMechanic: conditional.mechanic
+      }
+    });
+    return { applied: false, unresolved: false, text: originalText, conditionInactive: true, notes: conditional.notes };
+  }
+
+  const text = conditional.text;
   const targetSpec = targetEffectSpec({ mode: { text }, instance: source });
   const targetOptions = targetSpec ? targetableEnemyFollowers(session.getPlayer(1 - playerIndex).board) : [];
   let target = null;
@@ -46,21 +71,35 @@ export function resolveWorldsBeyondTrigger(session, { trigger, playerIndex, sour
       mode: mode?.kind ?? null,
       card: session.cardView(source),
       text,
+      originalText,
       resolved: !unresolved,
       target: target ? session.cardView(target) : null,
       targetKind: targetSpec?.kind ?? null,
       targetRequired: Boolean(targetSpec && targetOptions.length),
-      targetAvailable: targetOptions.length > 0
+      targetAvailable: targetOptions.length > 0,
+      conditionNotes: conditional.notes,
+      classMechanic: conditional.mechanic
     }
   });
 
-  if (unresolved) return { applied: false, unresolved: true, text, targetSpec, target };
-  return executeSimpleEffects(session, { text, playerIndex, source, targetSpec, target });
+  if (unresolved) return { applied: false, unresolved: true, text, targetSpec, target, notes: conditional.notes };
+  return executeSimpleEffects(session, { text, playerIndex, source, targetSpec, target, notes: conditional.notes });
+}
+
+export function gainWorldsBeyondShadows(session, playerIndex, amount = 1) {
+  const player = session.getPlayer(playerIndex);
+  const value = Math.max(0, Number(amount) || 0);
+  if (!value) return Number(player.resources?.shadows ?? 0);
+  player.resources.shadows = Math.max(0, Number(player.resources?.shadows ?? 0)) + value;
+  return player.resources.shadows;
 }
 
 export function destroyWorldsBeyondFollower(session, playerIndex, instanceId, options = {}) {
   const destroyed = session.destroyFollower(playerIndex, instanceId, options);
-  if (destroyed) resolveWorldsBeyondTrigger(session, { trigger: "last-words", playerIndex, source: destroyed });
+  if (destroyed) {
+    gainWorldsBeyondShadows(session, playerIndex, 1);
+    resolveWorldsBeyondTrigger(session, { trigger: "last-words", playerIndex, source: destroyed });
+  }
   return destroyed;
 }
 
@@ -94,10 +133,10 @@ function hasUnsupportedChoiceOrCondition(text, { targetSpec = null } = {}) {
       .replace(/\bbanish (?:an|a|the) enemy follower\b/gi, "")
       .replace(/\breturn (?:an|a|the) enemy follower to (?:its owner'?s|their) hand\b/gi, "");
   }
-  return /\b(?:select|choose)\b|\bif\b|\bunless\b|\bfor each\b|\bwhenever\b|\bwhen(?:ever)?\b|\brandomly select\b|\bX\b|\b(?:Necromancy|Combo|Overflow|Earth Rite|Engage|Fuse|Transmute|Crest|Faith|Reanimate)\b/i.test(inspect);
+  return /\b(?:select|choose)\b|\bif\b|\bunless\b|\bfor each\b|\bwhenever\b|\bwhen(?:ever)?\b|\brandomly select\b|\bX\b|\b(?:Earth Rite|Engage|Fuse|Transmute|Crest|Faith|Reanimate)\b/i.test(inspect);
 }
 
-function executeSimpleEffects(session, { text, playerIndex, source, targetSpec = null, target = null }) {
+function executeSimpleEffects(session, { text, playerIndex, source, targetSpec = null, target = null, notes = [] }) {
   const enemyIndex = 1 - playerIndex;
   let applied = false;
 
@@ -180,7 +219,7 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
     applied = true;
   }
 
-  return { applied, unresolved: false, text, targetSpec, target };
+  return { applied, unresolved: false, text, targetSpec, target, notes };
 }
 
 function targetableEnemyFollowers(board) {
