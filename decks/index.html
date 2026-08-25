@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#090b14">
+  <title>ShadowBattle Decks</title>
+  <link rel="stylesheet" href="../src/ui/shadowbattle.css">
+  <link rel="stylesheet" href="../src/ui/deckbuilder.css">
+</head>
+<body data-game="shadowverse-ccg">
+  <main class="sb-shell db-shell">
+    <header class="sb-topbar">
+      <a class="sb-brand" href="../">
+        <span class="sb-mark">✦</span>
+        <span>ShadowBattle</span>
+      </a>
+      <nav class="sb-nav" aria-label="Main navigation">
+        <a href="./" aria-current="page">Decks</a>
+        <a href="../api/">API</a>
+        <a href="../test/">AI Test Lab</a>
+      </nav>
+    </header>
+
+    <section class="sb-hero db-hero">
+      <div class="sb-eyebrow">Local deck library</div>
+      <h1>Deckbuilder</h1>
+      <p>Build and save decks for the original Shadowverse and Champion's Battle. Worlds Beyond decks can be imported directly from Beyond Decks and kept in the same ShadowBattle library for future Human vs AI sessions.</p>
+    </section>
+
+    <div id="deck-status" class="db-status" role="status">Loading local catalogs…</div>
+
+    <section class="db-workspace">
+      <aside class="sb-panel db-controls">
+        <div class="sb-eyebrow">Deck</div>
+        <label>
+          Game
+          <select id="deck-game">
+            <option value="shadowverse-ccg">Shadowverse CCG</option>
+            <option value="champions-battle">Champion's Battle</option>
+          </select>
+        </label>
+        <label>
+          Craft
+          <select id="deck-craft"></select>
+        </label>
+        <label>
+          Deck name
+          <input id="deck-name" type="text" maxlength="80" placeholder="My deck">
+        </label>
+        <div class="db-action-row">
+          <button id="new-deck" type="button">New</button>
+          <button id="save-deck" type="button" class="db-primary">Save locally</button>
+          <button id="export-shadowbattle-deck" type="button">Export</button>
+        </div>
+
+        <div class="db-deck-summary">
+          <strong id="current-deck-count">0/40</strong>
+          <span id="deck-legality" data-legal="false">40 cards remaining</span>
+        </div>
+        <div id="current-deck" class="db-current-deck"></div>
+      </aside>
+
+      <section class="sb-panel db-browser">
+        <div class="db-browser-toolbar">
+          <label>
+            Search
+            <input id="deck-search" type="search" placeholder="Name, effect, trait…">
+          </label>
+          <label>
+            Set
+            <select id="deck-set"><option value="all">All sets</option></select>
+          </label>
+          <span id="deck-result-count" class="db-result-count">0 cards</span>
+        </div>
+        <div id="deck-results" class="db-card-grid"></div>
+      </section>
+    </section>
+
+    <section class="sb-section sb-panel">
+      <div class="sb-section-title">
+        <div>
+          <div class="sb-eyebrow">Browser storage</div>
+          <h2>Saved decks</h2>
+        </div>
+      </div>
+      <div id="saved-decks" class="db-saved-list"></div>
+    </section>
+
+    <section class="sb-section sb-panel db-import-panel">
+      <div class="sb-eyebrow">Beyond Decks bridge</div>
+      <h2>Import Worlds Beyond decks</h2>
+      <p>If Beyond Decks and ShadowBattle are opened under the same browser origin, ShadowBattle can read the existing <code>shadowverse-deck-assistant:v2</code> workspace directly. Otherwise, paste or select the JSON already produced by Beyond Decks' Export button.</p>
+      <div class="db-action-row">
+        <button id="import-beyond-local" type="button" class="db-primary">Import local Beyond Decks library</button>
+        <label class="db-file-button">
+          Import Beyond Decks file
+          <input id="import-beyond-file" type="file" accept="application/json,.json">
+        </label>
+      </div>
+      <textarea id="beyond-import-json" rows="9" spellcheck="false" placeholder='Paste Beyond Decks JSON here…'></textarea>
+      <button id="import-beyond-json" type="button">Import pasted JSON</button>
+    </section>
+
+    <section class="sb-section sb-panel">
+      <div class="sb-eyebrow">Champion's Battle dataset</div>
+      <h2>Switch support status</h2>
+      <p>The locally materialized pool currently contains Basic, Classic, Darkness Evolved and Rise of Bahamut with Portalcraft excluded. Champion's Battle-exclusive cards remain a dedicated <code>svcb</code> layer to add after their dataset is audited.</p>
+    </section>
+
+    <footer class="sb-fankit-notice">
+      ShadowBattle is an independent fan project and is not affiliated with or endorsed by Cygames. Shadowverse and related intellectual property are © Cygames, Inc.
+    </footer>
+  </main>
+  <script type="module" src="../src/decks/deckbuilder-page.js"></script>
+</body>
+</html>
