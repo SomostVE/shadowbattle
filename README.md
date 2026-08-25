@@ -29,11 +29,15 @@ Each game is treated as a separate ruleset, data namespace and visual profile.
 
 ## Deck library
 
-ShadowBattle 0.4.2 provides a browser-local deck library under `/decks/` whose entire working surface now follows the Beyond Decks layout rather than the former dashboard-style editor.
+ShadowBattle 0.4.3 provides a browser-local deck library under `/decks/` whose entire working surface follows the Beyond Decks layout rather than the former dashboard-style editor.
 
 The deckbuilder uses the same card-first interaction model: a dense full-art grid, two-tier toolbar, compact craft/rarity/cost/type controls, a slide-out filter drawer, card-size controls, and a persistent deck panel on the right with Deck / Saved / Import tabs. Deck rows include card thumbnails, cost-curve counts and compact quantity controls.
 
 The browser displays the real Shadowverse card art as the primary catalog view. Followers can switch between their normal `C_<id>.png` art and evolved `E_<id>.png` art from the grid or inspection dialog without changing the underlying deck entry. Card identity remains qualified by its game namespace.
+
+The class selector now uses the official Shadowverse Portal class-selection images instead of placeholder glyphs. Card-art loading is also staged around the visible catalog viewport so hundreds of remote PNGs are not requested at once; same-origin app files and local catalog JSON are cached by a versioned service worker.
+
+ShadowBattle now publishes a root `version.json`. Every main page checks that version with cache bypassing, refreshes itself when a newer release is detected, and rotates the service-worker cache automatically, avoiding manual `Ctrl+F5` refreshes after GitHub Pages deployments.
 
 ### Original Shadowverse CCG
 
@@ -180,6 +184,9 @@ src/
 │  └─ test-page.js
 └─ ui/
    ├─ deckbuilder.css
+   ├─ deck-enhancements.css
+   ├─ deck-ui-enhancements.js
+   ├─ version-guard.js
    └─ shadowbattle.css
 ```
 
@@ -195,4 +202,4 @@ src/
 
 ## Status
 
-ShadowBattle 0.4.2 has a namespaced API, permanent original-CCG data archive, official CCG Fan Kit archive, OG/Switch deckbuilding, a Beyond Decks import bridge, a Beyond Decks-style full card-grid deckbuilder with normal/evolved follower art, and the AI test surface. The board visible in `/test/` is still a development mock; there is no full playable `GameSession` yet.
+ShadowBattle 0.4.3 has a namespaced API, permanent original-CCG data archive, official CCG Fan Kit archive, OG/Switch deckbuilding, a Beyond Decks import bridge, a Beyond Decks-style full card-grid deckbuilder with normal/evolved follower art, official Portal class selector imagery, automatic release refresh/versioned cache handling, staged card-art loading, and the AI test surface. The board visible in `/test/` is still a development mock; there is no full playable `GameSession` yet.
