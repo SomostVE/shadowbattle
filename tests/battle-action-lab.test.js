@@ -23,6 +23,14 @@ test("human battle controls dispatch real GameSession actions", () => {
   assert.match(controller, /attackOpponentLeader/);
 });
 
+test("targeted card plays share the legal action graph with attacks and CPU", () => {
+  assert.match(controller, /selectedPlayCard/);
+  assert.match(controller, /targetInstanceId/);
+  assert.match(controller, /resolveEnemyFollowerTarget/);
+  assert.match(controller, /Choose effect target/);
+  assert.match(controller, /is-effect-target/);
+});
+
 test("CPU lab driver executes legal actions instead of auto-passing", () => {
   assert.match(controller, /runCpuTurnIfNeeded/);
   assert.match(controller, /chooseCpuAction/);
@@ -30,10 +38,11 @@ test("CPU lab driver executes legal actions instead of auto-passing", () => {
   assert.match(controller, /session\.endTurn\(1\)/);
 });
 
-test("playable board has action, target, evolution and stat presentation", () => {
+test("playable board has action, combat target, effect target, evolution and stat presentation", () => {
   assert.match(css, /\.sb-battle-card\.is-playable/);
   assert.match(css, /\.sb-battle-unit\.is-attacker-ready/);
   assert.match(css, /\.sb-battle-unit\.is-targetable/);
+  assert.match(css, /\.sb-battle-unit\.is-effect-target/);
   assert.match(css, /\.sb-battle-evolution-controls/);
   assert.match(css, /\.sb-battle-stat-attack/);
   assert.match(css, /\.sb-battle-stat-defense/);
