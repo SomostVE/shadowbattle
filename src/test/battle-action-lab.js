@@ -40,6 +40,7 @@ let eventCursor = 0;
 let mulliganSelection = new Set();
 let selectedAttacker = null;
 let selectedPlayCard = null;
+let selectedPlayModeKey = null;
 let cpuBusy = false;
 let dataReady = false;
 let queue = createQueue();
@@ -96,7 +97,7 @@ function syncAvailability() {
     ui.help.textContent = "This action lab is currently bound to Worlds Beyond V5. SV1 and Champion's Battle will reuse the same GameSession action API.";
   } else if (!session && dataReady) {
     setStatus("SVWB action resolver ready", "ready");
-    ui.help.textContent = "Start a match. Cards, targeted effects, attacks, Ward, Storm, Evo and Super Evo are resolved action by action.";
+    ui.help.textContent = "Start a match. Cards, play modes, targeted effects, attacks, Ward, Storm, Evo and Super Evo are resolved action by action.";
   }
 }
 
@@ -108,8 +109,7 @@ async function startMatch() {
 
   eventCursor = 0;
   mulliganSelection = new Set();
-  selectedAttacker = null;
-  selectedPlayCard = null;
+  clearSelections();
   ui.eventLog.replaceChildren();
   queue = createQueue();
   session = new GameSession({
@@ -147,8 +147,7 @@ async function useBonusPp() {
 
 async function endHumanTurn() {
   if (!isHumanTurn()) return;
-  selectedAttacker = null;
-  selectedPlayCard = null;
+  clearSelections();
   session.endTurn(0);
   await consumeEvents();
   render();
@@ -159,15 +158,35 @@ async function playHumanCard(instanceId) {
   if (!isHumanTurn()) return;
   const actions = legalActions(0).filter(action => action.type === "play-card" && action.cardInstanceId === instanceId);
   if (!actions.length) return;
-  const targeted = actions.filter(action => action.targetInstanceId);
-  if (targeted.length) {
+  const modes = uniqueModeActions(actions);
+
+  if (modes.length > 1) {
     selectedAttacker = null;
-    selectedPlayCard = selectedPlayCard === instanceId ? null : instanceId;
+    if (selectedPlayCard === instanceId && selectedPlayModeKey == null) selectedPlayCard = null;
+    else selectedPlayCard = instanceId;
+    selectedPlayModeKey = null;
     render();
     return;
   }
-  selectedPlayCard = null;
-  await resolveAction(actions[0]);
+
+  await choosePlayMode(instanceId, modes[0]?.playModeKey ?? actions[0].playModeKey ?? null);
+}
+
+async function choosePlayMode(instanceId, playModeKey) {
+  if (!isHumanTurn()) return;
+  const actions = legalActions(0).filter(action => action.type === "play-card" && action.cardInstanceId === instanceId && (!playModeKey || action.playModeKey === playModeKey));
+  if (!actions.length) return;
+  const targeted = actions.filter(action => action.targetInstanceId);
+  selectedAttacker = null;
+  selectedPlayCard = instanceId;
+  selectedPlayModeKey = playModeKey ?? actions[0].playModeKey ?? null;
+  if (targeted.length) {
+    render();
+    return;
+  }
+  const action = actions[0];
+  clearSelections();
+  await resolveAction(action);
 }
 
 async function selectAttacker(instanceId) {
@@ -175,6 +194,7 @@ async function selectAttacker(instanceId) {
   const attacks = legalActions(0).filter(action => action.type === "attack" && action.attackerInstanceId === instanceId);
   if (!attacks.length) return;
   selectedPlayCard = null;
+  selectedPlayModeKey = null;
   selectedAttacker = selectedAttacker === instanceId ? null : instanceId;
   render();
 }
@@ -182,16 +202,16 @@ async function selectAttacker(instanceId) {
 async function resolveEnemyFollowerTarget(instanceId) {
   if (!isHumanTurn()) return;
   if (selectedPlayCard) {
-    const action = legalActions(0).find(item => item.type === "play-card" && item.cardInstanceId === selectedPlayCard && item.targetInstanceId === instanceId);
+    const action = legalActions(0).find(item => item.type === "play-card" && item.cardInstanceId === selectedPlayCard && (!selectedPlayModeKey || item.playModeKey === selectedPlayModeKey) && item.targetInstanceId === instanceId);
     if (!action) return;
-    selectedPlayCard = null;
+    clearSelections();
     await resolveAction(action);
     return;
   }
   if (!selectedAttacker) return;
   const action = legalActions(0).find(item => item.type === "attack" && item.attackerInstanceId === selectedAttacker && item.targetInstanceId === instanceId);
   if (!action) return;
-  selectedAttacker = null;
+  clearSelections();
   await resolveAction(action);
 }
 
@@ -199,7 +219,7 @@ async function attackOpponentLeader() {
   if (!isHumanTurn() || !selectedAttacker || selectedPlayCard) return;
   const action = legalActions(0).find(item => item.type === "attack" && item.attackerInstanceId === selectedAttacker && item.target === "leader");
   if (!action) return;
-  selectedAttacker = null;
+  clearSelections();
   await resolveAction(action);
 }
 
@@ -208,8 +228,7 @@ async function evolveFollower(instanceId, superEvolution) {
   const type = superEvolution ? "super-evolve" : "evolve";
   const action = legalActions(0).find(item => item.type === type && item.followerInstanceId === instanceId);
   if (!action) return;
-  selectedAttacker = null;
-  selectedPlayCard = null;
+  clearSelections();
   await resolveAction(action);
 }
 
@@ -222,8 +241,7 @@ async function resolveAction(action) {
 async function runCpuTurnIfNeeded() {
   if (!session || session.phase !== GAME_PHASE.MAIN || session.activePlayer !== 1 || cpuBusy) return;
   cpuBusy = true;
-  selectedAttacker = null;
-  selectedPlayCard = null;
+  clearSelections();
   render();
   try {
     for (let step = 0; step < 24 && session.phase === GAME_PHASE.MAIN && session.activePlayer === 1; step += 1) {
@@ -256,7 +274,7 @@ async function runCpuTurnIfNeeded() {
 function chooseCpuAction(actions) {
   const play = actions
     .filter(action => action.type === "play-card")
-    .sort((a, b) => b.cost - a.cost || targetValue(0, b.targetInstanceId) - targetValue(0, a.targetInstanceId))[0];
+    .sort((a, b) => b.cost - a.cost || modePriority(b) - modePriority(a) || targetValue(0, b.targetInstanceId) - targetValue(0, a.targetInstanceId))[0];
   if (play) return play;
   const superEvolution = actions.filter(action => action.type === "super-evolve");
   if (superEvolution.length) return bestEvolution(superEvolution, 1);
@@ -268,6 +286,14 @@ function chooseCpuAction(actions) {
   const wardOrTrade = attacks.filter(action => action.targetInstanceId).sort((a, b) => targetValue(0, b.targetInstanceId) - targetValue(0, a.targetInstanceId))[0];
   if (wardOrTrade) return wardOrTrade;
   return attacks.find(action => action.target === "leader") ?? null;
+}
+
+function modePriority(action) {
+  if (action.playMode?.enhanced) return 4;
+  if (action.playMode?.crystallized) return 3;
+  if (action.playMode?.accelerated) return 2;
+  if (action.playMode?.kind === "mode") return 1;
+  return 0;
 }
 
 function bestEvolution(actions, playerIndex) {
@@ -338,6 +364,9 @@ function render() {
     if (cpuBusy || snapshot.activePlayer === 1) {
       ui.help.textContent = "CPU is executing legal GameSession actions. This temporary driver will later be replaced by the full V5 planner.";
       setStatus("CPU resolving actions", "ready");
+    } else if (selectedPlayCard && selectedPlayModeKey == null && selectedCardModeCount() > 1) {
+      ui.help.textContent = "Choose the play mode for the selected card.";
+      setStatus("Choose play mode", "ready");
     } else if (selectedPlayCard) {
       ui.help.textContent = "Choose a highlighted enemy follower as the card effect target. Click the selected card again to cancel.";
       setStatus("Choose effect target", "ready");
@@ -345,7 +374,7 @@ function render() {
       ui.help.textContent = "Choose a highlighted enemy follower or the enemy leader as the attack target.";
       setStatus("Choose attack target", "ready");
     } else {
-      ui.help.textContent = "Playable cards glow. Targeted cards ask for a legal target; ready followers can attack, and Evo/Super Evo controls appear when legal.";
+      ui.help.textContent = "Playable cards glow. Cards can expose Base, Enhance, Accelerate, Crystallize or mode choices before targeting.";
       setStatus("Human action phase", "ready");
     }
   } else if (snapshot.phase === GAME_PHASE.ENDED) {
@@ -368,7 +397,10 @@ function renderLeader(player, nameNode, resourceNode, hpNode) {
 
 function renderHand(root, player, human) {
   root.replaceChildren();
-  const playable = new Set(isHumanTurn() ? legalActions(0).filter(action => action.type === "play-card").map(action => action.cardInstanceId) : []);
+  const actions = human && isHumanTurn() ? legalActions(0).filter(action => action.type === "play-card") : [];
+  const playable = new Set(actions.map(action => action.cardInstanceId));
+  let selectedModeActions = [];
+
   for (const card of player.hand) {
     if (!card) {
       root.append(cardBack());
@@ -404,9 +436,10 @@ function renderHand(root, player, human) {
       button.classList.add("is-playable");
       if (selectedPlayCard === card.instanceId) {
         button.classList.add("is-selected");
+        selectedModeActions = uniqueModeActions(actions.filter(action => action.cardInstanceId === card.instanceId));
         const marker = document.createElement("span");
         marker.className = "sb-battle-card-marker";
-        marker.textContent = "Target";
+        marker.textContent = selectedPlayModeKey ? modeLabel(selectedModeActions.find(action => action.playModeKey === selectedPlayModeKey) ?? selectedModeActions[0]) : (selectedModeActions.length > 1 ? "Mode" : "Target");
         button.append(marker);
       }
       button.addEventListener("click", () => playHumanCard(card.instanceId).catch(showError));
@@ -415,6 +448,50 @@ function renderHand(root, player, human) {
     }
     root.append(button);
   }
+
+  if (human && selectedPlayCard && selectedModeActions.length > 1 && selectedPlayModeKey == null) root.append(renderModeMenu(selectedModeActions));
+}
+
+function renderModeMenu(actions) {
+  const menu = document.createElement("div");
+  menu.className = "sb-battle-mode-menu";
+  for (const action of actions) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "sb-battle-mode-button";
+    button.textContent = modeLabel(action);
+    button.addEventListener("click", event => {
+      event.preventDefault();
+      event.stopPropagation();
+      choosePlayMode(action.cardInstanceId, action.playModeKey).catch(showError);
+    });
+    menu.append(button);
+  }
+  return menu;
+}
+
+function modeLabel(action) {
+  const mode = action?.playMode ?? {};
+  if (mode.enhanced) return `Enhance ${action.cost}`;
+  if (mode.crystallized) return `Crystallize ${action.cost}`;
+  if (mode.accelerated) return `Accelerate ${action.cost}`;
+  if (mode.kind === "mode") return `Mode ${mode.modeIndex || 1}`;
+  return `Play ${action?.cost ?? 0}`;
+}
+
+function uniqueModeActions(actions) {
+  const seen = new Set();
+  return actions.filter(action => {
+    const key = action.playModeKey ?? `base:${action.cost ?? 0}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function selectedCardModeCount() {
+  if (!selectedPlayCard || !isHumanTurn()) return 0;
+  return uniqueModeActions(legalActions(0).filter(action => action.type === "play-card" && action.cardInstanceId === selectedPlayCard)).length;
 }
 
 function renderBoard(root, board, owner) {
@@ -465,7 +542,7 @@ function renderBoard(root, board, owner) {
       }
     } else {
       const attackTarget = Boolean(selectedAttacker && actions.some(action => action.type === "attack" && action.attackerInstanceId === selectedAttacker && action.targetInstanceId === card.instanceId));
-      const effectTarget = Boolean(selectedPlayCard && actions.some(action => action.type === "play-card" && action.cardInstanceId === selectedPlayCard && action.targetInstanceId === card.instanceId));
+      const effectTarget = Boolean(selectedPlayCard && selectedPlayModeKey && actions.some(action => action.type === "play-card" && action.cardInstanceId === selectedPlayCard && action.playModeKey === selectedPlayModeKey && action.targetInstanceId === card.instanceId));
       const targetable = attackTarget || effectTarget;
       hitbox.disabled = !targetable;
       unit.classList.toggle("is-targetable", targetable);
@@ -541,6 +618,8 @@ function eventTitle(event) {
     "amulet-enter": `${actor} amulet enters`,
     "countdown-tick": `${actor} Countdown`,
     "amulet-destroyed": `${actor} amulet destroyed`,
+    "card-banished": "Card banished",
+    "card-returned": "Card returned",
     "spell-cast": `${actor} casts a spell`,
     "ability-trigger": `${actor} ability`,
     "follower-buff": `${actor} follower buff`,
@@ -560,9 +639,10 @@ function eventTitle(event) {
 
 function eventDetail(event) {
   const p = event.payload ?? {};
-  if (event.type === "ability-trigger") return `${p.card?.name ?? "Card"} · ${p.resolved ? "resolved" : "unresolved"}${p.target?.name ? ` → ${p.target.name}` : ""} · ${p.text ?? ""}`;
+  if (event.type === "ability-trigger") return `${p.card?.name ?? "Card"} · ${p.resolved ? "resolved" : "unresolved"}${p.mode ? ` · ${p.mode}` : ""}${p.target?.name ? ` → ${p.target.name}` : ""} · ${p.text ?? ""}`;
   if (event.type === "countdown-tick") return `${p.card?.name ?? "Amulet"} · Countdown ${p.countdown ?? 0}`;
-  if (p.card?.name) return `${p.card.name}${p.cost != null ? ` · ${p.cost} PP` : ""}`;
+  if (event.type === "card-returned") return `${p.card?.name ?? "Card"} → ${p.destination ?? "hand"}${p.handFull ? " · hand full" : ""}`;
+  if (p.card?.name) return `${p.card.name}${p.cost != null ? ` · ${p.cost} PP` : ""}${p.mode && p.mode !== "base" ? ` · ${p.mode}` : ""}`;
   if (event.type === "leader-damage") return `${p.amount ?? 0} damage · ${p.hp ?? 0} defense remaining`;
   if (event.type === "follower-damage") return `${p.target?.name ?? "Follower"} takes ${p.amount ?? 0}${p.prevented ? ` · ${p.prevented} prevented` : ""}`;
   if (event.type === "attack-impact") return p.target === "leader" ? `${p.damage ?? 0} damage to leader` : `${p.attackerDamage ?? 0} / ${p.counterDamage ?? 0} combat damage`;
@@ -585,6 +665,8 @@ function createQueue() {
   animations.register("amulet-enter", (_event, options) => pulseStage(options.duration || 360));
   animations.register("countdown-tick", (event, options) => animateCard(event.payload?.card?.instanceId, [{ transform: "scale(1)" }, { transform: "scale(1.12)" }, { transform: "scale(1)" }], options.duration));
   animations.register("amulet-destroyed", (event, options) => animateCard(event.payload?.card?.instanceId, [{ opacity: 1, transform: "scale(1)" }, { opacity: .7, transform: "scale(1.12)" }, { opacity: 0, transform: "scale(.45)" }], options.duration));
+  animations.register("card-banished", (event, options) => animateCard(event.payload?.card?.instanceId, [{ opacity: 1, filter: "brightness(1) blur(0)" }, { opacity: .6, filter: "brightness(1.8) blur(1px)" }, { opacity: 0, filter: "brightness(.4) blur(6px)" }], options.duration));
+  animations.register("card-returned", (event, options) => animateCard(event.payload?.card?.instanceId, [{ opacity: 1, transform: "translateY(0) scale(1)" }, { opacity: .7, transform: `translateY(${event.payload?.owner === 0 ? 42 : -42}px) scale(.8)` }, { opacity: 0, transform: `translateY(${event.payload?.owner === 0 ? 72 : -72}px) scale(.55)` }], options.duration));
   animations.register("ability-trigger", (event, options) => event.payload?.target?.instanceId
     ? animateCard(event.payload.target.instanceId, [{ filter: "brightness(1)" }, { filter: "brightness(1.65)" }, { filter: "brightness(1)" }], options.duration)
     : pulseStage(Math.min(options.duration, 420)));
@@ -660,6 +742,12 @@ function fillSelect(select, source, selectedIndex) {
   });
 }
 
+function clearSelections() {
+  selectedAttacker = null;
+  selectedPlayCard = null;
+  selectedPlayModeKey = null;
+}
+
 function setStatus(text, status) {
   ui.status.textContent = text;
   ui.status.dataset.status = status;
@@ -667,8 +755,7 @@ function setStatus(text, status) {
 
 function showError(error) {
   console.error(error);
-  selectedPlayCard = null;
-  selectedAttacker = null;
+  clearSelections();
   ui.help.textContent = error instanceof Error ? error.message : String(error);
   setStatus("Action rejected", "planned");
   render();
