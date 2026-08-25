@@ -52,9 +52,6 @@ export function renderCardGrid(root, cards, handlers = {}, options = {}) {
     return cursor < visibleCards.length;
   };
 
-  // Paint enough cards for the visible viewport synchronously. The remainder is
-  // appended during idle time so changing class feels immediate even in sv1,
-  // where the source pool can contain hundreds of cards.
   const hasMore = appendBatch(batchSize);
   if (!hasMore) return;
 
@@ -104,7 +101,7 @@ function cardMarkup(card, handlers) {
     : "";
 
   return `<article class="db-card-tile${current >= 3 ? " is-capped" : ""}" data-card-id="${card.id}" data-card-craft="${escapeHtml(card.craft ?? "")}">
-    <button class="db-card-main" type="button" data-add="${card.id}" title="${escapeHtml(card.name)} — click to add" aria-label="Add ${escapeHtml(card.name)} to deck">
+    <button class="db-card-main" type="button" data-add="${card.id}" aria-label="Add ${escapeHtml(card.name)} to deck">
       <img loading="lazy" data-card-art="${card.id}" data-art-state="normal" alt="${escapeHtml(card.name)}" referrerpolicy="no-referrer">
     </button>
     ${current ? `<span class="db-card-quantity">×${current}</span>` : ""}
