@@ -64,7 +64,8 @@ test("hub rotates archived CCG and Worlds Beyond Fan Kit backgrounds", async () 
   assert.match(hubJs, /background_Morning_Star\.png/);
   assert.match(hubJs, /background_Track_Night\.png/);
   assert.match(hubJs, /readWorldsBeyondBackgrounds/);
-  assert.match(hubJs, /worlds-beyond\/manifest\.json/);
+  assert.match(hubJs, /assets\/fankits\/worlds-beyond\//);
+  assert.match(hubJs, /new URL\("manifest\.json", root\)/);
   assert.match(hubJs, /Math\.random/);
   assert.match(hub, /© Cygames, Inc\./);
 
