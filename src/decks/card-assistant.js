@@ -148,7 +148,7 @@ function renderAssistant(card, handlers, { relations = emptyRelations(), loading
   preview.innerHTML = `
     <div class="db-assistant-main">
       <div class="db-assistant-art-wrap">
-        <img class="db-assistant-main-art" src="${escapeAttr(evolved ? card.evolvedImage : card.image)}" alt="${escapeAttr(card.name)}" referrerpolicy="no-referrer">
+        <img class="db-assistant-main-art" alt="" referrerpolicy="no-referrer">
         ${card.evolvedImage ? `<button type="button" class="db-assistant-art-toggle" data-assistant-art>${evolved ? "Normal" : "Evolved"}</button>` : ""}
       </div>
       <div class="db-assistant-copy">
@@ -186,6 +186,18 @@ function renderAssistant(card, handlers, { relations = emptyRelations(), loading
     ${renderRelatedGroup("Linked cards", relations.linked)}
     ${renderRelatedGroup("Sources", relations.sources)}
   `;
+
+  const mainArt = preview.querySelector(".db-assistant-main-art");
+  if (mainArt) setAssistantArt(mainArt, card, evolved);
+
+  const relatedCards = new Map(
+    [...relations.generated, ...relations.linked, ...relations.sources]
+      .map(related => [Number(related.id), related])
+  );
+  preview.querySelectorAll("img[data-assistant-related-art]").forEach(image => {
+    const related = relatedCards.get(Number(image.dataset.assistantRelatedArt));
+    if (related) setAssistantArt(image, related, false);
+  });
 
   preview.querySelector("[data-assistant-close]")?.addEventListener("click", event => {
     event.stopPropagation();
@@ -344,7 +356,7 @@ function renderRelatedGroup(title, cards) {
     <h4>${escapeHtml(title)}</h4>
     <div class="db-assistant-related-grid">
       ${cards.map(card => `<button type="button" data-assistant-related="${Number(card.id)}" title="${escapeAttr(card.name)}">
-        <img src="${escapeAttr(card.image)}" alt="" loading="lazy" referrerpolicy="no-referrer">
+        <img data-assistant-related-art="${Number(card.id)}" alt="" loading="lazy" referrerpolicy="no-referrer">
         <span>${escapeHtml(card.name)}</span>
       </button>`).join("")}
     </div>
@@ -357,6 +369,45 @@ function relationCardById(relations, id) {
     if (card) return card;
   }
   return null;
+}
+
+function setAssistantArt(image, card, evolved = false) {
+  const candidates = artCandidates(card, evolved);
+  let index = 0;
+  image.hidden = false;
+  image.onerror = () => {
+    index += 1;
+    if (index < candidates.length) {
+      image.src = candidates[index];
+      return;
+    }
+    image.onerror = null;
+    image.hidden = true;
+  };
+  if (candidates[0]) image.src = candidates[0];
+  else image.hidden = true;
+}
+
+function artCandidates(card, evolved = false) {
+  const id = Number(card?.id);
+  if (!Number.isFinite(id)) return [];
+  const visible = visibleGridArt(card, evolved);
+  const stored = evolved ? card?.evolvedImage : card?.image;
+  const modern = evolved
+    ? `https://shadowverse-portal.com/image/card/phase2/sp/common/E/E_${id}.png`
+    : `https://shadowverse-portal.com/image/card/phase2/common/C/C_${id}.png`;
+  const legacy = evolved
+    ? `https://shadowverse-portal.com/image/card/en/E_${id}.png`
+    : `https://shadowverse-portal.com/image/card/en/C_${id}.png`;
+  return [...new Set([visible, stored, modern, legacy].filter(Boolean))];
+}
+
+function visibleGridArt(card, evolved) {
+  const tile = document.querySelector(`.db-card-tile[data-card-id="${CSS.escape(String(card?.id ?? ""))}"]`);
+  const image = tile?.querySelector("img[data-card-art]");
+  if (!image?.src) return null;
+  const state = image.dataset.artState === "evolved";
+  return state === Boolean(evolved) ? image.currentSrc || image.src : null;
 }
 
 function uniqueCards(cards) {
