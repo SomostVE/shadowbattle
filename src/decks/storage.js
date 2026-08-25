@@ -1,6 +1,7 @@
 import { GAME_IDS } from "../core/game-catalog.js";
 
 export const SHADOWBATTLE_DECK_STORAGE_KEY = "shadowbattle:decks:v1";
+export const SHADOWBATTLE_DECK_BACKUP_KEY = "shadowbattle:decks:backup:v1";
 export const SUPPORTED_DECK_GAMES = Object.freeze([
   GAME_IDS.SHADOWVERSE_CCG,
   GAME_IDS.CHAMPIONS_BATTLE,
@@ -76,7 +77,8 @@ export function normalizeDeckLibrary(value) {
         const normalized = createDeckRecord({ ...deck, id, gameId });
         bucket.decks[normalized.id] = normalized;
       } catch {
-        // Ignore malformed records rather than breaking the full library.
+        // A malformed individual record must never make the rest of the user's
+        // local library unreadable.
       }
     }
     if (bucket.activeDeckId && !bucket.decks[bucket.activeDeckId]) bucket.activeDeckId = null;
@@ -84,19 +86,43 @@ export function normalizeDeckLibrary(value) {
   return library;
 }
 
+function parseLibrary(raw) {
+  if (!raw) return null;
+  try {
+    return normalizeDeckLibrary(JSON.parse(raw));
+  } catch {
+    return null;
+  }
+}
+
 export function loadDeckLibrary(storage = globalThis.localStorage) {
   if (!storage) return emptyDeckLibrary();
-  try {
-    const raw = storage.getItem(SHADOWBATTLE_DECK_STORAGE_KEY);
-    return raw ? normalizeDeckLibrary(JSON.parse(raw)) : emptyDeckLibrary();
-  } catch {
-    return emptyDeckLibrary();
+
+  const primaryRaw = storage.getItem(SHADOWBATTLE_DECK_STORAGE_KEY);
+  const primary = parseLibrary(primaryRaw);
+  if (primary) return primary;
+
+  // Recover only when the primary value is absent/corrupt. App version bumps
+  // never intentionally clear or replace the user's deck storage key.
+  const backupRaw = storage.getItem(SHADOWBATTLE_DECK_BACKUP_KEY);
+  const backup = parseLibrary(backupRaw);
+  if (backup) {
+    storage.setItem(SHADOWBATTLE_DECK_STORAGE_KEY, JSON.stringify(backup));
+    return backup;
   }
+
+  return emptyDeckLibrary();
 }
 
 export function saveDeckLibrary(library, storage = globalThis.localStorage) {
   const normalized = normalizeDeckLibrary(library);
-  storage?.setItem?.(SHADOWBATTLE_DECK_STORAGE_KEY, JSON.stringify(normalized));
+  if (!storage?.setItem) return normalized;
+
+  // Keep the last valid library as a recovery point before replacing the
+  // primary value. This is deliberately independent from ShadowBattle version.
+  const previous = storage.getItem(SHADOWBATTLE_DECK_STORAGE_KEY);
+  if (parseLibrary(previous)) storage.setItem(SHADOWBATTLE_DECK_BACKUP_KEY, previous);
+  storage.setItem(SHADOWBATTLE_DECK_STORAGE_KEY, JSON.stringify(normalized));
   return normalized;
 }
 
