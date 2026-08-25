@@ -1,5 +1,5 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
-import { getWorldsBeyondCrests } from "./crests.js";
+import { crestView, getWorldsBeyondCrests } from "./crests.js";
 import { destroyWorldsBeyondFollower } from "./effect-resolver.js";
 
 export function resolveWorldsBeyondCrestTurnStart(session, playerIndex, crest) {
@@ -182,15 +182,6 @@ function emitCrestActivation(session, playerIndex, crest, action, detail = {}) {
     actor: playerIndex,
     payload: { action, crest: crestView(crest), ...detail }
   });
-}
-
-function crestView(crest) {
-  return {
-    id: crest?.id ?? null,
-    name: crest?.name ?? null,
-    cardId: crest?.cardId ?? null,
-    countdown: Number.isFinite(Number(crest?.countdown)) ? Number(crest.countdown) : null
-  };
 }
 
 function cardType(instance) {
