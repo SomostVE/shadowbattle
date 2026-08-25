@@ -3,7 +3,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 
 const SOURCE = "https://shadowverse-portal.com/api/v1/cards";
-const LANGUAGES = ["en", "ja", "ko", "zh-tw", "fr", "it", "de", "es", "zh-cn"];
+const LANGUAGES = ["en", "ja", "ko", "zh-tw", "fr", "it", "de", "es"];
 const MIN_EXPECTED_CARDS = 4500;
 const RAW_DIR = "archive/shadowverse-ccg/raw";
 const API_DIR = "api/v1/shadowverse-ccg";
