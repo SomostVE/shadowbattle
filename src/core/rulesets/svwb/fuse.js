@@ -46,6 +46,10 @@ export function resolveWorldsBeyondFuse(session, action, { afterMaterials = null
   const legal = candidateMaterialSets(target, player.hand.filter(item => isWorldsBeyondFuseMaterial(target, item)));
   if (!legal.some(set => sameMaterialSet(set, materials))) throw new Error("Selected Fuse material combination is not legal");
 
+  const nextName = projectedTransformName(target, materials);
+  const nextCard = nextName ? session.findCardDefinition({ name: nextName }) : null;
+  if (nextName && !nextCard) throw new Error(`Fuse transformation card is missing from the local catalog: ${nextName}`);
+
   const before = session.cardView(target);
   const beforeName = target.card?.name ?? "Card";
   const materialViews = materials.map(item => session.cardView(item));
@@ -70,12 +74,9 @@ export function resolveWorldsBeyondFuse(session, action, { afterMaterials = null
 
   if (typeof afterMaterials === "function") afterMaterials({ session, playerIndex, target, materials });
 
-  const nextName = projectedTransformName(target, materials);
   let transformed = false;
   let afterName = beforeName;
-  if (nextName) {
-    const nextCard = session.findCardDefinition({ name: nextName });
-    if (!nextCard) throw new Error(`Fuse transformation card is missing from the local catalog: ${nextName}`);
+  if (nextCard) {
     transformHandInstance(target, nextCard);
     transformed = true;
     afterName = nextCard.name ?? nextName;
