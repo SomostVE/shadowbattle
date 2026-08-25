@@ -16,6 +16,7 @@ test("internal battle lab loads the playable action controller", () => {
 test("human battle controls dispatch real GameSession actions", () => {
   assert.match(controller, /listLegalActions/);
   assert.match(controller, /action\.type === "play-card"/);
+  assert.match(controller, /action\.type === "fuse"/);
   assert.match(controller, /action\.type === "engage"/);
   assert.match(controller, /type === "attack"/);
   assert.match(controller, /type === "evolve"/);
@@ -46,6 +47,23 @@ test("V5 alternative modes require an explicit human choice when multiple modes 
   assert.match(css, /\.sb-battle-mode-button/);
 });
 
+test("Fuse uses an explicit source, material selection and local transformation catalog", () => {
+  assert.match(controller, /selectedFuseTarget/);
+  assert.match(controller, /selectedFuseMaterials/);
+  assert.match(controller, /selectFuseTarget/);
+  assert.match(controller, /toggleFuseMaterial/);
+  assert.match(controller, /confirmFuse/);
+  assert.match(controller, /renderFuseTargetMenu/);
+  assert.match(controller, /renderFuseSelectionMenu/);
+  assert.match(controller, /cardCatalog:\s*\[\.\.\.cards\.values\(\)\]/);
+  assert.match(controller, /"fuse": `\$\{actor\} Fuses`/);
+  assert.match(controller, /"card-transform": `\$\{actor\} transforms a card`/);
+  assert.match(css, /\.sb-battle-card\.is-fuse-target/);
+  assert.match(css, /\.sb-battle-card\.is-fuse-material/);
+  assert.match(css, /\.sb-battle-fuse-menu/);
+  assert.match(css, /\.sb-battle-fuse-button/);
+});
+
 test("Engage is visible as a dedicated amulet action and class resources are readable", () => {
   assert.match(controller, /engageAmulet/);
   assert.match(controller, /`Engage \$\{engage\.cost\}`/);
@@ -56,9 +74,11 @@ test("Engage is visible as a dedicated amulet action and class resources are rea
   assert.match(css, /\.sb-battle-unit\.is-engage-selected/);
 });
 
-test("CPU lab driver executes legal actions instead of auto-passing", () => {
+test("CPU lab driver executes legal actions including productive Fuse chains", () => {
   assert.match(controller, /runCpuTurnIfNeeded/);
   assert.match(controller, /chooseCpuAction/);
+  assert.match(controller, /action\.type === "fuse"/);
+  assert.match(controller, /projectedTransform/);
   assert.match(controller, /action\.type === "engage"/);
   assert.match(controller, /shouldCpuUseBonusPp/);
   assert.match(controller, /session\.endTurn\(1\)/);
