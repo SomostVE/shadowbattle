@@ -69,3 +69,4 @@ jobs:
           git push
 
 # Supported Portal locales audited on 2026-08-25: en, ja, ko, zh-tw, fr, it, de, es.
+# Worlds Beyond uses dynamic download controls and is synchronized separately when their URLs are resolved.
