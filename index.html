@@ -5,56 +5,55 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#141d28">
   <title>ShadowBattle</title>
-  <link rel="stylesheet" href="./src/ui/hub.css?v=0.4.13">
-  <script type="module" src="./src/ui/version-guard.js?v=0.4.13"></script>
+  <link rel="stylesheet" href="./src/ui/hub.css?v=0.4.14">
+  <script type="module" src="./src/ui/version-guard.js?v=0.4.14"></script>
 </head>
 <body class="hub-page">
   <main class="hub-shell">
-    <header class="hub-topbar">
-      <a class="hub-brand" href="./">
-        <span class="hub-brand-mark">✦</span>
-        <strong>ShadowBattle</strong>
-        <span id="hub-version" class="hub-version">v0.4.13</span>
-      </a>
-      <nav class="hub-nav" aria-label="Main navigation">
-        <a class="hub-nav-primary" href="#battle">Battle</a>
-        <a href="./decks/">Deckbuilder</a>
-        <a href="./library/">Deck Library</a>
-        <a href="./api/">API</a>
-      </nav>
-    </header>
-
     <section id="battle" class="hub-stage" aria-label="ShadowBattle game hub">
       <article class="hub-battle-card">
-        <div class="hub-battle-copy">
-          <span class="hub-kicker">Human vs AI</span>
-          <h1>ShadowBattle</h1>
-          <p>Play Shadowverse as a real match: mulligan, one action at a time, then a visible AI turn.</p>
-          <div class="hub-mode-row" aria-label="Battle design">
-            <span>40-card decks</span>
-            <span>Rules-first</span>
-            <span>Intermediate AI</span>
+        <div class="hub-battle-toolbar">
+          <div class="hub-brand-inline">
+            <span class="hub-brand-mark">✦</span>
+            <strong>ShadowBattle</strong>
+            <span id="hub-version" class="hub-version">v0.4.14</span>
           </div>
-          <div class="hub-battle-actions">
-            <span class="hub-primary" aria-disabled="true">Play — in development</span>
+          <div class="hub-battle-flags">
+            <span>Human vs AI</span>
+            <span>Action by action</span>
           </div>
         </div>
 
-        <div class="hub-board-preview" aria-label="Battle board preview">
-          <div class="hub-player-line">
-            <div><strong>AI</strong><small>PP 6 / 6 · Evo 2</small></div>
-            <span class="hub-hp">20</span>
+        <div class="hub-battle-main">
+          <div class="hub-battle-copy">
+            <span class="hub-kicker">Play Shadowverse</span>
+            <h1>Battle</h1>
+            <p>Mulligan, play every action yourself, end your turn, then watch the AI answer in real time.</p>
+            <div class="hub-mode-row" aria-label="Battle design">
+              <span>40 cards</span>
+              <span>Rules-first</span>
+              <span>Hidden information</span>
+              <span>Intermediate AI</span>
+            </div>
+            <span class="hub-primary" aria-disabled="true">Battle — in development</span>
           </div>
-          <div class="hub-card-row" aria-hidden="true">
-            <span></span><span class="active"></span><span></span><span class="active"></span><span></span>
-          </div>
-          <div class="hub-turn-line"><span>TURN 6</span></div>
-          <div class="hub-card-row" aria-hidden="true">
-            <span class="active"></span><span></span><span class="active"></span><span></span><span></span>
-          </div>
-          <div class="hub-player-line">
-            <div><strong>You</strong><small>PP 6 / 6 · Evo 2</small></div>
-            <span class="hub-hp">18</span>
+
+          <div class="hub-board-preview" aria-label="Battle board preview">
+            <div class="hub-player-line">
+              <div><strong>AI opponent</strong><small>PP 6 / 6 · Evo 2</small></div>
+              <span class="hub-hp">20</span>
+            </div>
+            <div class="hub-card-row" aria-hidden="true">
+              <span></span><span class="active"></span><span></span><span class="active"></span><span></span>
+            </div>
+            <div class="hub-turn-line"><span>TURN 6</span></div>
+            <div class="hub-card-row" aria-hidden="true">
+              <span class="active"></span><span></span><span class="active"></span><span></span><span></span>
+            </div>
+            <div class="hub-player-line">
+              <div><strong>You</strong><small>PP 6 / 6 · Evo 2</small></div>
+              <span class="hub-hp">18</span>
+            </div>
           </div>
         </div>
       </article>
@@ -65,50 +64,54 @@
             <span>Game</span>
             <strong>Choose a ruleset</strong>
           </div>
-          <div class="hub-game active">
+
+          <button class="hub-game active" type="button" data-game="shadowverse-ccg">
             <span class="hub-game-code">SV1</span>
-            <div><strong>Shadowverse CCG</strong><small>5,933 archived cards</small></div>
+            <span class="hub-game-copy"><strong>Shadowverse CCG</strong><small>5,933 archived cards</small></span>
             <span class="hub-game-state">First</span>
-          </div>
-          <div class="hub-game">
+          </button>
+
+          <button class="hub-game" type="button" data-game="champions-battle">
             <span class="hub-game-code">CB</span>
-            <div><strong>Champion's Battle</strong><small>623-card base pool</small></div>
+            <span class="hub-game-copy"><strong>Champion's Battle</strong><small>623-card base pool</small></span>
             <span class="hub-game-state">Next</span>
-          </div>
-          <div class="hub-game muted">
+          </button>
+
+          <button class="hub-game muted" type="button" data-game="worlds-beyond">
             <span class="hub-game-code">WB</span>
-            <div><strong>Worlds Beyond</strong><small>Separate provider</small></div>
+            <span class="hub-game-copy"><strong>Worlds Beyond</strong><small><span id="hub-wb-bot-count">7</span> synchronized AI decks</small></span>
             <span class="hub-game-state">Later</span>
-          </div>
+          </button>
         </section>
 
-        <section class="hub-prep-grid" aria-label="Deck tools">
-          <a class="hub-prep-card" href="./decks/">
-            <div class="hub-prep-top"><span class="hub-card-icon">▦</span><span>Build</span></div>
-            <strong>Deckbuilder</strong>
-            <small>SV1 · Champion's Battle</small>
+        <section class="hub-tools" aria-label="Deck tools">
+          <a class="hub-tool-card hub-tool-primary" href="./decks/">
+            <span class="hub-card-icon">▦</span>
+            <span><strong>Deckbuilder</strong><small>Build SV1 / Champion's Battle decks</small></span>
+            <span class="hub-tool-arrow">→</span>
           </a>
-          <a class="hub-prep-card" href="./library/">
-            <div class="hub-prep-top"><span class="hub-card-icon">◆</span><span id="hub-saved-count">0 saved</span></div>
-            <strong>Deck Library</strong>
-            <small>Saved decks · event filters</small>
+
+          <a class="hub-tool-card" href="./library/">
+            <span class="hub-card-icon">◆</span>
+            <span><strong>Deck Library</strong><small><span id="hub-saved-count">0</span> saved · event filters</small></span>
+            <span class="hub-tool-arrow">→</span>
+          </a>
+
+          <a class="hub-tool-card hub-tool-api" href="./api/">
+            <span class="hub-card-icon">{ }</span>
+            <span><strong>Data / API</strong><small>Public JSON datasets</small></span>
+            <span class="hub-tool-arrow">→</span>
           </a>
         </section>
-
-        <a class="hub-api-card" href="./api/">
-          <span class="hub-card-icon">{ }</span>
-          <div><strong>Data / API</strong><small>Public JSON datasets</small></div>
-          <span>→</span>
-        </a>
       </aside>
     </section>
 
     <footer class="hub-legal">
-      <span>© Cygames, Inc.</span>
+      <strong>© Cygames, Inc.</strong>
       <span>This website/application is not affiliated with, endorsed by, sponsored by, or individually approved by Cygames. Cygames bears no responsibility for its operation or content. Cygames trademarks and other intellectual property are used subject to the Cygames Fan Kit terms of use.</span>
     </footer>
   </main>
 
-  <script type="module" src="./src/ui/hub.js?v=0.4.13"></script>
+  <script type="module" src="./src/ui/hub.js?v=0.4.14"></script>
 </body>
 </html>
