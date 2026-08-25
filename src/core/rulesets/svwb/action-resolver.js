@@ -1,11 +1,12 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
+import { restoreOriginalCardForm } from "../../zone-actions.js";
 import {
   destroyWorldsBeyondFollower,
   getWorldsBeyondTargetOptions,
   getWorldsBeyondTargetRequirement,
   resolveWorldsBeyondTrigger
 } from "./effect-resolver.js";
-import { costOf } from "./v5/battle-engine-v5-state.js";
+import { modes as v5Modes } from "./v5/battle-engine-v5-modes.js";
 
 export const SVWB_ACTION = Object.freeze({
   PLAY_CARD: "play-card",
@@ -44,30 +45,39 @@ export function listWorldsBeyondActions(session, playerIndex) {
   const actions = [];
 
   for (const card of player.hand) {
-    const type = cardType(card);
-    const cost = costOf(card);
-    const needsBoard = type === "follower" || type === "amulet";
-    if (cost > player.resources.pp || (needsBoard && player.board.length >= session.ruleset.maxBoardSize)) continue;
+    for (const mode of playModes(card, player)) {
+      const type = effectivePlayType(card, mode);
+      const needsBoard = type === "follower" || type === "amulet";
+      if (needsBoard && player.board.length >= session.ruleset.maxBoardSize) continue;
 
-    const baseAction = { type: SVWB_ACTION.PLAY_CARD, player: playerIndex, cardInstanceId: card.instanceId, cost };
-    const targetRequirement = getWorldsBeyondTargetRequirement(card, "play");
-    if (!targetRequirement) {
-      actions.push(baseAction);
-      continue;
-    }
-
-    const targets = getWorldsBeyondTargetOptions(session, { trigger: "play", playerIndex, source: card });
-    if (targets.length) {
-      for (const target of targets) {
-        actions.push({
-          ...baseAction,
-          targetInstanceId: target.instanceId,
-          targetKind: targetRequirement.kind,
-          targetAmount: targetRequirement.amount ?? 0
-        });
+      const baseAction = {
+        type: SVWB_ACTION.PLAY_CARD,
+        player: playerIndex,
+        cardInstanceId: card.instanceId,
+        cost: mode.cost,
+        playModeKey: modeKey(mode),
+        playMode: modeView(mode),
+        effectiveType: type
+      };
+      const targetRequirement = getWorldsBeyondTargetRequirement(card, "play", mode);
+      if (!targetRequirement) {
+        actions.push(baseAction);
+        continue;
       }
-    } else if (type !== "spell") {
-      actions.push(baseAction);
+
+      const targets = getWorldsBeyondTargetOptions(session, { trigger: "play", playerIndex, source: card, mode });
+      if (targets.length) {
+        for (const target of targets) {
+          actions.push({
+            ...baseAction,
+            targetInstanceId: target.instanceId,
+            targetKind: targetRequirement.kind,
+            targetAmount: targetRequirement.amount ?? 0
+          });
+        }
+      } else if (type !== "spell") {
+        actions.push(baseAction);
+      }
     }
   }
 
@@ -92,14 +102,17 @@ function playCard(session, action) {
   const index = player.hand.findIndex(card => card.instanceId === action.cardInstanceId);
   if (index < 0) throw new Error("Card is not in the active player's hand");
   const instance = player.hand[index];
-  const type = cardType(instance);
-  const cost = costOf(instance);
+  const availableModes = playModes(instance, player);
+  const mode = selectPlayMode(availableModes, action);
+  if (!mode) throw new Error("Selected play mode is not legal");
+  const type = effectivePlayType(instance, mode);
+  const cost = Number(mode.cost) || 0;
   if (cost > player.resources.pp) throw new Error(`Not enough PP to play ${instance.card?.name ?? "card"}`);
   if ((type === "follower" || type === "amulet") && player.board.length >= session.ruleset.maxBoardSize) throw new Error("The board is full");
   if (!new Set(["follower", "spell", "amulet"]).has(type)) throw new Error(`Unsupported card type: ${instance.card?.type ?? "unknown"}`);
 
-  const requirement = getWorldsBeyondTargetRequirement(instance, "play");
-  const targets = requirement ? getWorldsBeyondTargetOptions(session, { trigger: "play", playerIndex, source: instance }) : [];
+  const requirement = getWorldsBeyondTargetRequirement(instance, "play", mode);
+  const targets = requirement ? getWorldsBeyondTargetOptions(session, { trigger: "play", playerIndex, source: instance, mode }) : [];
   if (targets.length && !action.targetInstanceId) throw new Error("This card requires an effect target");
   if (action.targetInstanceId && !targets.some(target => target.instanceId === action.targetInstanceId)) throw new Error("Selected effect target is not legal");
   if (requirement && type === "spell" && !targets.length) throw new Error("This spell has no legal target");
@@ -108,23 +121,39 @@ function playCard(session, action) {
   player.hand.splice(index, 1);
   player.cardsPlayedThisTurn = Number(player.cardsPlayedThisTurn ?? 0) + 1;
   if (type === "spell") player.spellsPlayedThisTurn = Number(player.spellsPlayedThisTurn ?? 0) + 1;
-  session.emit(BATTLE_EVENT.CARD_PLAY, { actor: playerIndex, payload: { card: session.cardView(instance), cost, ppRemaining: player.resources.pp, type } });
+
+  if (isAlternativeMode(mode)) activateAlternativeForm(instance, mode, type);
+  session.emit(BATTLE_EVENT.CARD_PLAY, {
+    actor: playerIndex,
+    payload: {
+      card: session.cardView(instance),
+      cost,
+      ppRemaining: player.resources.pp,
+      type,
+      mode: mode.kind,
+      enhanced: Boolean(mode.enhanced),
+      accelerated: Boolean(mode.accelerated),
+      crystallized: Boolean(mode.crystallized || mode.kind === "crystallize"),
+      modeIndex: Number(mode.modeIndex ?? 0)
+    }
+  });
 
   if (type === "follower") {
     prepareFollower(instance, session.turn);
     player.board.push(instance);
     session.emit(BATTLE_EVENT.FOLLOWER_ENTER, { actor: playerIndex, payload: { card: session.cardView(instance), position: player.board.length - 1 } });
   } else if (type === "amulet") {
-    instance.countdown = readCountdown(instance.card?.text);
+    instance.countdown = readCountdown(mode.text || instance.card?.text);
     instance.playedTurn = session.turn;
     player.board.push(instance);
-    session.emit(BATTLE_EVENT.AMULET_ENTER, { actor: playerIndex, payload: { card: session.cardView(instance), position: player.board.length - 1, countdown: instance.countdown } });
+    session.emit(BATTLE_EVENT.AMULET_ENTER, { actor: playerIndex, payload: { card: session.cardView(instance), position: player.board.length - 1, countdown: instance.countdown, mode: mode.kind } });
   } else {
     player.cemetery.push(instance);
-    session.emit(BATTLE_EVENT.SPELL_CAST, { actor: playerIndex, payload: { card: session.cardView(instance) } });
+    session.emit(BATTLE_EVENT.SPELL_CAST, { actor: playerIndex, payload: { card: session.cardView(instance), mode: mode.kind } });
   }
 
-  resolveWorldsBeyondTrigger(session, { trigger: "play", playerIndex, source: instance, targetInstanceId: action.targetInstanceId ?? null });
+  resolveWorldsBeyondTrigger(session, { trigger: "play", playerIndex, source: instance, targetInstanceId: action.targetInstanceId ?? null, mode });
+  if (mode.accelerated || mode.kind === "accelerate") restoreOriginalCardForm(instance);
   return session.getSnapshot(playerIndex);
 }
 
@@ -209,6 +238,58 @@ function evolve(session, action, superEvolution) {
   session.emit(superEvolution ? BATTLE_EVENT.SUPER_EVOLVE : BATTLE_EVENT.EVOLVE, { actor: playerIndex, payload: { card: session.cardView(follower), pointsRemaining: player.resources[pointsKey], statBonus: bonus } });
   resolveWorldsBeyondTrigger(session, { trigger: superEvolution ? "super-evolve" : "evolve", playerIndex, source: follower });
   return session.getSnapshot(playerIndex);
+}
+
+function playModes(instance, player) {
+  return v5Modes(instance, {
+    ...player,
+    pp: Number(player.resources?.pp ?? 0),
+    crests: player.resources?.crests ?? player.crests ?? []
+  });
+}
+
+function selectPlayMode(availableModes, action) {
+  if (!availableModes.length) return null;
+  if (action.playModeKey) return availableModes.find(mode => modeKey(mode) === action.playModeKey) ?? null;
+  if (availableModes.length === 1) return availableModes[0];
+  if (action.cost != null) {
+    const byCost = availableModes.filter(mode => Number(mode.cost) === Number(action.cost));
+    if (byCost.length === 1) return byCost[0];
+  }
+  return null;
+}
+
+function modeKey(mode) {
+  return [mode.kind, Number(mode.cost) || 0, Number(mode.modeIndex) || 0, mode.enhanced ? 1 : 0, mode.accelerated ? 1 : 0, mode.crystallized ? 1 : 0].join(":");
+}
+
+function modeView(mode) {
+  return {
+    kind: mode.kind,
+    cost: Number(mode.cost) || 0,
+    modeIndex: Number(mode.modeIndex) || 0,
+    selectedModeCount: Number(mode.selectedModeCount) || 0,
+    enhanced: Boolean(mode.enhanced),
+    accelerated: Boolean(mode.accelerated),
+    crystallized: Boolean(mode.crystallized || mode.kind === "crystallize")
+  };
+}
+
+function effectivePlayType(instance, mode) {
+  if (mode.accelerated || mode.kind === "accelerate") return "spell";
+  if (mode.crystallized || mode.kind === "crystallize") return "amulet";
+  return cardType(instance);
+}
+
+function isAlternativeMode(mode) {
+  return Boolean(mode.accelerated || mode.crystallized || mode.kind === "accelerate" || mode.kind === "crystallize");
+}
+
+function activateAlternativeForm(instance, mode, type) {
+  if (!instance.originalCard) instance.originalCard = instance.card;
+  instance.activeText = String(mode.text ?? "");
+  instance.alternativeMode = mode.kind;
+  instance.card = { ...instance.card, type: type === "spell" ? "Spell" : "Amulet", text: instance.activeText };
 }
 
 function healFromDrain(session, playerIndex, amount, source) {
