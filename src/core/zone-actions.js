@@ -16,6 +16,7 @@ export function banishBoardCard(session, playerIndex, instanceId, { actor = null
       reason
     }
   });
+  restoreOriginalCardForm(card);
   return card;
 }
 
@@ -45,7 +46,15 @@ export function returnBoardCardToHand(session, playerIndex, instanceId, { actor 
   return card;
 }
 
+export function restoreOriginalCardForm(card) {
+  if (card?.originalCard) card.card = card.originalCard;
+  delete card.originalCard;
+  delete card.activeText;
+  delete card.alternativeMode;
+}
+
 function resetReturnedCard(card) {
+  restoreOriginalCardForm(card);
   card.costDelta = 0;
   card.attackBonus = 0;
   card.defenseBonus = 0;
