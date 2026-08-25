@@ -1,5 +1,7 @@
 const VERSION_KEY = "shadowbattle:app-version";
 const RELOAD_KEY = "shadowbattle:version-reload";
+const DECK_KEY = "shadowbattle:decks:v1";
+const DECK_BACKUP_KEY = "shadowbattle:decks:backup:v1";
 const MODULE_URL = import.meta.url;
 const CHECK_INTERVAL_MS = 60_000;
 
@@ -20,6 +22,8 @@ async function checkVersion() {
   checking = true;
 
   try {
+    restoreDeckBackupIfNeeded();
+
     const version = await readRemoteVersion();
     if (!version) return;
 
@@ -34,7 +38,9 @@ async function checkVersion() {
       return;
     }
 
-    // Application code/cache version only. Decks and other user data are untouched.
+    // A release changes application files/cache only. User data stays on the
+    // stable shadowbattle:decks:v1 key and is snapshotted before reloading.
+    snapshotDeckData();
     localStorage.setItem(VERSION_KEY, version);
 
     const reloadToken = `${version}:${location.pathname}`;
@@ -50,6 +56,38 @@ async function checkVersion() {
     console.warn("Unable to check ShadowBattle version", error);
   } finally {
     checking = false;
+  }
+}
+
+function snapshotDeckData() {
+  const raw = localStorage.getItem(DECK_KEY);
+  if (!raw) return;
+  try {
+    JSON.parse(raw);
+    localStorage.setItem(DECK_BACKUP_KEY, raw);
+  } catch {
+    // Never replace a known-good backup with corrupt data.
+  }
+}
+
+function restoreDeckBackupIfNeeded() {
+  const primary = localStorage.getItem(DECK_KEY);
+  if (primary) {
+    try {
+      JSON.parse(primary);
+      return;
+    } catch {
+      // Try the backup below.
+    }
+  }
+
+  const backup = localStorage.getItem(DECK_BACKUP_KEY);
+  if (!backup) return;
+  try {
+    JSON.parse(backup);
+    localStorage.setItem(DECK_KEY, backup);
+  } catch {
+    // Leave both values untouched if neither is valid JSON.
   }
 }
 
