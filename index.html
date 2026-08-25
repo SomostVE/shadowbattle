@@ -15,6 +15,7 @@
         <span>ShadowBattle</span>
       </a>
       <nav class="sb-nav" aria-label="Main navigation">
+        <a href="./decks/">Decks</a>
         <a href="./api/">API</a>
         <a href="./test/">AI Test Lab</a>
       </nav>
@@ -27,6 +28,11 @@
     </section>
 
     <section class="sb-grid" aria-label="Project areas">
+      <a class="sb-card sb-card-link" href="./decks/">
+        <div class="sb-eyebrow">Deck library</div>
+        <h2>/decks</h2>
+        <p>Build and save original Shadowverse and Champion's Battle decks, and import existing Worlds Beyond decks from Beyond Decks.</p>
+      </a>
       <a class="sb-card sb-card-link" href="./api/">
         <div class="sb-eyebrow">Data layer</div>
         <h2>/api</h2>
@@ -37,11 +43,6 @@
         <h2>/test</h2>
         <p>AI logic sandbox for deterministic scenarios, candidate scoring, hidden-information experiments and the intermediate skill profile.</p>
       </a>
-      <article class="sb-card">
-        <div class="sb-eyebrow">Next</div>
-        <h2>Interactive Battle</h2>
-        <p>The production play surface will run one action at a time: human input, legal-action resolution, then a visible AI turn instead of simulating the whole match at once.</p>
-      </article>
     </section>
 
     <section class="sb-section sb-panel">
@@ -54,17 +55,23 @@
       <div class="sb-grid">
         <article>
           <h3>Shadowverse</h3>
-          <p><code>sv1</code> · legacy CCG data + official fan-kit atmosphere.</p>
+          <p><code>sv1</code> · archived CCG data + official fan-kit atmosphere + local deckbuilding.</p>
         </article>
         <article>
           <h3>Champion's Battle</h3>
-          <p><code>svcb</code> · Switch rules/content kept separate from the original CCG.</p>
+          <p><code>svcb</code> · local launch-era card pool and separate Switch deck library; exclusive cards remain isolated additions.</p>
         </article>
         <article>
           <h3>Worlds Beyond</h3>
-          <p><code>svwb</code> · Beyond Codex remains the validated upstream data source.</p>
+          <p><code>svwb</code> · Beyond Codex remains the validated upstream data source, with Beyond Decks imports supported.</p>
         </article>
       </div>
+    </section>
+
+    <section class="sb-section sb-panel">
+      <div class="sb-eyebrow">Next</div>
+      <h2>Interactive Battle</h2>
+      <p>The production play surface will run one action at a time: human input, legal-action resolution, then a visible AI turn instead of simulating the whole match at once.</p>
     </section>
 
     <footer class="sb-fankit-notice">
