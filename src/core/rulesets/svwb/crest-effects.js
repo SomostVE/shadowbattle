@@ -2,6 +2,20 @@ import { BATTLE_EVENT } from "../../battle-events.js";
 import { getWorldsBeyondCrests } from "./crests.js";
 import { destroyWorldsBeyondFollower } from "./effect-resolver.js";
 
+export function resolveWorldsBeyondCrestTurnStart(session, playerIndex, crest) {
+  if (!crest || session.phase !== "main") return false;
+  const name = normalize(crest.name);
+  let selfDamage = 0;
+
+  if (name === "burnite, anathema of ash") selfDamage = 2;
+  if (name === "burnite, anathema of flame") selfDamage = 1;
+  if (!selfDamage) return false;
+
+  emitCrestActivation(session, playerIndex, crest, "turn-start", { selfDamage });
+  session.damageLeader(playerIndex, selfDamage, { actor: playerIndex, reason: "crest-turn-start" });
+  return true;
+}
+
 export function resolveWorldsBeyondCrestTurnEnd(session, playerIndex, crest) {
   if (!crest || session.phase !== "main") return false;
   const player = session.getPlayer(playerIndex);
