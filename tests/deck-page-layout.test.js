@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 
 const html = await fs.readFile(new URL("../decks/index.html", import.meta.url), "utf8");
 const pageJs = await fs.readFile(new URL("../src/decks/deckbuilder-page.js", import.meta.url), "utf8");
+const gridJs = await fs.readFile(new URL("../src/decks/card-grid.js", import.meta.url), "utf8");
 const enhancementsJs = await fs.readFile(new URL("../src/ui/deck-ui-enhancements.js", import.meta.url), "utf8");
 
 test("deckbuilder exposes OG and Champion's Battle editors", () => {
@@ -37,6 +38,18 @@ test("deckbuilder uses the Beyond Decks adaptive card sizing model", () => {
   assert.match(enhancementsJs, /const target = 156/);
   assert.match(enhancementsJs, /Math\.round\(usable \/ target\)/);
   assert.match(enhancementsJs, /svwb-card-size-mode/);
+});
+
+test("class switching follows the Beyond Decks seamless renderer pattern", () => {
+  assert.match(pageJs, /buildCraftPools/);
+  assert.match(pageJs, /syncCraftButtons/);
+  assert.match(pageJs, /saveClassScroll/);
+  assert.match(pageJs, /restoreClassScroll/);
+  assert.match(pageJs, /renderCardGrid/);
+  assert.match(pageJs, /updateCardTile/);
+  assert.match(gridJs, /requestIdleCallback/);
+  assert.match(gridJs, /batchSize/);
+  assert.match(gridJs, /root\.dataset\.renderId/);
 });
 
 test("deckbuilder exposes both Beyond Decks import paths", () => {
