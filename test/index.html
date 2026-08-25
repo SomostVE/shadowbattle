@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="../src/ui/shadowbattle.css?v=0.4.38">
   <link rel="stylesheet" href="../src/ui/battle-lab.css?v=0.4.38">
   <link rel="stylesheet" href="../src/ui/battle-actions.css?v=0.4.38">
+  <link rel="stylesheet" href="../src/ui/battle-crests.css?v=0.4.38">
   <script type="module" src="../src/ui/version-guard.js?v=0.4.38"></script>
 </head>
 <body data-game="worlds-beyond">
@@ -82,6 +83,7 @@
               <div class="sb-leader"><span class="sb-avatar"></span><div><strong id="battle-opponent-name">CPU</strong><div id="battle-opponent-resource" class="sb-resource">Waiting for session</div></div></div>
               <span id="battle-opponent-hp" class="sb-hp">20</span>
             </div>
+            <div id="battle-opponent-crests" class="sb-crest-strip" aria-label="Opponent Crests"></div>
             <div id="battle-opponent-hand" class="sb-battle-hand sb-battle-hand-opponent" aria-label="Opponent hand"></div>
             <div id="battle-opponent-board" class="sb-battle-field" aria-label="Opponent field"></div>
           </section>
@@ -91,6 +93,7 @@
           <section class="sb-battle-side sb-battle-side-player" data-player="0">
             <div id="battle-player-board" class="sb-battle-field" aria-label="Player field"></div>
             <div id="battle-player-hand" class="sb-battle-hand sb-battle-hand-player" aria-label="Player hand"></div>
+            <div id="battle-player-crests" class="sb-crest-strip" aria-label="Player Crests"></div>
             <div class="sb-player-line">
               <div class="sb-leader"><span class="sb-avatar"></span><div><strong id="battle-player-name">Human</strong><div id="battle-player-resource" class="sb-resource">Waiting for session</div></div></div>
               <span id="battle-player-hp" class="sb-hp">20</span>
@@ -120,5 +123,6 @@
   </main>
   <script type="module" src="../src/test/test-page.js?v=0.4.38"></script>
   <script type="module" src="../src/test/battle-action-lab.js?v=0.4.38"></script>
+  <script type="module" src="../src/test/crest-lab-overlay.js?v=0.4.38"></script>
 </body>
 </html>
