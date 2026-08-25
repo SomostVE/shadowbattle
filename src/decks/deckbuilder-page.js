@@ -20,18 +20,41 @@ const CRAFTS = Object.freeze({
   [GAME_IDS.SHADOWVERSE_CCG]: ["Forestcraft", "Swordcraft", "Runecraft", "Dragoncraft", "Shadowcraft", "Bloodcraft", "Havencraft", "Portalcraft"],
   [GAME_IDS.CHAMPIONS_BATTLE]: ["Forestcraft", "Swordcraft", "Runecraft", "Dragoncraft", "Shadowcraft", "Bloodcraft", "Havencraft"]
 });
+const CRAFT_VISUALS = Object.freeze({
+  Forestcraft: { glyph: "🌿", color: "#69d77b", rgb: "105, 215, 123" },
+  Swordcraft: { glyph: "♛", color: "#e1c44f", rgb: "225, 196, 79" },
+  Runecraft: { glyph: "✧", color: "#8f94ff", rgb: "143, 148, 255" },
+  Dragoncraft: { glyph: "🐉", color: "#f39a4b", rgb: "243, 154, 75" },
+  Shadowcraft: { glyph: "☠", color: "#bc61d8", rgb: "188, 97, 216" },
+  Bloodcraft: { glyph: "🩸", color: "#df5b83", rgb: "223, 91, 131" },
+  Havencraft: { glyph: "✦", color: "#dbc983", rgb: "219, 201, 131" },
+  Portalcraft: { glyph: "⬡", color: "#45ced7", rgb: "69, 206, 215" }
+});
+const RARITIES = ["Bronze", "Silver", "Gold", "Legendary"];
+const COST_KEYS = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10+"];
+const TYPE_KEYS = ["Follower", "Amulet", "Spell"];
 
 const els = {
+  gameSwitch: document.getElementById("deck-game-switch"),
   game: document.getElementById("deck-game"),
+  craftButtons: document.getElementById("deck-craft-buttons"),
   craft: document.getElementById("deck-craft"),
+  rarityFilter: document.getElementById("deck-rarity-filter"),
+  costFilter: document.getElementById("deck-cost-filter"),
+  typeFilter: document.getElementById("deck-type-filter"),
   name: document.getElementById("deck-name"),
   search: document.getElementById("deck-search"),
   set: document.getElementById("deck-set"),
+  format: document.getElementById("deck-format"),
   results: document.getElementById("deck-results"),
   resultCount: document.getElementById("deck-result-count"),
   deck: document.getElementById("current-deck"),
   deckCount: document.getElementById("current-deck-count"),
+  mainDeckCount: document.getElementById("main-deck-count"),
   legality: document.getElementById("deck-legality"),
+  deckSort: document.getElementById("deck-sort"),
+  deckCompact: document.getElementById("deck-compact-toggle"),
+  deckCostStrip: document.getElementById("deck-cost-strip"),
   saved: document.getElementById("saved-decks"),
   status: document.getElementById("deck-status"),
   save: document.getElementById("save-deck"),
@@ -41,6 +64,15 @@ const els = {
   importText: document.getElementById("beyond-import-json"),
   importJson: document.getElementById("import-beyond-json"),
   importFile: document.getElementById("import-beyond-file"),
+  filtersToggle: document.getElementById("filters-drawer-toggle"),
+  filtersClose: document.getElementById("filters-drawer-close"),
+  filtersSidebar: document.getElementById("filters-sidebar"),
+  filtersBackdrop: document.getElementById("filters-drawer-backdrop"),
+  resetFilters: document.getElementById("reset-filters"),
+  cardSize: document.getElementById("deck-card-size"),
+  cardSizePresets: [...document.querySelectorAll("[data-card-size-preset]")],
+  content: document.querySelector(".db-content"),
+  backToTop: document.getElementById("back-to-top"),
   preview: document.getElementById("card-preview-dialog"),
   previewClose: document.getElementById("card-preview-close"),
   previewTitle: document.getElementById("card-preview-title"),
@@ -63,39 +95,78 @@ let currentDeckId = null;
 let currentSet = "all";
 let previewCardId = null;
 let previewUsesEvolvedArt = false;
+let deckSort = "cost";
+let compactDeck = true;
+let selectedRarities = new Set();
+let selectedCosts = new Set();
+let selectedTypes = new Set();
+let statusTimer = 0;
+let clearArmTimer = 0;
+let clearArmed = false;
 
 init();
 
 async function init() {
   bindEvents();
   renderSavedDecks();
+  setCardSize(118, "fit");
   await switchGame(gameId, { reset: true });
 }
 
 function bindEvents() {
+  els.gameSwitch.addEventListener("click", event => {
+    const button = event.target.closest("[data-game-select]");
+    if (button) switchGame(button.dataset.gameSelect, { reset: true });
+  });
+
   els.game.addEventListener("change", () => switchGame(els.game.value, { reset: true }));
-  els.craft.addEventListener("change", () => {
-    const nextCraft = els.craft.value;
-    const incompatible = [...entries.keys()].some(id => {
-      const cardCraft = cardMap.get(id)?.craft;
-      return cardCraft && cardCraft !== "Neutral" && cardCraft !== nextCraft;
-    });
-    if (incompatible) {
-      els.craft.value = craft;
-      setStatus("Remove cards from the current craft before changing craft.", true);
-      return;
-    }
-    craft = nextCraft;
+
+  els.craftButtons.addEventListener("click", event => {
+    const button = event.target.closest("[data-craft]");
+    if (button) changeCraft(button.dataset.craft);
+  });
+  els.craft.addEventListener("change", () => changeCraft(els.craft.value));
+
+  els.rarityFilter.addEventListener("click", event => {
+    const button = event.target.closest("[data-rarity]");
+    if (!button) return;
+    toggleSetValue(selectedRarities, button.dataset.rarity);
     renderResults();
   });
+  els.costFilter.addEventListener("click", event => {
+    const button = event.target.closest("[data-cost]");
+    if (!button) return;
+    toggleSetValue(selectedCosts, button.dataset.cost);
+    renderResults();
+  });
+  els.typeFilter.addEventListener("click", event => {
+    const button = event.target.closest("[data-type]");
+    if (!button) return;
+    toggleSetValue(selectedTypes, button.dataset.type);
+    renderResults();
+  });
+
   els.search.addEventListener("input", renderResults);
   els.set.addEventListener("change", () => {
     currentSet = els.set.value;
     renderResults();
   });
+  els.resetFilters.addEventListener("click", resetCardFilters);
+
   els.save.addEventListener("click", saveCurrentDeck);
-  els.newDeck.addEventListener("click", () => resetDeck());
+  els.newDeck.addEventListener("click", handleClearDeck);
   els.exportDeck.addEventListener("click", exportCurrentDeck);
+  els.deckSort.addEventListener("change", () => {
+    deckSort = els.deckSort.value;
+    renderDeck();
+  });
+  els.deckCompact.addEventListener("click", () => {
+    compactDeck = !compactDeck;
+    els.deckCompact.classList.toggle("active", compactDeck);
+    els.deckCompact.textContent = compactDeck ? "Compact" : "Comfort";
+    els.deck.classList.toggle("comfortable", !compactDeck);
+  });
+
   els.importLocal.addEventListener("click", importLocalBeyondDecks);
   els.importJson.addEventListener("click", () => importBeyondText(els.importText.value));
   els.importFile.addEventListener("change", async () => {
@@ -108,6 +179,26 @@ function bindEvents() {
   document.querySelectorAll("[data-db-tab]").forEach(button => {
     button.addEventListener("click", () => showTab(button.dataset.dbTab));
   });
+
+  els.filtersToggle.addEventListener("click", openFilters);
+  els.filtersClose.addEventListener("click", closeFilters);
+  els.filtersBackdrop.addEventListener("click", closeFilters);
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape") closeFilters();
+  });
+
+  els.cardSize.addEventListener("input", () => setCardSize(Number(els.cardSize.value)));
+  els.cardSizePresets.forEach(button => {
+    button.addEventListener("click", () => {
+      const preset = button.dataset.cardSizePreset;
+      setCardSize(preset === "fit" ? 118 : Number(preset), preset);
+    });
+  });
+
+  els.content.addEventListener("scroll", () => {
+    els.backToTop.hidden = els.content.scrollTop < 700;
+  });
+  els.backToTop.addEventListener("click", () => els.content.scrollTo({ top: 0, behavior: "smooth" }));
 
   els.previewClose.addEventListener("click", () => els.preview.close());
   els.preview.addEventListener("click", event => {
@@ -131,13 +222,17 @@ async function switchGame(nextGameId, { reset = false } = {}) {
   gameId = nextGameId;
   document.body.dataset.game = gameId;
   els.game.value = gameId;
+  syncGameButtons();
+  clearFilterSelections();
   setStatus(`Loading ${GAME_CATALOG[gameId].shortName} catalog…`);
+
   try {
     const payload = await loadDeckCatalog(gameId);
     catalog = payload.cards;
     cardMap = new Map(catalog.map(card => [Number(card.id), card]));
     renderCrafts();
     renderSets();
+    renderFormat();
     if (reset) resetDeck({ keepStatus: true });
     renderResults();
     setStatus(`${catalog.length.toLocaleString()} local deckbuilding cards loaded.`);
@@ -149,11 +244,51 @@ async function switchGame(nextGameId, { reset = false } = {}) {
   }
 }
 
+function syncGameButtons() {
+  els.gameSwitch.querySelectorAll("[data-game-select]").forEach(button => {
+    button.classList.toggle("active", button.dataset.gameSelect === gameId);
+  });
+}
+
 function renderCrafts() {
   const available = CRAFTS[gameId] ?? [];
   if (!available.includes(craft)) craft = available[0];
-  els.craft.innerHTML = available.map(value => `<option value="${value}">${value}</option>`).join("");
+  els.craft.innerHTML = available.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("");
   els.craft.value = craft;
+  renderCraftButtons();
+  applyCraftTheme();
+}
+
+function renderCraftButtons() {
+  const available = CRAFTS[gameId] ?? [];
+  els.craftButtons.innerHTML = available.map(value => {
+    const visual = CRAFT_VISUALS[value] ?? { glyph: value.slice(0, 1), rgb: "139, 153, 255" };
+    return `<button type="button" class="db-craft-button${value === craft ? " active" : ""}" data-craft="${escapeHtml(value)}" title="${escapeHtml(value)}" aria-label="${escapeHtml(value)}" style="--craft-rgb:${visual.rgb}">${visual.glyph}</button>`;
+  }).join("");
+}
+
+function applyCraftTheme() {
+  const visual = CRAFT_VISUALS[craft] ?? { color: "#8b99ff", rgb: "139, 153, 255" };
+  document.documentElement.style.setProperty("--class-accent", visual.color);
+  document.documentElement.style.setProperty("--class-accent-rgb", visual.rgb);
+}
+
+function changeCraft(nextCraft) {
+  if (!CRAFTS[gameId]?.includes(nextCraft)) return;
+  const incompatible = [...entries.keys()].some(id => {
+    const cardCraft = cardMap.get(id)?.craft;
+    return cardCraft && cardCraft !== "Neutral" && cardCraft !== nextCraft;
+  });
+  if (incompatible) {
+    els.craft.value = craft;
+    setStatus("Remove cards from the current craft before changing craft.", true);
+    return;
+  }
+  craft = nextCraft;
+  els.craft.value = craft;
+  renderCraftButtons();
+  applyCraftTheme();
+  renderResults();
 }
 
 function renderSets() {
@@ -161,17 +296,34 @@ function renderSets() {
     .sort((a, b) => Number(a[0]) - Number(b[0]));
   els.set.innerHTML = `<option value="all">All sets</option>${sets.map(([id, name]) => `<option value="${escapeHtml(id)}">${escapeHtml(name)}</option>`).join("")}`;
   currentSet = "all";
+  els.set.value = currentSet;
+}
+
+function renderFormat() {
+  const label = gameId === GAME_IDS.SHADOWVERSE_CCG ? "Unlimited" : "Champion's Battle";
+  els.format.innerHTML = `<option>${escapeHtml(label)}</option>`;
 }
 
 function renderResults() {
-  const filtered = filterCatalog(catalog, {
+  const base = filterCatalog(catalog, {
     query: els.search.value,
     craft,
     set: currentSet
   });
+
+  renderRarityFilter(base);
+  renderCostFilter(base);
+  renderTypeFilter(base);
+
+  const filtered = base.filter(card => {
+    if (selectedRarities.size && !selectedRarities.has(card.rarity)) return false;
+    if (selectedCosts.size && !selectedCosts.has(costKey(card))) return false;
+    if (selectedTypes.size && !selectedTypes.has(typeKey(card))) return false;
+    return true;
+  });
+
   els.resultCount.textContent = `${filtered.length.toLocaleString()} cards`;
-  const visible = filtered.slice(0, 240);
-  els.results.innerHTML = visible.map(card => {
+  els.results.innerHTML = filtered.map(card => {
     const current = entries.get(Number(card.id)) ?? 0;
     const evolvedControl = hasEvolvedArt(card)
       ? `<button class="db-card-control" type="button" data-art-toggle="${card.id}" title="Show evolved art" aria-label="Show evolved art">E</button>`
@@ -180,7 +332,6 @@ function renderResults() {
       <button class="db-card-main" type="button" data-add="${card.id}" title="${escapeHtml(card.name)} — click to add" aria-label="Add ${escapeHtml(card.name)} to deck">
         <img loading="lazy" data-card-art="${card.id}" data-art-state="normal" alt="${escapeHtml(card.name)}" referrerpolicy="no-referrer">
       </button>
-      <span class="db-card-cost">${card.cost}</span>
       ${current ? `<span class="db-card-quantity">×${current}</span>` : ""}
       <div class="db-card-control-row">
         <button class="db-card-control" type="button" data-preview="${card.id}" title="Inspect card" aria-label="Inspect ${escapeHtml(card.name)}">⤢</button>
@@ -202,6 +353,63 @@ function renderResults() {
   els.results.querySelectorAll("[data-art-toggle]").forEach(button => {
     button.addEventListener("click", () => toggleTileArt(button));
   });
+}
+
+function renderRarityFilter(cards) {
+  const counts = countBy(cards, card => card.rarity);
+  els.rarityFilter.innerHTML = RARITIES.map(rarity => `<button type="button" class="db-rarity-button${selectedRarities.has(rarity) ? " active" : ""}" data-rarity="${rarity}">${rarity}<small>${counts.get(rarity) ?? 0}</small></button>`).join("");
+}
+
+function renderCostFilter(cards) {
+  const counts = countBy(cards, costKey);
+  els.costFilter.innerHTML = COST_KEYS.map(key => `<button type="button" class="db-cost-button${selectedCosts.has(key) ? " active" : ""}" data-cost="${key}"><span>${key}</span><small>${counts.get(key) ?? 0}</small></button>`).join("");
+}
+
+function renderTypeFilter(cards) {
+  const counts = countBy(cards, typeKey);
+  els.typeFilter.innerHTML = TYPE_KEYS.map(key => `<button type="button" class="db-type-button${selectedTypes.has(key) ? " active" : ""}" data-type="${key}">${key}<small>${counts.get(key) ?? 0}</small></button>`).join("");
+}
+
+function countBy(cards, getter) {
+  const counts = new Map();
+  for (const card of cards) {
+    const key = getter(card);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return counts;
+}
+
+function costKey(card) {
+  const cost = Number(card?.cost ?? 0);
+  return cost >= 10 ? "10+" : String(Math.max(0, cost));
+}
+
+function typeKey(card) {
+  const value = String(card?.type ?? "");
+  if (value.includes("Amulet")) return "Amulet";
+  if (value === "Follower") return "Follower";
+  if (value === "Spell") return "Spell";
+  return value || "Other";
+}
+
+function toggleSetValue(set, value) {
+  if (set.has(value)) set.delete(value);
+  else set.add(value);
+}
+
+function clearFilterSelections() {
+  selectedRarities = new Set();
+  selectedCosts = new Set();
+  selectedTypes = new Set();
+}
+
+function resetCardFilters() {
+  els.search.value = "";
+  currentSet = "all";
+  els.set.value = "all";
+  clearFilterSelections();
+  renderResults();
+  setStatus("Card filters reset.");
 }
 
 function addCard(cardId) {
@@ -228,7 +436,8 @@ function removeCard(cardId, amount = 1) {
 
 function renderDeck() {
   const validation = validateDeckEntries(gameId, entries);
-  els.deckCount.textContent = `${validation.total}/40`;
+  els.deckCount.textContent = `${validation.total} / 40`;
+  els.mainDeckCount.textContent = `${validation.total} / 40`;
   els.legality.textContent = validation.legal
     ? "Legal 40-card deck"
     : validation.withinSizeLimit
@@ -236,19 +445,21 @@ function renderDeck() {
       : "Deck is over the limit";
   els.legality.dataset.legal = validation.legal ? "true" : "false";
 
+  renderDeckCostStrip();
+
   const rows = [...entries.entries()]
     .map(([id, quantity]) => ({ card: cardMap.get(id), id, quantity }))
-    .sort((a, b) => (a.card?.cost ?? 99) - (b.card?.cost ?? 99) || String(a.card?.name).localeCompare(String(b.card?.name)));
+    .sort(deckComparator);
 
   els.deck.innerHTML = rows.map(({ card, id, quantity }) => `<div class="db-deck-row">
     ${card ? `<img data-deck-art="${id}" alt="" referrerpolicy="no-referrer" title="Inspect ${escapeHtml(card.name)}">` : `<span class="db-deck-art-placeholder">?</span>`}
     <div class="db-deck-row-copy">
       <strong>${escapeHtml(card?.name ?? `Card ${id}`)}</strong>
-      <small>${card ? `${card.cost} PP · ${escapeHtml(card.type)} · ${escapeHtml(card.set)}` : escapeHtml(gameId)}</small>
+      <small>${card ? `Cost ${card.cost} · ${escapeHtml(card.rarity)} · ${escapeHtml(card.set)}` : escapeHtml(gameId)}</small>
     </div>
     <div class="db-deck-controls">
       <button type="button" data-minus="${id}" aria-label="Remove one">−</button>
-      <span>×${quantity}</span>
+      <span>${quantity}x</span>
       <button type="button" data-plus="${id}" aria-label="Add one" ${quantity >= 3 || validation.total >= 40 ? "disabled" : ""}>+</button>
     </div>
   </div>`).join("") || `<p class="muted">Your deck is empty.</p>`;
@@ -263,6 +474,27 @@ function renderDeck() {
   els.deck.querySelectorAll("[data-plus]").forEach(button => button.addEventListener("click", () => addCard(Number(button.dataset.plus))));
 }
 
+function deckComparator(a, b) {
+  if (deckSort === "name") return String(a.card?.name ?? "").localeCompare(String(b.card?.name ?? ""));
+  if (deckSort === "set") {
+    return (Number(a.card?.setId ?? 999999) - Number(b.card?.setId ?? 999999))
+      || (Number(a.card?.cost ?? 99) - Number(b.card?.cost ?? 99))
+      || String(a.card?.name ?? "").localeCompare(String(b.card?.name ?? ""));
+  }
+  return (Number(a.card?.cost ?? 99) - Number(b.card?.cost ?? 99))
+    || String(a.card?.name ?? "").localeCompare(String(b.card?.name ?? ""));
+}
+
+function renderDeckCostStrip() {
+  const counts = new Map(COST_KEYS.map(key => [key, 0]));
+  for (const [id, quantity] of entries) {
+    const card = cardMap.get(Number(id));
+    const key = card ? costKey(card) : "10+";
+    counts.set(key, (counts.get(key) ?? 0) + quantity);
+  }
+  els.deckCostStrip.innerHTML = COST_KEYS.map(key => `<div class="db-deck-cost-cell"><span>${key}</span><strong>${counts.get(key) ?? 0}</strong></div>`).join("");
+}
+
 function resetDeck({ keepStatus = false } = {}) {
   entries = new Map();
   currentDeckId = null;
@@ -272,9 +504,33 @@ function resetDeck({ keepStatus = false } = {}) {
   if (!keepStatus) setStatus("New deck ready.");
 }
 
+function handleClearDeck() {
+  if (entries.size === 0) {
+    resetDeck();
+    return;
+  }
+  if (clearArmed) {
+    window.clearTimeout(clearArmTimer);
+    clearArmed = false;
+    els.newDeck.classList.remove("confirming");
+    els.newDeck.textContent = "Clear deck";
+    resetDeck();
+    return;
+  }
+  clearArmed = true;
+  els.newDeck.classList.add("confirming");
+  els.newDeck.textContent = "Confirm";
+  clearArmTimer = window.setTimeout(() => {
+    clearArmed = false;
+    els.newDeck.classList.remove("confirming");
+    els.newDeck.textContent = "Clear deck";
+  }, 2400);
+}
+
 function saveCurrentDeck() {
   const name = els.name.value.trim();
   if (!name) {
+    showTab("deck");
     setStatus("Give the deck a name before saving.", true);
     els.name.focus();
     return;
@@ -297,15 +553,18 @@ function saveCurrentDeck() {
 
 function loadSavedDeck(deck) {
   if (!EDITABLE_GAMES.includes(deck.gameId)) {
-    setStatus(`“${deck.name}” is stored for Worlds Beyond and can be used by the future battle session, but this editor currently targets OG and Champion's Battle.`, false);
+    showTab("import");
+    setStatus(`“${deck.name}” is stored for Worlds Beyond and remains isolated under svwb.`, false);
     return;
   }
   switchGame(deck.gameId, { reset: false }).then(() => {
     currentDeckId = deck.id;
     els.name.value = deck.name;
     craft = CRAFTS[deck.gameId].includes(deck.craft) ? deck.craft : CRAFTS[deck.gameId][0];
-    els.craft.value = craft;
     entries = new Map(deck.entries);
+    els.craft.value = craft;
+    renderCraftButtons();
+    applyCraftTheme();
     renderDeck();
     renderResults();
     showTab("deck");
@@ -406,6 +665,34 @@ function showTab(name) {
   });
 }
 
+function openFilters() {
+  els.filtersSidebar.classList.add("open");
+  els.filtersSidebar.setAttribute("aria-hidden", "false");
+  els.filtersToggle.setAttribute("aria-expanded", "true");
+  els.filtersBackdrop.hidden = false;
+  window.setTimeout(() => els.search.focus(), 60);
+}
+
+function closeFilters() {
+  els.filtersSidebar.classList.remove("open");
+  els.filtersSidebar.setAttribute("aria-hidden", "true");
+  els.filtersToggle.setAttribute("aria-expanded", "false");
+  els.filtersBackdrop.hidden = true;
+}
+
+function setCardSize(value, preset = null) {
+  const size = Math.max(86, Math.min(180, Number(value) || 118));
+  document.documentElement.style.setProperty("--db-card-width", `${size}px`);
+  els.cardSize.value = String(size);
+  els.cardSizePresets.forEach(button => {
+    const key = button.dataset.cardSizePreset;
+    const active = preset
+      ? key === preset
+      : key !== "fit" && Number(key) === size;
+    button.classList.toggle("active", active);
+  });
+}
+
 function openPreview(cardId, evolved = false) {
   const card = cardMap.get(cardId);
   if (!card) return;
@@ -501,8 +788,13 @@ function setImageArt(image, card, evolved = false) {
 }
 
 function setStatus(message, error = false) {
+  window.clearTimeout(statusTimer);
   els.status.textContent = message;
   els.status.dataset.error = error ? "true" : "false";
+  els.status.dataset.visible = "true";
+  statusTimer = window.setTimeout(() => {
+    els.status.dataset.visible = "false";
+  }, error ? 5000 : 2600);
 }
 
 function readableCardText(value) {
