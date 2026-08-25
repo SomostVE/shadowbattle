@@ -147,6 +147,8 @@
       "it": "./locales/cards.it.json",
       "de": "./locales/cards.de.json",
       "es": "./locales/cards.es.json"
-    }
-  }
+    },
+    "catalog": "./catalog.json"
+  },
+  "deckbuildingCardCount": 4221
 }
