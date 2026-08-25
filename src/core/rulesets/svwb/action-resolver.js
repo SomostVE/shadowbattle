@@ -7,10 +7,12 @@ import {
   getWorldsBeyondTargetRequirement,
   resolveWorldsBeyondTrigger
 } from "./effect-resolver.js";
+import { getWorldsBeyondEngageInfo } from "./engage.js";
 import { modes as v5Modes } from "./v5/battle-engine-v5-modes.js";
 
 export const SVWB_ACTION = Object.freeze({
   PLAY_CARD: "play-card",
+  ENGAGE: "engage",
   ATTACK: "attack",
   EVOLVE: "evolve",
   SUPER_EVOLVE: "super-evolve"
@@ -19,6 +21,7 @@ export const SVWB_ACTION = Object.freeze({
 export function applyWorldsBeyondAction(session, action) {
   switch (action.type) {
     case SVWB_ACTION.PLAY_CARD: return playCard(session, action);
+    case SVWB_ACTION.ENGAGE: return engage(session, action);
     case SVWB_ACTION.ATTACK: return attack(session, action);
     case SVWB_ACTION.EVOLVE: return evolve(session, action, false);
     case SVWB_ACTION.SUPER_EVOLVE: return evolve(session, action, true);
@@ -32,12 +35,17 @@ export function prepareWorldsBeyondTurn(player) {
   player.evolutionActionUsed = false;
   if (player.resources) player.resources.combo = 0;
   for (const unit of player.board) {
+    if (cardType(unit) === "amulet") {
+      unit.engagedThisTurn = false;
+      continue;
+    }
     if (cardType(unit) !== "follower") continue;
     unit.attacksRemaining = 1;
     unit.hasAttacked = false;
     unit.canAttackFollowers = true;
     unit.canAttackLeader = true;
   }
+  for (const item of player.hand) item.fusedThisTurn = false;
 }
 
 export function listWorldsBeyondActions(session, playerIndex) {
@@ -80,6 +88,33 @@ export function listWorldsBeyondActions(session, playerIndex) {
       } else if (type !== "spell") {
         actions.push(baseAction);
       }
+    }
+  }
+
+  for (const amulet of player.board) {
+    if (cardType(amulet) !== "amulet" || amulet.engagedThisTurn) continue;
+    const info = getWorldsBeyondEngageInfo(amulet);
+    if (!info || info.cost > Number(player.resources.pp ?? 0)) continue;
+    const baseAction = {
+      type: SVWB_ACTION.ENGAGE,
+      player: playerIndex,
+      amuletInstanceId: amulet.instanceId,
+      cost: info.cost
+    };
+    const targetRequirement = getWorldsBeyondTargetRequirement(amulet, "engage", null, player);
+    if (!targetRequirement) {
+      actions.push(baseAction);
+      continue;
+    }
+    const targets = getWorldsBeyondTargetOptions(session, { trigger: "engage", playerIndex, source: amulet });
+    if (!targets.length) continue;
+    for (const target of targets) {
+      actions.push({
+        ...baseAction,
+        targetInstanceId: target.instanceId,
+        targetKind: targetRequirement.kind,
+        targetAmount: targetRequirement.amount ?? 0
+      });
     }
   }
 
@@ -148,6 +183,7 @@ function playCard(session, action) {
   } else if (type === "amulet") {
     instance.countdown = readCountdown(mode.text || instance.card?.text);
     instance.playedTurn = session.turn;
+    instance.engagedThisTurn = false;
     player.board.push(instance);
     session.emit(BATTLE_EVENT.AMULET_ENTER, { actor: playerIndex, payload: { card: session.cardView(instance), position: player.board.length - 1, countdown: instance.countdown, mode: mode.kind } });
   } else {
@@ -158,6 +194,37 @@ function playCard(session, action) {
   resolveWorldsBeyondTrigger(session, { trigger: "play", playerIndex, source: instance, targetInstanceId: action.targetInstanceId ?? null, mode });
   if (type === "spell") gainWorldsBeyondShadows(session, playerIndex, 1);
   if (mode.accelerated || mode.kind === "accelerate") restoreOriginalCardForm(instance);
+  return session.getSnapshot(playerIndex);
+}
+
+function engage(session, action) {
+  const playerIndex = assertMainActor(session, action.player);
+  const player = session.getPlayer(playerIndex);
+  const amulet = player.board.find(item => item.instanceId === action.amuletInstanceId);
+  if (!amulet || cardType(amulet) !== "amulet") throw new Error("Engage source is not an allied amulet");
+  if (amulet.engagedThisTurn) throw new Error("This amulet has already Engaged this turn");
+  const info = getWorldsBeyondEngageInfo(amulet);
+  if (!info) throw new Error("This amulet has no Engage ability");
+  if (info.cost > Number(player.resources.pp ?? 0)) throw new Error("Not enough PP to Engage this amulet");
+
+  const requirement = getWorldsBeyondTargetRequirement(amulet, "engage", null, player);
+  const targets = requirement ? getWorldsBeyondTargetOptions(session, { trigger: "engage", playerIndex, source: amulet }) : [];
+  if (targets.length && !action.targetInstanceId) throw new Error("This Engage ability requires a target");
+  if (action.targetInstanceId && !targets.some(target => target.instanceId === action.targetInstanceId)) throw new Error("Selected Engage target is not legal");
+  if (requirement && !targets.length) throw new Error("This Engage ability has no legal target");
+
+  player.resources.pp -= info.cost;
+  amulet.engagedThisTurn = true;
+  session.emit(BATTLE_EVENT.ENGAGE, {
+    actor: playerIndex,
+    payload: {
+      card: session.cardView(amulet),
+      cost: info.cost,
+      ppRemaining: player.resources.pp,
+      target: action.targetInstanceId ? session.cardView(session.findBoardCard(1 - playerIndex, action.targetInstanceId)) : null
+    }
+  });
+  resolveWorldsBeyondTrigger(session, { trigger: "engage", playerIndex, source: amulet, targetInstanceId: action.targetInstanceId ?? null });
   return session.getSnapshot(playerIndex);
 }
 
