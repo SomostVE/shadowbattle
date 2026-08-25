@@ -1,0 +1,251 @@
+.hub-battle-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .48rem;
+  margin-top: 1rem;
+}
+
+.hub-battle-actions .hub-primary {
+  margin-top: 0;
+}
+
+.hub-pvp-button {
+  border-color: rgba(144, 207, 255, .72);
+  background:
+    linear-gradient(180deg, rgba(86, 151, 210, .32), rgba(49, 92, 135, .24));
+  cursor: pointer;
+  opacity: 1;
+}
+
+.hub-pvp-button:hover {
+  background:
+    linear-gradient(180deg, rgba(107, 174, 231, .42), rgba(56, 106, 151, .34));
+  transform: translateY(-1px);
+}
+
+.hub-pvp-button small {
+  margin-left: .38rem;
+  color: #b8c8d9;
+  font-size: .52rem;
+  font-weight: 700;
+}
+
+.hub-pvp-dialog {
+  width: min(540px, calc(100vw - 18px));
+  max-height: min(760px, calc(100dvh - 18px));
+  margin: auto;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid rgba(119, 166, 207, .52);
+  border-radius: .76rem;
+  background: rgba(12, 22, 33, .90);
+  color: #f7f9fc;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, .52), inset 0 1px 0 rgba(255,255,255,.06);
+  backdrop-filter: blur(12px);
+}
+
+.hub-pvp-dialog::backdrop {
+  background: rgba(2, 6, 10, .52);
+  backdrop-filter: blur(2px);
+}
+
+.hub-pvp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: .9rem 1rem;
+  border-bottom: 1px solid rgba(116, 151, 187, .28);
+  background: linear-gradient(90deg, rgba(var(--class-accent-rgb), .10), rgba(27, 42, 58, .40));
+}
+
+.hub-pvp-head span {
+  display: block;
+  margin-bottom: .12rem;
+  color: #91caff;
+  font-size: .58rem;
+  font-weight: 900;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+}
+
+.hub-pvp-head h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.hub-pvp-close {
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(124, 157, 191, .38);
+  border-radius: .48rem;
+  background: rgba(22, 36, 51, .62);
+  color: #dfe9f3;
+  cursor: pointer;
+}
+
+.hub-pvp-body {
+  display: grid;
+  gap: .62rem;
+  padding: .9rem 1rem 1rem;
+}
+
+.hub-pvp-field,
+.hub-pvp-toggle,
+.hub-pvp-codes > div {
+  border: 1px solid rgba(119, 151, 185, .26);
+  border-radius: .6rem;
+  background: rgba(20, 33, 47, .48);
+}
+
+.hub-pvp-field {
+  display: grid;
+  gap: .38rem;
+  padding: .72rem;
+}
+
+.hub-pvp-field > span {
+  color: #b9c9da;
+  font-size: .62rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.hub-pvp-field select {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid #40546c;
+  border-radius: .48rem;
+  padding: 0 .7rem;
+  background: #162434;
+  color: #f7f9fc;
+}
+
+.hub-pvp-toggle {
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: .72rem;
+}
+
+.hub-pvp-toggle span {
+  min-width: 0;
+}
+
+.hub-pvp-toggle strong,
+.hub-pvp-toggle small {
+  display: block;
+}
+
+.hub-pvp-toggle strong {
+  font-size: .72rem;
+}
+
+.hub-pvp-toggle small {
+  margin-top: .12rem;
+  color: #9fb1c4;
+  font-size: .56rem;
+  line-height: 1.35;
+}
+
+.hub-pvp-toggle input {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  accent-color: #72b8ff;
+}
+
+.hub-pvp-toggle:has(input:disabled) {
+  opacity: .56;
+}
+
+.hub-pvp-codes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .62rem;
+}
+
+.hub-pvp-codes > div {
+  min-height: 72px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: .16rem;
+  padding: .68rem .72rem;
+}
+
+.hub-pvp-codes small {
+  color: #9fb1c4;
+  font-size: .54rem;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.hub-pvp-codes strong {
+  font-size: .75rem;
+}
+
+.hub-pvp-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  padding: .8rem 1rem;
+  border-top: 1px solid rgba(116, 151, 187, .24);
+  background: rgba(8, 16, 25, .35);
+}
+
+.hub-pvp-foot span {
+  color: #9fb1c4;
+  font-size: .55rem;
+  line-height: 1.35;
+}
+
+.hub-pvp-foot button {
+  min-height: 38px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(114, 184, 255, .34);
+  border-radius: .5rem;
+  padding: .48rem .68rem;
+  background: rgba(58, 103, 146, .24);
+  color: #c5d3e1;
+  font-weight: 800;
+  opacity: .62;
+}
+
+@media (max-width: 620px) {
+  .hub-battle-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .hub-battle-actions .hub-primary,
+  .hub-pvp-button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .hub-pvp-dialog {
+    width: calc(100vw - 10px);
+    max-height: calc(100dvh - 10px);
+  }
+
+  .hub-pvp-body {
+    padding: .72rem;
+  }
+
+  .hub-pvp-codes {
+    grid-template-columns: 1fr;
+  }
+
+  .hub-pvp-foot {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .hub-pvp-foot button {
+    width: 100%;
+  }
+}
