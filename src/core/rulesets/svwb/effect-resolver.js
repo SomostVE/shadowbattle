@@ -5,23 +5,23 @@ import { targetEffectSpec } from "./v5/battle-engine-v5-targeting.js";
 
 const SUPPORTED_TARGET_KINDS = new Set(["damage", "destroy", "banish", "return"]);
 
-export function getWorldsBeyondTargetRequirement(source, trigger = "play") {
+export function getWorldsBeyondTargetRequirement(source, trigger = "play", mode = null) {
   if (!source?.card) return null;
-  const text = triggerText(source.card, trigger);
+  const text = triggerText(source, trigger, mode);
   if (!text) return null;
   const spec = targetEffectSpec({ mode: { text }, instance: source });
   return spec ? { ...spec, text } : null;
 }
 
-export function getWorldsBeyondTargetOptions(session, { trigger = "play", playerIndex, source } = {}) {
-  const requirement = getWorldsBeyondTargetRequirement(source, trigger);
+export function getWorldsBeyondTargetOptions(session, { trigger = "play", playerIndex, source, mode = null } = {}) {
+  const requirement = getWorldsBeyondTargetRequirement(source, trigger, mode);
   if (!requirement) return [];
   return targetableEnemyFollowers(session.getPlayer(1 - playerIndex).board);
 }
 
-export function resolveWorldsBeyondTrigger(session, { trigger, playerIndex, source, targetInstanceId = null }) {
+export function resolveWorldsBeyondTrigger(session, { trigger, playerIndex, source, targetInstanceId = null, mode = null }) {
   if (!source?.card) return { applied: false, unresolved: false, text: "" };
-  const text = triggerText(source.card, trigger);
+  const text = triggerText(source, trigger, mode);
   if (!text) return { applied: false, unresolved: false, text: "" };
 
   const targetSpec = targetEffectSpec({ mode: { text }, instance: source });
@@ -43,6 +43,7 @@ export function resolveWorldsBeyondTrigger(session, { trigger, playerIndex, sour
     actor: playerIndex,
     payload: {
       trigger,
+      mode: mode?.kind ?? null,
       card: session.cardView(source),
       text,
       resolved: !unresolved,
@@ -63,9 +64,9 @@ export function destroyWorldsBeyondFollower(session, playerIndex, instanceId, op
   return destroyed;
 }
 
-function triggerText(card, trigger) {
-  const text = String(card?.text ?? "");
-  if (trigger === "play") return baseText(text);
+function triggerText(source, trigger, mode) {
+  const text = String(source?.activeText ?? source?.card?.text ?? "");
+  if (trigger === "play") return baseText(mode?.text ?? text);
   if (trigger === "strike") return section(text, "strike");
   if (trigger === "evolve") return section(text, "evolve") || naturalLifecycle(text, /when this follower evolves,\s*/i);
   if (trigger === "super-evolve") return section(text, "super-evolve");
@@ -205,7 +206,7 @@ function randomEnemyFollower(session, playerIndex) {
 }
 
 function cardType(instance) {
-  return String(instance?.card?.type ?? instance?.type ?? "").trim().toLowerCase();
+  return String(instance?.typeOverride ?? instance?.card?.type ?? instance?.type ?? "").trim().toLowerCase();
 }
 
 function numberWord(value) {
