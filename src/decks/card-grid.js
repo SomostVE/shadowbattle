@@ -3,18 +3,18 @@
 // records and the game-specific art resolver.
 
 const DEFAULT_BATCH_SIZE = 96;
-const INCLUDE_NEUTRAL_KEY = "shadowbattle:include-neutral";
+const CARD_POOL_MODE_KEY = "shadowbattle:card-pool-mode";
 
 export function renderCardGrid(root, cards, handlers = {}, options = {}) {
-  const includeNeutral = localStorage.getItem(INCLUDE_NEUTRAL_KEY) !== "false";
-  const visibleCards = includeNeutral
-    ? cards
+  const poolMode = localStorage.getItem(CARD_POOL_MODE_KEY) === "neutral" ? "neutral" : "class";
+  const visibleCards = poolMode === "neutral"
+    ? cards.filter(card => card.craft === "Neutral")
     : cards.filter(card => card.craft !== "Neutral");
 
   const batchSize = Math.max(24, Number(options.batchSize) || DEFAULT_BATCH_SIZE);
   const renderId = String((Number(root.dataset.renderId) || 0) + 1);
   root.dataset.renderId = renderId;
-  root.dataset.includeNeutral = includeNeutral ? "true" : "false";
+  root.dataset.cardPoolMode = poolMode;
   root.dataset.totalCards = String(visibleCards.length);
   root.replaceChildren();
 
@@ -24,7 +24,9 @@ export function renderCardGrid(root, cards, handlers = {}, options = {}) {
   if (!visibleCards.length) {
     const empty = document.createElement("p");
     empty.className = "muted";
-    empty.textContent = "No cards match these filters.";
+    empty.textContent = poolMode === "neutral"
+      ? "No Neutral cards match these filters."
+      : "No class cards match these filters.";
     root.appendChild(empty);
     return;
   }
@@ -52,7 +54,7 @@ export function renderCardGrid(root, cards, handlers = {}, options = {}) {
 
   // Paint enough cards for the visible viewport synchronously. The remainder is
   // appended during idle time so changing class feels immediate even in sv1,
-  // where a class + Neutral can contain hundreds of cards.
+  // where the source pool can contain hundreds of cards.
   const hasMore = appendBatch(batchSize);
   if (!hasMore) return;
 
