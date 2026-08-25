@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#141d28">
   <title>ShadowBattle Data API</title>
-  <link rel="stylesheet" href="../src/ui/hub.css?v=0.4.10">
-  <link rel="stylesheet" href="../src/ui/api-page.css?v=0.4.10">
-  <script type="module" src="../src/ui/version-guard.js?v=0.4.10"></script>
+  <link rel="stylesheet" href="../src/ui/hub.css?v=0.4.11">
+  <link rel="stylesheet" href="../src/ui/api-page.css?v=0.4.11">
+  <script type="module" src="../src/ui/version-guard.js?v=0.4.11"></script>
 </head>
 <body>
   <main class="hub-shell">
@@ -15,7 +15,7 @@
       <a class="hub-brand" href="../">
         <span class="hub-brand-mark">✦</span>
         <strong>ShadowBattle</strong>
-        <span class="hub-version">v0.4.10</span>
+        <span class="hub-version">v0.4.11</span>
       </a>
       <nav class="hub-nav" aria-label="Main navigation">
         <a href="../decks/">Deckbuilder</a>
@@ -31,16 +31,30 @@
           <span class="api-kicker">API v1</span>
           <h1>JSON datasets</h1>
         </div>
-        <span class="api-head-meta">Direct endpoints · no authentication</span>
+        <span class="api-head-meta">Direct JSON · no authentication</span>
       </div>
+
+      <section class="api-base" aria-label="API base URL">
+        <div>
+          <span>Base URL</span>
+          <code id="api-base-url">https://somostve.github.io/shadowbattle/api/v1/</code>
+        </div>
+        <button class="api-copy" type="button" data-copy-text="#api-base-url">Copy URL</button>
+      </section>
 
       <section class="api-global" aria-label="Global endpoints">
         <strong>Global index</strong>
         <div class="api-global-links">
-          <a id="api-games" class="api-open" href="./v1/games.json" target="_blank" rel="noreferrer">games.json</a>
-          <button class="api-copy" type="button" data-copy-endpoint="#api-games">Copy URL</button>
-          <a id="api-manifest" class="api-open" href="./v1/manifest.json" target="_blank" rel="noreferrer">manifest.json</a>
-          <button class="api-copy" type="button" data-copy-endpoint="#api-manifest">Copy URL</button>
+          <div class="api-global-endpoint">
+            <a id="api-games" class="api-open" href="https://somostve.github.io/shadowbattle/api/v1/games.json" target="_blank" rel="noreferrer">games.json</a>
+            <code>https://somostve.github.io/shadowbattle/api/v1/games.json</code>
+            <button class="api-copy" type="button" data-copy-endpoint="#api-games">Copy</button>
+          </div>
+          <div class="api-global-endpoint">
+            <a id="api-manifest" class="api-open" href="https://somostve.github.io/shadowbattle/api/v1/manifest.json" target="_blank" rel="noreferrer">manifest.json</a>
+            <code>https://somostve.github.io/shadowbattle/api/v1/manifest.json</code>
+            <button class="api-copy" type="button" data-copy-endpoint="#api-manifest">Copy</button>
+          </div>
         </div>
       </section>
 
@@ -57,36 +71,33 @@
           <div class="api-endpoints">
             <div class="api-endpoint">
               <div class="api-endpoint-main">
-                <a id="sv1-cards" href="./v1/shadowverse-ccg/cards.json" target="_blank" rel="noreferrer">cards.json</a>
+                <a id="sv1-cards" href="https://somostve.github.io/shadowbattle/api/v1/shadowverse-ccg/cards.json" target="_blank" rel="noreferrer">cards.json</a>
                 <span>Full archived card dataset</span>
+                <code>https://somostve.github.io/shadowbattle/api/v1/shadowverse-ccg/cards.json</code>
               </div>
               <button class="api-copy" type="button" data-copy-endpoint="#sv1-cards">Copy</button>
             </div>
             <div class="api-endpoint">
               <div class="api-endpoint-main">
-                <a id="sv1-catalog" href="./v1/shadowverse-ccg/catalog.json" target="_blank" rel="noreferrer">catalog.json</a>
-                <span>Deckbuilding-ready catalog</span>
+                <a id="sv1-catalog" href="https://somostve.github.io/shadowbattle/api/v1/shadowverse-ccg/catalog.json" target="_blank" rel="noreferrer">catalog.json</a>
+                <span>Normalized deckbuilding catalog</span>
+                <code>https://somostve.github.io/shadowbattle/api/v1/shadowverse-ccg/catalog.json</code>
               </div>
               <button class="api-copy" type="button" data-copy-endpoint="#sv1-catalog">Copy</button>
             </div>
             <div class="api-endpoint">
               <div class="api-endpoint-main">
-                <a id="sv1-image-index" href="./v1/shadowverse-ccg/image-index.json" target="_blank" rel="noreferrer">image-index.json</a>
+                <a id="sv1-image-index" href="https://somostve.github.io/shadowbattle/api/v1/shadowverse-ccg/image-index.json" target="_blank" rel="noreferrer">image-index.json</a>
                 <span>Normal / evolved card art index</span>
+                <code>https://somostve.github.io/shadowbattle/api/v1/shadowverse-ccg/image-index.json</code>
               </div>
               <button class="api-copy" type="button" data-copy-endpoint="#sv1-image-index">Copy</button>
             </div>
             <div class="api-endpoint">
               <div class="api-endpoint-main">
-                <a id="sv1-headers" href="./v1/shadowverse-ccg/data-headers.json" target="_blank" rel="noreferrer">data-headers.json</a>
-                <span>Archived source headers</span>
-              </div>
-              <button class="api-copy" type="button" data-copy-endpoint="#sv1-headers">Copy</button>
-            </div>
-            <div class="api-endpoint">
-              <div class="api-endpoint-main">
-                <a id="sv1-manifest" href="./v1/shadowverse-ccg/manifest.json" target="_blank" rel="noreferrer">manifest.json</a>
+                <a id="sv1-manifest" href="https://somostve.github.io/shadowbattle/api/v1/shadowverse-ccg/manifest.json" target="_blank" rel="noreferrer">manifest.json</a>
                 <span>Dataset metadata</span>
+                <code>https://somostve.github.io/shadowbattle/api/v1/shadowverse-ccg/manifest.json</code>
               </div>
               <button class="api-copy" type="button" data-copy-endpoint="#sv1-manifest">Copy</button>
             </div>
@@ -102,6 +113,7 @@
             <a href="./v1/shadowverse-ccg/locales/cards.it.json" target="_blank" rel="noreferrer">IT</a>
             <a href="./v1/shadowverse-ccg/locales/cards.de.json" target="_blank" rel="noreferrer">DE</a>
             <a href="./v1/shadowverse-ccg/locales/cards.es.json" target="_blank" rel="noreferrer">ES</a>
+            <code class="api-locale-example">FR: https://somostve.github.io/shadowbattle/api/v1/shadowverse-ccg/locales/cards.fr.json</code>
           </div>
         </article>
 
@@ -117,22 +129,25 @@
           <div class="api-endpoints">
             <div class="api-endpoint">
               <div class="api-endpoint-main">
-                <a id="cb-cards" href="./v1/champions-battle/cards.json" target="_blank" rel="noreferrer">cards.json</a>
+                <a id="cb-cards" href="https://somostve.github.io/shadowbattle/api/v1/champions-battle/cards.json" target="_blank" rel="noreferrer">cards.json</a>
                 <span>Local Champion's Battle dataset</span>
+                <code>https://somostve.github.io/shadowbattle/api/v1/champions-battle/cards.json</code>
               </div>
               <button class="api-copy" type="button" data-copy-endpoint="#cb-cards">Copy</button>
             </div>
             <div class="api-endpoint">
               <div class="api-endpoint-main">
-                <a id="cb-catalog" href="./v1/champions-battle/catalog.json" target="_blank" rel="noreferrer">catalog.json</a>
-                <span>Deckbuilding-ready catalog</span>
+                <a id="cb-catalog" href="https://somostve.github.io/shadowbattle/api/v1/champions-battle/catalog.json" target="_blank" rel="noreferrer">catalog.json</a>
+                <span>Normalized deckbuilding catalog</span>
+                <code>https://somostve.github.io/shadowbattle/api/v1/champions-battle/catalog.json</code>
               </div>
               <button class="api-copy" type="button" data-copy-endpoint="#cb-catalog">Copy</button>
             </div>
             <div class="api-endpoint">
               <div class="api-endpoint-main">
-                <a id="cb-manifest" href="./v1/champions-battle/manifest.json" target="_blank" rel="noreferrer">manifest.json</a>
+                <a id="cb-manifest" href="https://somostve.github.io/shadowbattle/api/v1/champions-battle/manifest.json" target="_blank" rel="noreferrer">manifest.json</a>
                 <span>Pool completeness + metadata</span>
+                <code>https://somostve.github.io/shadowbattle/api/v1/champions-battle/manifest.json</code>
               </div>
               <button class="api-copy" type="button" data-copy-endpoint="#cb-manifest">Copy</button>
             </div>
@@ -151,8 +166,9 @@
           <div class="api-endpoints">
             <div class="api-endpoint">
               <div class="api-endpoint-main">
-                <a id="wb-manifest" href="./v1/worlds-beyond/manifest.json" target="_blank" rel="noreferrer">manifest.json</a>
-                <span>Provider metadata</span>
+                <a id="wb-manifest" href="https://somostve.github.io/shadowbattle/api/v1/worlds-beyond/manifest.json" target="_blank" rel="noreferrer">manifest.json</a>
+                <span>ShadowBattle provider metadata</span>
+                <code>https://somostve.github.io/shadowbattle/api/v1/worlds-beyond/manifest.json</code>
               </div>
               <button class="api-copy" type="button" data-copy-endpoint="#wb-manifest">Copy</button>
             </div>
@@ -163,9 +179,62 @@
           </div>
         </article>
       </section>
+
+      <section class="api-examples" aria-label="API usage examples">
+        <div class="api-section-title">
+          <div>
+            <span class="api-kicker">Examples</span>
+            <h2>Use the data directly</h2>
+          </div>
+        </div>
+
+        <div class="api-example-grid">
+          <article class="api-example-card">
+            <div class="api-example-head">
+              <strong>JavaScript</strong>
+              <button class="api-copy" type="button" data-copy-text="#example-js">Copy</button>
+            </div>
+            <p>Load the normalized SV1 catalog and keep Forestcraft Legendaries.</p>
+            <pre id="example-js"><code>const url = "https://somostve.github.io/shadowbattle/api/v1/shadowverse-ccg/catalog.json";
+const { cards } = await fetch(url).then(r =&gt; r.json());
+
+const forestLegendaries = cards.filter(card =&gt;
+  card.craft === "Forestcraft" &amp;&amp;
+  card.rarity === "Legendary"
+);
+
+console.log(forestLegendaries);</code></pre>
+          </article>
+
+          <article class="api-example-card">
+            <div class="api-example-head">
+              <strong>Python</strong>
+              <button class="api-copy" type="button" data-copy-text="#example-python">Copy</button>
+            </div>
+            <p>Download the French card dataset.</p>
+            <pre id="example-python"><code>import requests
+
+url = "https://somostve.github.io/shadowbattle/api/v1/shadowverse-ccg/locales/cards.fr.json"
+data = requests.get(url, timeout=30).json()
+
+print(data.keys())</code></pre>
+          </article>
+
+          <article class="api-example-card">
+            <div class="api-example-head">
+              <strong>curl</strong>
+              <button class="api-copy" type="button" data-copy-text="#example-curl">Copy</button>
+            </div>
+            <p>Save the Champion's Battle dataset locally.</p>
+            <pre id="example-curl"><code>curl -L \
+  "https://somostve.github.io/shadowbattle/api/v1/champions-battle/cards.json" \
+  -o champions-battle-cards.json</code></pre>
+          </article>
+        </div>
+      </section>
     </section>
   </main>
 
-  <script type="module" src="../src/ui/api-page.js?v=0.4.10"></script>
+  <script type="module" src="../src/ui/api-page.js?v=0.4.11"></script>
 </body>
 </html>
