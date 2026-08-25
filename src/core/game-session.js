@@ -134,7 +134,8 @@ export class GameSession {
       actor: playerIndex,
       payload: { turn: this.turn, personalTurn: player.personalTurn, pp: player.resources.pp, maxPp: player.resources.maxPp }
     });
-    this.draw(playerIndex, 1, { reason: "turn-start" });
+    if (typeof this.ruleset.afterTurnStart === "function") this.ruleset.afterTurnStart(player, this);
+    if (this.phase === PHASE.MAIN) this.draw(playerIndex, 1, { reason: "turn-start" });
   }
 
   useBonusPp(playerIndex) {
@@ -157,6 +158,8 @@ export class GameSession {
     this.assertPhase(PHASE.MAIN);
     if (playerIndex !== this.activePlayer) throw new Error(`It is not player ${playerIndex}'s turn`);
     const player = this.getPlayer(playerIndex);
+    if (typeof this.ruleset.beforeTurnEnd === "function") this.ruleset.beforeTurnEnd(player, this);
+    if (this.phase !== PHASE.MAIN) return this.getSnapshot(playerIndex);
     this.emit(BATTLE_EVENT.TURN_END, {
       actor: playerIndex,
       payload: { turn: this.turn, personalTurn: player.personalTurn, ppRemaining: player.resources.pp }
