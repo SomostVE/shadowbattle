@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#141d28">
   <title>ShadowBattle</title>
-  <link rel="stylesheet" href="./src/ui/hub.css?v=0.4.17">
-  <link rel="stylesheet" href="./src/ui/hub-beyond.css?v=0.4.17">
-  <script type="module" src="./src/ui/version-guard.js?v=0.4.17"></script>
+  <link rel="stylesheet" href="./src/ui/hub.css?v=0.4.18">
+  <link rel="stylesheet" href="./src/ui/hub-beyond.css?v=0.4.18">
+  <script type="module" src="./src/ui/version-guard.js?v=0.4.18"></script>
 </head>
 <body class="hub-page">
   <main class="hub-shell">
@@ -17,10 +17,10 @@
           <div class="hub-brand-inline">
             <span class="hub-brand-mark">✦</span>
             <strong>ShadowBattle</strong>
-            <span id="hub-version" class="hub-version">v0.4.17</span>
+            <span id="hub-version" class="hub-version">v0.4.18</span>
           </div>
           <div class="hub-battle-flags">
-            <span>Human vs AI</span>
+            <span>Human vs CPU</span>
             <span>Action by action</span>
           </div>
         </div>
@@ -29,19 +29,25 @@
           <div class="hub-battle-copy">
             <span class="hub-kicker">Play Shadowverse</span>
             <h1>Battle</h1>
-            <p>Mulligan, play every action yourself, end your turn, then watch the AI answer in real time.</p>
+            <p>Mulligan, play every action yourself, end your turn, then watch the CPU answer in real time.</p>
             <div class="hub-mode-row" aria-label="Battle design">
               <span>40 cards</span>
               <span>Rules-first</span>
               <span>Hidden information</span>
-              <span>Intermediate AI</span>
+            </div>
+            <div class="hub-cpu-difficulty" aria-label="CPU difficulty">
+              <span class="hub-cpu-label">CPU difficulty</span>
+              <div class="hub-cpu-options" role="group" aria-label="Choose CPU difficulty">
+                <button type="button" class="active" data-cpu-difficulty="intermediate">Intermediate</button>
+                <button type="button" data-cpu-difficulty="expert">Expert</button>
+              </div>
             </div>
             <span class="hub-primary" aria-disabled="true">Battle — in development</span>
           </div>
 
           <div class="hub-board-preview" aria-label="Battle board preview">
             <div class="hub-player-line">
-              <div><strong>AI opponent</strong><small>PP 6 / 6 · Evo 2</small></div>
+              <div><strong>CPU opponent</strong><small>PP 6 / 6 · Evo 2</small></div>
               <span class="hub-hp">20</span>
             </div>
             <div class="hub-card-row" aria-hidden="true">
@@ -66,16 +72,16 @@
             <strong>Choose a ruleset</strong>
           </div>
 
-          <button class="hub-game active" type="button" data-game="shadowverse-ccg" aria-label="Shadowverse CCG">
+          <button class="hub-game" type="button" data-game="shadowverse-ccg" aria-label="Shadowverse CCG">
             <span class="hub-game-logo">
               <img src="https://shadowverse.com/news/wp-content/uploads/c6d91ecb2f5d18a4e829787f5d77c33e.png" alt="Shadowverse" referrerpolicy="no-referrer">
             </span>
             <span class="hub-game-stats" aria-label="Shadowverse CCG statistics">
               <span class="hub-game-stat"><small>Cards</small><strong id="hub-sv1-card-count">5,933</strong></span>
-              <span class="hub-game-stat"><small>AI decks</small><strong>0</strong></span>
+              <span class="hub-game-stat"><small>CPU decks</small><strong>0</strong></span>
               <span class="hub-game-stat"><small>Your decks</small><strong id="hub-sv1-player-count">0</strong></span>
             </span>
-            <span class="hub-game-state">First</span>
+            <span class="hub-game-state">SV1</span>
           </button>
 
           <button class="hub-game" type="button" data-game="champions-battle" aria-label="Shadowverse Champion's Battle">
@@ -84,22 +90,22 @@
             </span>
             <span class="hub-game-stats" aria-label="Champion's Battle statistics">
               <span class="hub-game-stat"><small>Cards</small><strong id="hub-cb-card-count">623</strong></span>
-              <span class="hub-game-stat"><small>AI decks</small><strong>0</strong></span>
+              <span class="hub-game-stat"><small>CPU decks</small><strong>0</strong></span>
               <span class="hub-game-stat"><small>Your decks</small><strong id="hub-cb-player-count">0</strong></span>
             </span>
-            <span class="hub-game-state">Next</span>
+            <span class="hub-game-state">CB</span>
           </button>
 
-          <button class="hub-game muted" type="button" data-game="worlds-beyond" aria-label="Shadowverse Worlds Beyond">
+          <button class="hub-game active" type="button" data-game="worlds-beyond" aria-label="Shadowverse Worlds Beyond">
             <span class="hub-game-logo">
               <img src="./assets/fankits/worlds-beyond/logo_ShadowverseWB.png" alt="Shadowverse: Worlds Beyond">
             </span>
             <span class="hub-game-stats" aria-label="Worlds Beyond statistics">
               <span class="hub-game-stat"><small>Cards</small><strong id="hub-wb-card-count">826</strong></span>
-              <span class="hub-game-stat"><small>AI decks</small><strong id="hub-wb-bot-count">7</strong></span>
+              <span class="hub-game-stat"><small>CPU decks</small><strong id="hub-wb-bot-count">7</strong></span>
               <span class="hub-game-stat"><small>Your decks</small><strong id="hub-wb-player-count">0</strong></span>
             </span>
-            <span class="hub-game-state">Later</span>
+            <span class="hub-game-state">Current</span>
           </button>
         </section>
 
@@ -131,6 +137,6 @@
     </footer>
   </main>
 
-  <script type="module" src="./src/ui/hub.js?v=0.4.17"></script>
+  <script type="module" src="./src/ui/hub.js?v=0.4.18"></script>
 </body>
 </html>
