@@ -1,0 +1,10 @@
+{
+  "gameId": "shadowverse-ccg",
+  "namespace": "sv1",
+  "status": "source-validation",
+  "provider": "Shadowverse Portal adapter (planned)",
+  "source": "https://shadowverse-portal.com/cards",
+  "materializedCardsEndpoint": "./cards.json",
+  "materialized": false,
+  "notes": "Legacy Shadowverse CCG data must be normalized independently from Worlds Beyond before this endpoint is materialized."
+}
