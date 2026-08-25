@@ -24,7 +24,7 @@ export const GAME_CATALOG = Object.freeze({
     name: "Shadowverse: Champion's Battle",
     shortName: "Champion's Battle",
     dataNamespace: "svcb",
-    status: "planned"
+    status: "supported-base-data"
   })
 });
 
