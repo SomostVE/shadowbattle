@@ -26,7 +26,7 @@ export function runWorldsBeyondTurnEnd(session, playerIndex) {
 function tickCountdownAmulets(session, playerIndex) {
   const player = session.getPlayer(playerIndex);
   for (const amulet of [...player.board]) {
-    if (cardType(amulet) !== "amulet" || !Number.isFinite(Number(amulet.countdown))) continue;
+    if (cardType(amulet) !== "amulet" || amulet.countdown == null || !Number.isFinite(Number(amulet.countdown))) continue;
     amulet.countdown = Math.max(0, Number(amulet.countdown) - 1);
     session.emit(BATTLE_EVENT.COUNTDOWN_TICK, {
       actor: playerIndex,
