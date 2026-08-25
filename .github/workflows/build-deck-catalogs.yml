@@ -1,0 +1,51 @@
+name: Build Deck Catalogs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/build-deck-catalogs.mjs
+      - .github/workflows/build-deck-catalogs.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - name: Build local CCG and Champion's Battle catalogs
+        run: node scripts/build-deck-catalogs.mjs
+      - name: Validate outputs
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const ccg = JSON.parse(fs.readFileSync('api/v1/shadowverse-ccg/catalog.json', 'utf8'));
+          const cb = JSON.parse(fs.readFileSync('api/v1/champions-battle/catalog.json', 'utf8'));
+          if (ccg.cardCount < 3000) throw new Error(`CCG catalog too small: ${ccg.cardCount}`);
+          if (cb.cardCount < 600) throw new Error(`Champion's Battle catalog too small: ${cb.cardCount}`);
+          if (cb.cards.some(card => card.dataNamespace !== 'svcb')) throw new Error('Champion\'s Battle namespace leak');
+          console.log(`Validated ${ccg.cardCount} CCG cards and ${cb.cardCount} Champion's Battle cards.`);
+          NODE
+          git diff --check
+      - name: Commit generated catalogs
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add api/v1/shadowverse-ccg/catalog.json api/v1/shadowverse-ccg/manifest.json api/v1/champions-battle/cards.json api/v1/champions-battle/catalog.json api/v1/champions-battle/manifest.json
+          if git diff --cached --quiet; then
+            echo "Deck catalogs already current."
+            exit 0
+          fi
+          git commit -m "data: materialize deckbuilding catalogs"
+          git push
