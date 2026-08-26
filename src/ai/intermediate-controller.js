@@ -1,3 +1,4 @@
+import { buildOpponentBelief, sampleOpponentHands, summarizeOpponentBelief, summarizeOpponentSamples } from "./hidden-information.js";
 import { chooseIntermediateAction, getAiSkillProfile } from "./skill-profile.js";
 
 const DEFAULT_STRATEGY = Object.freeze({
@@ -39,7 +40,10 @@ export function chooseIntermediateGameAction(session, playerIndex, {
   strategy = DEFAULT_STRATEGY,
   rng = Math.random
 } = {}) {
-  const ranked = evaluateIntermediateActions(session, playerIndex, { strategy });
+  const belief = buildOpponentBelief(session, playerIndex);
+  const samples = sampleOpponentHands(belief, { samples: profile.hiddenInformationSamples, rng });
+  const hiddenInfo = summarizeOpponentSamples(belief, samples);
+  const ranked = evaluateIntermediateActions(session, playerIndex, { strategy, hiddenInfo });
   if (!ranked.length) return null;
   if (ranked[0].score < Number(profile.actionFloor ?? 0)) return null;
 
@@ -49,6 +53,14 @@ export function chooseIntermediateGameAction(session, playerIndex, {
     action: chosen.action,
     score: chosen.score,
     reasons: [...chosen.reasons],
+    hiddenInformation: {
+      opponent: belief.opponent,
+      unknownHandSlots: belief.unknownHandSlots,
+      revealedInitialCards: belief.revealedInitialCards,
+      remainingInitialCards: belief.remainingInitialCards,
+      nextTurnPp: belief.nextTurnPp,
+      ...hiddenInfo
+    },
     alternatives: ranked.slice(0, Math.max(1, Number(profile.explanationLimit) || 4)).map(candidate => ({
       action: candidate.action,
       score: candidate.score,
@@ -57,11 +69,12 @@ export function chooseIntermediateGameAction(session, playerIndex, {
   };
 }
 
-export function evaluateIntermediateActions(session, playerIndex, { strategy = DEFAULT_STRATEGY } = {}) {
+export function evaluateIntermediateActions(session, playerIndex, { strategy = DEFAULT_STRATEGY, hiddenInfo = null } = {}) {
   if (!session || session.phase !== "main" || session.activePlayer !== playerIndex || session.winner != null) return [];
   const view = session.getSnapshot(playerIndex);
   const actions = session.listLegalActions(playerIndex);
-  const context = createDecisionContext(view, playerIndex, normalizeStrategy(strategy));
+  const resolvedHiddenInfo = hiddenInfo ?? summarizeOpponentBelief(buildOpponentBelief(session, playerIndex));
+  const context = createDecisionContext(view, playerIndex, normalizeStrategy(strategy), resolvedHiddenInfo);
 
   return actions
     .map((action, index) => {
@@ -116,7 +129,7 @@ export function shouldUseIntermediateBonusPp(session, playerIndex, { strategy = 
   return bestUnlock * (0.72 + normalizedStrategy.faceBias * 0.18) > currentBest + 0.35;
 }
 
-function createDecisionContext(view, playerIndex, strategy) {
+function createDecisionContext(view, playerIndex, strategy, hiddenInfo) {
   const player = view.players?.[playerIndex] ?? {};
   const enemy = view.players?.[1 - playerIndex] ?? {};
   return {
@@ -125,6 +138,7 @@ function createDecisionContext(view, playerIndex, strategy) {
     player,
     enemy,
     strategy,
+    hiddenInfo,
     ownHand: indexByInstance(player.hand),
     ownBoard: indexByInstance(player.board),
     enemyBoard: indexByInstance(enemy.board)
@@ -153,8 +167,10 @@ function scoreAttack(action, context) {
     if (attack >= Number(context.enemy.hp ?? 0)) return { score: 1000 + attack, reasons: ["lethal"] };
     const pressure = attack * (1.6 + context.strategy.faceBias * 2.5);
     const closing = Math.max(0, 10 - Number(context.enemy.hp ?? 20)) * context.strategy.faceBias * 0.18;
+    const hiddenRisk = Number(context.hiddenInfo?.pressure ?? 0) * (0.25 + context.strategy.tradeBias * 0.55);
     reasons.push("leader-pressure");
-    return { score: 2.1 + pressure + closing, reasons };
+    if (hiddenRisk >= 0.15) reasons.push("hidden-counterplay-risk");
+    return { score: 2.1 + pressure + closing - hiddenRisk, reasons };
   }
 
   const target = context.enemyBoard.get(action.targetInstanceId);
@@ -175,6 +191,9 @@ function scoreAttack(action, context) {
     score -= attackerValue * 0.28;
     reasons.push("trade-off");
   }
+  const hiddenBuffer = Number(context.hiddenInfo?.pressure ?? 0) * context.strategy.tradeBias * 0.85;
+  if (kills && hiddenBuffer >= 0.15) reasons.push("hidden-counterplay-buffer");
+  score += hiddenBuffer;
   return { score, reasons: reasons.length ? reasons : ["board-trade"] };
 }
 
