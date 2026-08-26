@@ -314,6 +314,7 @@ function unsupportedResidualText(text, { targetSpec = null, discardRequired = fa
     new RegExp(`\\bdeal\\s+${DAMAGE_NUMBER}\\s+damage to (?:all|each) followers?\\b(?!\\s+with\\b)`, "gi"),
     /\bdeal\s+(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+damage to (?:a random|random) enemy follower\b/gi,
     /\bdestroy (?:a random|random) enemy follower\b/gi,
+    /\bgive this follower\s+(?:Storm|Rush|Ward|Bane|Drain)(?:\s+and\s+(?:Storm|Rush|Ward|Bane|Drain))?\b/gi,
     /\bgive this follower\s+\+\d+\s*\/\s*\+\d+\b/gi
   ];
   if (!targetSpec) patterns.push(new RegExp(SUMMON_COPIES.source, "gi"), new RegExp(SUMMON_SINGLE.source, "gi"));
