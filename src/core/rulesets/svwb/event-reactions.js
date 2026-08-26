@@ -4,6 +4,7 @@ import { crestView, getWorldsBeyondCrests } from "./crests.js";
 
 const COMBAT_KEYWORDS = new Set(["storm", "rush", "ward", "bane", "drain"]);
 const MARINE_ENTRY_WARD = /\bWhenever an allied Marine follower enters the field, give it Ward\.?/i;
+const MARINE_ENTRY_SELF_KEYWORDS = /\bWhenever an allied Marine follower enters the field, give this follower\s+(Storm|Rush|Ward|Bane|Drain)(?:\s+and\s+(Storm|Rush|Ward|Bane|Drain))?\.?/i;
 
 export function resolveWorldsBeyondEventReaction(session, event) {
   if (!session || !event) return false;
@@ -31,23 +32,51 @@ function resolveAlliedFollowerEntryReactions(session, event) {
   const entered = session.findBoardCard(playerIndex, instanceId);
   if (!entered || cardType(entered) !== "follower" || !hasTrait(entered.card, "Marine")) return false;
 
-  for (const source of session.getPlayer(playerIndex).board) {
-    if (cardType(source) !== "follower" || !MARINE_ENTRY_WARD.test(rulesText(source.card))) continue;
-    if (!grantWorldsBeyondKeyword(entered, "Ward")) continue;
+  let reacted = false;
+  for (const source of [...session.getPlayer(playerIndex).board]) {
+    if (cardType(source) !== "follower") continue;
+    const text = rulesText(source.card);
+
+    if (MARINE_ENTRY_WARD.test(text) && grantWorldsBeyondKeyword(entered, "Ward")) {
+      session.emit(BATTLE_EVENT.FOLLOWER_BUFF, {
+        actor: playerIndex,
+        payload: {
+          card: session.cardView(entered),
+          attack: 0,
+          defense: 0,
+          keywords: ["Ward"],
+          reason: "allied-marine-entry",
+          source: session.cardView(source)
+        }
+      });
+      reacted = true;
+    }
+
+    const selfMatch = text.match(MARINE_ENTRY_SELF_KEYWORDS);
+    if (!selfMatch) continue;
+    const granted = [];
+    for (const raw of [selfMatch[1], selfMatch[2]]) {
+      if (!raw || !COMBAT_KEYWORDS.has(normalize(raw))) continue;
+      if (!grantWorldsBeyondKeyword(source, raw)) continue;
+      granted.push(raw);
+      applyReadinessForGrantedKeyword(source, raw);
+    }
+    if (!granted.length) continue;
     session.emit(BATTLE_EVENT.FOLLOWER_BUFF, {
       actor: playerIndex,
       payload: {
-        card: session.cardView(entered),
+        card: session.cardView(source),
         attack: 0,
         defense: 0,
-        keywords: ["Ward"],
-        reason: "allied-marine-entry",
-        source: session.cardView(source)
+        keywords: granted,
+        reason: "allied-marine-entry-self",
+        source: session.cardView(source),
+        triggerCard: session.cardView(entered)
       }
     });
-    return true;
+    reacted = true;
   }
-  return false;
+  return reacted;
 }
 
 function resolveSelfCombatKeywordGrant(session, event) {
