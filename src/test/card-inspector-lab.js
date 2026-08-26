@@ -38,7 +38,7 @@ document.addEventListener("focusin", event => inspectFromTarget(event.target));
 
 function inspectFromTarget(target) {
   const node = inspectableNode(target);
-  if (!node || node === lastInspectedNode) return;
+  if (!ready || !node || node === lastInspectedNode) return;
   lastInspectedNode = node;
   inspect(node);
 }
@@ -51,7 +51,6 @@ function inspectableNode(target) {
 }
 
 function inspect(node) {
-  if (!ready) return;
   const name = cardNameFromNode(node);
   if (!name) return;
   const card = cardsByName.get(normalizeName(name));
