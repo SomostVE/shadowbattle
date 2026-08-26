@@ -132,6 +132,7 @@ test("V6 card-text compiler preserves the legacy simple-effect order", () => {
     SVWB_EFFECT_COMMAND.HEAL_LEADER,
     SVWB_EFFECT_COMMAND.DAMAGE_LEADER
   ]);
+  assert.equal(commands.every(command => command.metadata.sourceInstanceId === source.instanceId), true);
   assert.doesNotThrow(() => JSON.stringify(commands));
 });
 
@@ -159,6 +160,7 @@ test("real simple card text is executed through the V6 effect-command log", () =
   item.card = card;
   item.cardId = card.id;
   const logCursor = getEffectCommandLog(game).length;
+  const eventCursor = game.eventSequence;
   const action = game.listLegalActions(0).find(candidate => candidate.type === "play-card" && candidate.cardInstanceId === item.instanceId);
   assert.ok(action);
 
@@ -174,6 +176,12 @@ test("real simple card text is executed through the V6 effect-command log", () =
   assert.equal(game.players[0].resources.crests.some(crest => crest.name === "QA Card Text Crest"), true);
   assert.equal(game.players[0].hp, 19, "the card heal resolves before Burnite and before enemy damage");
   assert.equal(game.players[1].hp, 18);
+
+  const events = game.getEvents({ since: eventCursor, viewer: 0 });
+  const heal = events.find(event => event.type === BATTLE_EVENT.HEAL && event.payload?.source?.name === card.name);
+  const enemyDamage = events.find(event => event.type === BATTLE_EVENT.LEADER_DAMAGE && event.payload?.targetPlayer === 1 && event.payload?.source?.name === card.name);
+  assert.equal(heal?.payload?.source?.instanceId, item.instanceId, "healing keeps the real spell instance as its source");
+  assert.equal(enemyDamage?.payload?.source?.instanceId, item.instanceId, "damage keeps the real spell instance as its source");
 });
 
 test("V6 engine profile marks the effect-command migration as active", () => {
