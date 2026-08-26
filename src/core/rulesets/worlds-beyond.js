@@ -10,6 +10,7 @@ import { resolveWorldsBeyondEventReaction } from "./svwb/event-reactions.js";
 import { gainWorldsBeyondShadows } from "./svwb/effect-resolver.js";
 import { applyWorldsBeyondEvolutionAction, listWorldsBeyondEvolutionActions } from "./svwb/evolution-actions.js";
 import { runWorldsBeyondTurnEnd, runWorldsBeyondTurnStart } from "./svwb/lifecycle.js";
+import { spellboostWorldsBeyondHand } from "./svwb/spellboost.js";
 import { resolveWorldsBeyondEffectCommand } from "./svwb/v6/effect-commands.js";
 import { SHADOWBATTLE_V6_ENGINE_PROFILE } from "./svwb/v6/engine-profile.js";
 
@@ -64,6 +65,12 @@ export const WORLDS_BEYOND_RULESET = Object.freeze({
     if (event.type === BATTLE_EVENT.FOLLOWER_ENTER) {
       accountFollowerEnterRally(session, event);
       normalizeWorldsBeyondCombatEvent(session, event);
+    }
+    if (event.type === BATTLE_EVENT.SPELL_CAST) {
+      spellboostWorldsBeyondHand(session, event.actor, 1, {
+        source: event.payload?.card ?? null,
+        reason: "spell-cast"
+      });
     }
     resolveWorldsBeyondEventReaction(session, event);
   },
