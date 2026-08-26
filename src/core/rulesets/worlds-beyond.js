@@ -61,7 +61,10 @@ export const WORLDS_BEYOND_RULESET = Object.freeze({
   },
   afterEvent(session, event) {
     accountCemeteryOverflowShadow(session, event);
-    if (event.type === BATTLE_EVENT.FOLLOWER_ENTER) normalizeWorldsBeyondCombatEvent(session, event);
+    if (event.type === BATTLE_EVENT.FOLLOWER_ENTER) {
+      accountFollowerEnterRally(session, event);
+      normalizeWorldsBeyondCombatEvent(session, event);
+    }
     resolveWorldsBeyondEventReaction(session, event);
   },
   afterTurnStart(player, session) {
@@ -87,6 +90,13 @@ export const WORLDS_BEYOND_RULESET = Object.freeze({
     ];
   }
 });
+
+function accountFollowerEnterRally(session, event) {
+  const owner = event.actor;
+  if (owner !== 0 && owner !== 1) return;
+  const player = session.getPlayer(owner);
+  player.resources.rally = Math.max(0, Number(player.resources?.rally ?? 0)) + 1;
+}
 
 function accountCemeteryOverflowShadow(session, event) {
   let owner = null;
