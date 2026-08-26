@@ -1,5 +1,20 @@
 import { canUseClassMechanic } from "./v5/battle-class-mechanics.js";
 
+const COUNT_WORDS = Object.freeze({
+  a: 1,
+  an: 1,
+  one: 1,
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+  eight: 8,
+  nine: 9,
+  ten: 10
+});
+
 export function evaluateWorldsBeyondClassCondition(textValue, player, card, { consume = false } = {}) {
   let text = normalizeText(textValue);
   if (!text) return { text: "", active: true, notes: [], mechanic: null };
@@ -12,17 +27,17 @@ export function evaluateWorldsBeyondClassCondition(textValue, player, card, { co
     const need = Number(necromancy.match[1]);
     const shadows = Number(player?.resources?.shadows ?? player?.shadows ?? 0);
     if (!canUseClassMechanic(player, mechanic, card)) {
-      text = keepUnconditionalPrefix(necromancy.prefix);
+      text = resolveConditionalSegments(necromancy.prefix, necromancy.match[2], false);
       notes.push("Necromancy unavailable outside Abysscraft");
     } else if (shadows < need) {
-      text = keepUnconditionalPrefix(necromancy.prefix);
+      text = resolveConditionalSegments(necromancy.prefix, necromancy.match[2], false);
       notes.push(`Necromancy ${need} unavailable`);
     } else {
       if (consume) {
         if (player?.resources) player.resources.shadows = Math.max(0, shadows - need);
         else player.shadows = Math.max(0, shadows - need);
       }
-      text = joinResolvedSegments(necromancy.prefix, necromancy.match[2]);
+      text = resolveConditionalSegments(necromancy.prefix, necromancy.match[2], true);
       notes.push(`Necromancy ${need}`);
     }
   }
@@ -32,13 +47,13 @@ export function evaluateWorldsBeyondClassCondition(textValue, player, card, { co
     mechanic = "combo";
     const need = Number(combo.match[1]);
     if (!canUseClassMechanic(player, mechanic, card)) {
-      text = keepUnconditionalPrefix(combo.prefix);
+      text = resolveConditionalSegments(combo.prefix, combo.match[2], false);
       notes.push("Combo unavailable outside Forestcraft");
     } else if (Number(player?.cardsPlayedThisTurn ?? 0) < need) {
-      text = keepUnconditionalPrefix(combo.prefix);
+      text = resolveConditionalSegments(combo.prefix, combo.match[2], false);
       notes.push(`Combo ${need} unavailable`);
     } else {
-      text = joinResolvedSegments(combo.prefix, combo.match[2]);
+      text = resolveConditionalSegments(combo.prefix, combo.match[2], true);
       notes.push(`Combo ${need}`);
     }
   }
@@ -47,13 +62,13 @@ export function evaluateWorldsBeyondClassCondition(textValue, player, card, { co
   if (overflow) {
     mechanic = "overflow";
     if (!canUseClassMechanic(player, mechanic, card)) {
-      text = keepUnconditionalPrefix(overflow.prefix);
+      text = resolveConditionalSegments(overflow.prefix, overflow.match[1], false);
       notes.push("Overflow unavailable outside Dragoncraft");
     } else if (maxPp(player) < 7) {
-      text = keepUnconditionalPrefix(overflow.prefix);
+      text = resolveConditionalSegments(overflow.prefix, overflow.match[1], false);
       notes.push("Overflow inactive");
     } else {
-      text = joinResolvedSegments(overflow.prefix, overflow.match[1]);
+      text = resolveConditionalSegments(overflow.prefix, overflow.match[1], true);
       notes.push("Overflow");
     }
   }
@@ -86,6 +101,48 @@ function findThresholdMechanic(text, pattern) {
   const match = pattern.exec(text);
   if (!match) return null;
   return { match, prefix: text.slice(0, match.index) };
+}
+
+function resolveConditionalSegments(prefix, conditionalEffect, branchActive) {
+  const repeat = parseRepeatedAction(prefix);
+  if (repeat) {
+    const overrideCount = branchActive ? parseRepeatOverride(conditionalEffect) : null;
+    if (!branchActive || overrideCount != null) {
+      return expandRepeatedAction(repeat, overrideCount ?? repeat.count);
+    }
+  }
+  return branchActive ? joinResolvedSegments(prefix, conditionalEffect) : keepUnconditionalPrefix(prefix);
+}
+
+function parseRepeatedAction(prefix) {
+  const match = String(prefix ?? "").match(/^(.*?)(?:do this)\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+times?\s*:\s*["“]([\s\S]+?)["”]\s*\.?\s*$/i);
+  if (!match) return null;
+  const count = parseCount(match[2]);
+  if (count == null) return null;
+  return {
+    leading: normalizeResolvedText(match[1]),
+    count,
+    body: normalizeResolvedText(match[3])
+  };
+}
+
+function parseRepeatOverride(effect) {
+  const match = String(effect ?? "").match(/^\s*do it\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+times?\s+instead\s*\.?\s*$/i);
+  return match ? parseCount(match[1]) : null;
+}
+
+function expandRepeatedAction(repeat, count) {
+  const times = Math.max(0, Number(count) || 0);
+  const parts = [];
+  if (repeat.leading) parts.push(repeat.leading);
+  for (let index = 0; index < times; index += 1) parts.push(repeat.body);
+  return normalizeResolvedText(parts.join(" "));
+}
+
+function parseCount(value) {
+  const raw = String(value ?? "").trim().toLowerCase();
+  if (/^\d+$/.test(raw)) return Number(raw);
+  return COUNT_WORDS[raw] ?? null;
 }
 
 function keepUnconditionalPrefix(prefix) {
