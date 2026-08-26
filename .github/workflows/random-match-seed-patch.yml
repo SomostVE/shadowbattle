@@ -1,0 +1,26 @@
+name: Patch random Battle Lab seeds
+
+on:
+  push:
+    branches: [ai/v6-hidden-information-0.4.83]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ai/v6-hidden-information-0.4.83
+      - name: Patch random match seed integration
+        run: python scripts/patch-random-match-seed.py
+      - name: Commit random seed integration
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/test/battle-action-lab.js test/index.html package.json version.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Randomize Battle Lab matches by default"
+          git push origin HEAD:ai/v6-hidden-information-0.4.83
