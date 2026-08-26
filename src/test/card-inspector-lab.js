@@ -2,6 +2,7 @@ import { worldsBeyondProvider } from "../data/providers/worlds-beyond.js";
 
 const ui = {
   root: document.querySelector("#battle-card-inspector"),
+  stage: document.querySelector("#battle-stage"),
   empty: document.querySelector("#battle-card-inspector-empty"),
   content: document.querySelector("#battle-card-inspector-content"),
   image: document.querySelector("#battle-card-inspector-image"),
@@ -15,6 +16,7 @@ const ui = {
 };
 
 let cardsByName = new Map();
+let lastInspectedNode = null;
 let ready = false;
 
 initialize();
@@ -31,20 +33,20 @@ async function initialize() {
   }
 }
 
-document.addEventListener("pointerover", event => {
-  const node = inspectableNode(event.target);
-  if (node) inspect(node);
-}, { passive: true });
+document.addEventListener("pointerover", event => inspectFromTarget(event.target), { passive: true });
+document.addEventListener("focusin", event => inspectFromTarget(event.target));
 
-document.addEventListener("focusin", event => {
-  const node = inspectableNode(event.target);
-  if (node) inspect(node);
-});
+function inspectFromTarget(target) {
+  const node = inspectableNode(target);
+  if (!node || node === lastInspectedNode) return;
+  lastInspectedNode = node;
+  inspect(node);
+}
 
 function inspectableNode(target) {
   if (!(target instanceof Element)) return null;
   const node = target.closest(".sb-battle-card:not(.sb-battle-card-back), .sb-battle-unit");
-  if (!node || !document.querySelector("#battle-stage")?.contains(node)) return null;
+  if (!node || !ui.stage?.contains(node)) return null;
   return node;
 }
 
