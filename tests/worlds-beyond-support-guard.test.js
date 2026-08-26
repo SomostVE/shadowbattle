@@ -4,30 +4,6 @@ import { GAME_IDS } from "../src/core/game-catalog.js";
 import { GameSession } from "../src/core/game-session.js";
 import { getWorldsBeyondTriggerSupport } from "../src/core/rulesets/svwb/effect-resolver.js";
 
-const CALL_OF_THE_MEGALORCA = Object.freeze({
-  id: 10241310,
-  name: "Call of the Megalorca",
-  class: "Dragoncraft",
-  type: "Spell",
-  cost: 2,
-  attack: 0,
-  defense: 0,
-  keywords: ["Call of the Megalorca", "Majestic Megalorca", "Overflow"],
-  text: "Summon a Majestic Megalorca. If you're in Overflow, draw a Call of the Megalorca."
-});
-
-const FAN_OF_OTOHIME = Object.freeze({
-  id: 10143210,
-  name: "Fan of Otohime",
-  class: "Dragoncraft",
-  type: "Amulet",
-  cost: 1,
-  attack: 0,
-  defense: 0,
-  keywords: ["Engage", "Otohime's Bodyguard"],
-  text: "Engage (3): Summon an Otohime's Bodyguard. Select a card in your hand and discard it."
-});
-
 const CONDITIONAL_UNSUPPORTED = Object.freeze({
   id: "conditional-unsupported",
   name: "Conditional Unsupported",
@@ -37,7 +13,7 @@ const CONDITIONAL_UNSUPPORTED = Object.freeze({
   attack: 0,
   defense: 0,
   keywords: ["Overflow"],
-  text: "Draw a card. If you're in Overflow, summon a Test Token."
+  text: "Draw a card. If you're in Overflow, add a Test Token to your hand."
 });
 
 const FANGS = Object.freeze({
@@ -104,56 +80,6 @@ function follower(instanceId, owner, name = "Follower", defense = 5) {
   };
 }
 
-test("Call of the Megalorca is withheld while Summon and named draw remain unsupported", () => {
-  const game = readyGame(7);
-  const spell = replaceHandCard(game, CALL_OF_THE_MEGALORCA);
-
-  const support = getWorldsBeyondTriggerSupport(spell, "play", null, game.players[0]);
-  assert.equal(support.supported, false);
-  assert.match(`${support.text} ${support.residual}`, /Summon a Majestic Megalorca|Call of the Megalorca/i);
-  assert.equal(game.listLegalActions(0).some(action => action.type === "play-card" && action.cardInstanceId === spell.instanceId), false);
-
-  const pp = game.players[0].resources.pp;
-  const hand = game.players[0].hand.length;
-  const cemetery = game.players[0].cemetery.length;
-  assert.throws(
-    () => game.dispatch({ type: "play-card", player: 0, cardInstanceId: spell.instanceId }),
-    /not fully supported/i
-  );
-  assert.equal(game.players[0].resources.pp, pp);
-  assert.equal(game.players[0].hand.length, hand);
-  assert.equal(game.players[0].cemetery.length, cemetery);
-});
-
-test("Fan of Otohime Engage is withheld instead of discarding without summoning", () => {
-  const game = readyGame();
-  const amulet = {
-    instanceId: "fan-of-otohime",
-    owner: 0,
-    cardId: FAN_OF_OTOHIME.id,
-    card: FAN_OF_OTOHIME,
-    engagedThisTurn: false
-  };
-  game.players[0].board.push(amulet);
-
-  const support = getWorldsBeyondTriggerSupport(amulet, "engage", null, game.players[0]);
-  assert.equal(support.supported, false);
-  assert.match(support.residual, /Summon an Otohime's Bodyguard/i);
-  assert.equal(game.listLegalActions(0).some(action => action.type === "engage" && action.amuletInstanceId === amulet.instanceId), false);
-
-  const pp = game.players[0].resources.pp;
-  const hand = game.players[0].hand.length;
-  const cemetery = game.players[0].cemetery.length;
-  assert.throws(
-    () => game.dispatch({ type: "engage", player: 0, amuletInstanceId: amulet.instanceId }),
-    /not fully supported/i
-  );
-  assert.equal(game.players[0].resources.pp, pp);
-  assert.equal(game.players[0].hand.length, hand);
-  assert.equal(game.players[0].cemetery.length, cemetery);
-  assert.equal(amulet.engagedThisTurn, false);
-});
-
 test("an unsupported Overflow suffix blocks a spell only while that branch is active", () => {
   const inactive = readyGame(6);
   const inactiveSpell = replaceHandCard(inactive, CONDITIONAL_UNSUPPORTED);
@@ -170,7 +96,7 @@ test("an unsupported Overflow suffix blocks a spell only while that branch is ac
   const activeSpell = replaceHandCard(active, CONDITIONAL_UNSUPPORTED);
   const activeSupport = getWorldsBeyondTriggerSupport(activeSpell, "play", null, active.players[0]);
   assert.equal(activeSupport.supported, false);
-  assert.match(activeSupport.residual, /summon a Test Token/i);
+  assert.match(activeSupport.residual, /add a Test Token to your hand/i);
   assert.equal(active.listLegalActions(0).some(action => action.type === "play-card" && action.cardInstanceId === activeSpell.instanceId), false);
 });
 
