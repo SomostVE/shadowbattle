@@ -58,6 +58,21 @@ export function evaluateWorldsBeyondClassCondition(textValue, player, card, { co
     }
   }
 
+  const overflowDamageInstead = parseOverflowDamageInstead(text);
+  if (overflowDamageInstead) {
+    mechanic = "overflow";
+    if (!canUseClassMechanic(player, mechanic, card)) {
+      text = overflowDamageInstead.prefix;
+      notes.push("Overflow unavailable outside Dragoncraft");
+    } else if (maxPp(player) < 7) {
+      text = overflowDamageInstead.prefix;
+      notes.push("Overflow inactive");
+    } else {
+      text = replaceLastDamageAmount(overflowDamageInstead.prefix, overflowDamageInstead.amount);
+      notes.push("Overflow");
+    }
+  }
+
   const overflow = findThresholdMechanic(text, /\boverflow\s*(?::|[-–—])\s*(.*)$/i);
   if (overflow) {
     mechanic = "overflow";
@@ -104,6 +119,23 @@ function findThresholdMechanic(text, pattern) {
   const match = pattern.exec(text);
   if (!match) return null;
   return { match, prefix: text.slice(0, match.index) };
+}
+
+function parseOverflowDamageInstead(text) {
+  const match = String(text ?? "").match(/^(.*?)\s*if\s+(?:you(?:'re| are)|your leader is)\s+in\s+overflow\s*,\s*deal\s+(\d+)\s+damage\s+instead\s*\.?\s*$/i);
+  if (!match) return null;
+  const prefix = normalizeResolvedText(match[1]);
+  if (!/\bdeal(?:\s+it)?\s+\d+\s+damage\b/i.test(prefix)) return null;
+  return { prefix, amount: Number(match[2]) || 0 };
+}
+
+function replaceLastDamageAmount(prefix, amount) {
+  const value = String(prefix ?? "");
+  const matches = [...value.matchAll(/\bdeal(?:\s+it)?\s+\d+\s+damage\b/gi)];
+  const hit = matches.at(-1);
+  if (!hit || hit.index == null) return normalizeResolvedText(value);
+  const replacement = hit[0].replace(/\d+/, String(Math.max(0, Number(amount) || 0)));
+  return normalizeResolvedText(`${value.slice(0, hit.index)}${replacement}${value.slice(hit.index + hit[0].length)}`);
 }
 
 function resolveConditionalSegments(prefix, conditionalEffect, branchActive) {
