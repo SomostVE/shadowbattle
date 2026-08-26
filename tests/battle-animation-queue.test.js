@@ -14,3 +14,20 @@ test("battle animation queue preserves GameSession event order", async () => {
   await queue.flush();
   assert.deepEqual(seen, [10, 11]);
 });
+
+test("unhandled battle events do not add invisible animation delays", async () => {
+  const queue = new BattleAnimationQueue({ timings: { idle: 1000 } });
+  const result = await Promise.race([
+    queue.enqueue({ sequence: 1, type: "idle" }).then(() => "done"),
+    new Promise(resolve => setTimeout(() => resolve("timeout"), 50))
+  ]);
+  assert.equal(result, "done");
+});
+
+test("registered animation handlers still receive their configured duration", async () => {
+  const durations = [];
+  const queue = new BattleAnimationQueue({ timings: { draw: 123 } });
+  queue.register("draw", async (_event, options) => durations.push(options.duration));
+  await queue.enqueue({ sequence: 1, type: "draw" });
+  assert.deepEqual(durations, [123]);
+});
