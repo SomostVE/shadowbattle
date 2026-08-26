@@ -7,6 +7,7 @@ import {
   normalizeWorldsBeyondTurnCombatReadiness
 } from "./svwb/combat-readiness.js";
 import { resolveWorldsBeyondEventReaction } from "./svwb/event-reactions.js";
+import { gainWorldsBeyondShadows } from "./svwb/effect-resolver.js";
 import { applyWorldsBeyondEvolutionAction, listWorldsBeyondEvolutionActions } from "./svwb/evolution-actions.js";
 import { runWorldsBeyondTurnEnd, runWorldsBeyondTurnStart } from "./svwb/lifecycle.js";
 import { resolveWorldsBeyondEffectCommand } from "./svwb/v6/effect-commands.js";
@@ -59,6 +60,7 @@ export const WORLDS_BEYOND_RULESET = Object.freeze({
     normalizeWorldsBeyondTurnCombatReadiness(player);
   },
   afterEvent(session, event) {
+    accountCemeteryOverflowShadow(session, event);
     if (event.type === BATTLE_EVENT.FOLLOWER_ENTER) normalizeWorldsBeyondCombatEvent(session, event);
     resolveWorldsBeyondEventReaction(session, event);
   },
@@ -85,3 +87,11 @@ export const WORLDS_BEYOND_RULESET = Object.freeze({
     ];
   }
 });
+
+function accountCemeteryOverflowShadow(session, event) {
+  let owner = null;
+  if (event.type === BATTLE_EVENT.CARD_BURNED) owner = event.actor;
+  if (event.type === BATTLE_EVENT.CARD_RETURNED && event.payload?.destination === "cemetery") owner = event.payload?.owner;
+  if (owner !== 0 && owner !== 1) return;
+  gainWorldsBeyondShadows(session, owner, 1);
+}
