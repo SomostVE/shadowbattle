@@ -110,10 +110,10 @@ export function shouldUseIntermediateBonusPp(session, playerIndex, { strategy = 
   if (!unlocks.length) return false;
 
   const normalizedStrategy = normalizeStrategy(strategy);
-  const bestUnlock = Math.max(...unlocks.map(card => visibleCardValue(card)));
+  const bestUnlock = Math.max(...unlocks.map(card => handCardValue(card)));
   const currentActions = evaluateIntermediateActions(session, playerIndex, { strategy: normalizedStrategy });
   const currentBest = currentActions[0]?.score ?? 0;
-  return bestUnlock * (0.8 + normalizedStrategy.faceBias * 0.2) > currentBest + 0.35;
+  return bestUnlock * (0.72 + normalizedStrategy.faceBias * 0.18) > currentBest + 0.35;
 }
 
 function createDecisionContext(view, playerIndex, strategy) {
@@ -199,6 +199,7 @@ function scorePlay(action, context) {
   }
 
   score += targetAdjustment(action, context, reasons);
+  score += handSacrificeAdjustment(action.discardInstanceId, context, reasons, "discard");
   if (context.player.handCount >= 8) {
     score += 0.45;
     reasons.push("hand-space");
@@ -210,6 +211,7 @@ function scoreEngage(action, context) {
   const reasons = ["engage"];
   let score = 2 + Math.max(0, Number(action.cost ?? 0)) * 0.35;
   score += targetAdjustment(action, context, reasons);
+  score += handSacrificeAdjustment(action.discardInstanceId, context, reasons, "discard");
   return { score, reasons };
 }
 
@@ -219,19 +221,32 @@ function scoreEvolution(action, context, superEvolution) {
   const resources = context.player.resources ?? {};
   const points = Number(superEvolution ? resources.superEvolutionPoints : resources.evolutionPoints) || 0;
   const reasons = [superEvolution ? "super-evolve" : "evolve"];
-  let score = (superEvolution ? 4 : 3.25) + visibleCardValue(follower) * 0.38;
+  const enemyPresent = context.enemyBoard.size > 0;
+  const hasEffectTarget = Boolean(action.targetInstanceId);
+  let score = (superEvolution ? 2.35 : 2.05) + visibleCardValue(follower) * 0.28;
+
+  if (enemyPresent) {
+    score += superEvolution ? 0.8 : 0.65;
+    reasons.push("board-pressure");
+  } else if (!hasEffectTarget) {
+    score -= superEvolution ? 1.8 : 1.15;
+    reasons.push("no-immediate-pressure");
+  }
+
   if (points <= 1) {
-    score -= superEvolution ? 0.9 : 0.55;
+    score -= superEvolution ? 1.45 : 0.85;
     reasons.push("last-evolution-point");
   }
-  score += targetAdjustment(action, context, reasons) * 1.15;
+  score += targetAdjustment(action, context, reasons) * 1.2;
   return { score, reasons };
 }
 
 function scoreFuse(action, context) {
-  const materialCount = action.materialInstanceIds?.length ?? 0;
+  const materialIds = action.materialInstanceIds ?? [];
   const reasons = ["fuse"];
-  let score = 0.7 - materialCount * 0.28;
+  const materialCost = materialIds.reduce((sum, instanceId) => sum + handCardValue(context.ownHand.get(instanceId)), 0);
+  let score = 0.9 - materialCost * 0.22;
+
   if (action.projectedTransform) {
     score += 5.4;
     reasons.push("transform");
@@ -240,7 +255,8 @@ function scoreFuse(action, context) {
     score += 1.5;
     reasons.push("hand-space");
   }
-  if (materialCount === 1) score += 0.25;
+  if (materialIds.length === 1) score += 0.25;
+  if (materialCost > 0) reasons.push("material-cost");
   return { score, reasons };
 }
 
@@ -250,20 +266,63 @@ function targetAdjustment(action, context, reasons) {
   const allied = context.ownBoard.get(id);
   const enemy = context.enemyBoard.get(id);
   const kind = normalize(action.targetKind);
+  const amount = Math.max(0, Number(action.targetAmount ?? 0));
 
   if (enemy) {
-    const value = visibleCardValue(enemy);
     reasons.push("enemy-target");
-    if (kind === "damage" || kind === "destroy") return value * (0.45 + context.strategy.tradeBias * 0.55);
-    return value * 0.25;
+    if (kind === "damage") return enemyDamageTargetValue(enemy, amount, context.strategy, reasons);
+    if (kind === "destroy") {
+      reasons.push("removes-follower");
+      return 2 + visibleCardValue(enemy) * (0.45 + context.strategy.tradeBias * 0.5);
+    }
+    return visibleCardValue(enemy) * 0.25;
   }
   if (allied) {
-    const value = visibleCardValue(allied);
     reasons.push("allied-target");
-    if (kind === "damage" || kind === "destroy") return -value * 0.42;
-    return value * 0.32;
+    if (kind === "damage") return alliedDamageTargetValue(allied, amount, reasons);
+    if (kind === "destroy") return -visibleCardValue(allied) * 0.7;
+    return visibleCardValue(allied) * 0.32;
   }
   return 0;
+}
+
+function enemyDamageTargetValue(target, amount, strategy, reasons) {
+  const value = visibleCardValue(target);
+  if (!(amount > 0)) return value * (0.35 + strategy.tradeBias * 0.45);
+  const defense = Math.max(0, Number(target.defense ?? 0));
+  const effectiveDamage = Math.min(amount, defense);
+  let score = effectiveDamage * (0.32 + strategy.tradeBias * 0.3);
+  if (amount >= defense && defense > 0) {
+    score += 2 + value * (0.42 + strategy.tradeBias * 0.4);
+    reasons.push("removes-follower");
+  } else {
+    score += value * 0.1;
+    reasons.push("softens-follower");
+  }
+  return score;
+}
+
+function alliedDamageTargetValue(target, amount, reasons) {
+  const value = visibleCardValue(target);
+  if (!(amount > 0)) return -value * 0.42;
+  const defense = Math.max(0, Number(target.defense ?? 0));
+  const effectiveDamage = Math.min(amount, defense);
+  let penalty = effectiveDamage * 0.55 + value * 0.18;
+  if (amount >= defense && defense > 0) {
+    penalty += value * 0.65 + 1.2;
+    reasons.push("self-lethal");
+  } else {
+    reasons.push("self-damage");
+  }
+  return -penalty;
+}
+
+function handSacrificeAdjustment(instanceId, context, reasons, reason) {
+  if (!instanceId) return 0;
+  const card = context.ownHand.get(instanceId);
+  if (!card) return -1.2;
+  reasons.push(reason);
+  return -handCardValue(card) * 0.28;
 }
 
 function normalizeStrategy(strategy) {
@@ -274,6 +333,11 @@ function normalizeStrategy(strategy) {
     tradeBias: clamp01(strategy?.tradeBias ?? DEFAULT_STRATEGY.tradeBias),
     mulliganMaxCost: Math.max(0, Number(strategy?.mulliganMaxCost ?? DEFAULT_STRATEGY.mulliganMaxCost) || 0)
   };
+}
+
+function handCardValue(card) {
+  if (!card) return 0;
+  return 0.8 + visibleCardValue(card) + Math.max(0, Number(card.cost ?? 0)) * 0.55;
 }
 
 function visibleCardValue(card) {
@@ -295,6 +359,7 @@ function actionKey(action, index) {
     action?.cardInstanceId ?? action?.attackerInstanceId ?? action?.followerInstanceId ?? action?.amuletInstanceId ?? action?.targetInstanceId ?? "",
     action?.playModeKey ?? "",
     action?.targetInstanceId ?? action?.target ?? "",
+    action?.discardInstanceId ?? "",
     (action?.materialInstanceIds ?? []).join(","),
     index
   ].join(":");
