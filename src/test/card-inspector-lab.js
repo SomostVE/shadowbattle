@@ -63,7 +63,11 @@ function inspect(node) {
 function renderCard(card, node) {
   ui.empty.hidden = true;
   ui.content.hidden = false;
-  ui.image.src = card.image ?? "";
+
+  const evolved = node.classList.contains("is-evolved") || node.classList.contains("is-super-evolved");
+  const image = evolved ? (card.evolved?.image ?? card.image) : card.image;
+  if (image) ui.image.src = image;
+  else ui.image.removeAttribute("src");
   ui.image.alt = card.name ?? "Card";
   ui.name.textContent = card.name ?? "Unknown card";
 
@@ -79,11 +83,15 @@ function renderCard(card, node) {
   ui.state.textContent = currentState(node, card);
 
   const keywords = Array.isArray(card.keywords) ? card.keywords.filter(Boolean) : [];
-  ui.keywords.replaceChildren(...keywords.map(keyword => keywordChip(keyword)));
+  ui.keywords.replaceChildren();
+  const keywordLabel = document.createElement("span");
+  keywordLabel.className = "sb-card-inspector-none";
+  keywordLabel.textContent = "Codex index (may be conditional)";
+  ui.keywords.append(keywordLabel, ...keywords.map(keyword => keywordChip(keyword)));
   if (!keywords.length) {
     const none = document.createElement("span");
     none.className = "sb-card-inspector-none";
-    none.textContent = "No keywords";
+    none.textContent = "None";
     ui.keywords.append(none);
   }
 
