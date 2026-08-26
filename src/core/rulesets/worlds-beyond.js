@@ -7,9 +7,12 @@ import {
   normalizeWorldsBeyondTurnCombatReadiness
 } from "./svwb/combat-readiness.js";
 import { resolveWorldsBeyondEventReaction } from "./svwb/event-reactions.js";
+import { applyWorldsBeyondEvolutionAction, listWorldsBeyondEvolutionActions } from "./svwb/evolution-actions.js";
 import { runWorldsBeyondTurnEnd, runWorldsBeyondTurnStart } from "./svwb/lifecycle.js";
 import { resolveWorldsBeyondEffectCommand } from "./svwb/v6/effect-commands.js";
 import { SHADOWBATTLE_V6_ENGINE_PROFILE } from "./svwb/v6/engine-profile.js";
+
+const EVOLUTION_ACTIONS = new Set(["evolve", "super-evolve"]);
 
 export const WORLDS_BEYOND_RULESET = Object.freeze({
   id: "svwb-v6-alpha",
@@ -70,11 +73,14 @@ export const WORLDS_BEYOND_RULESET = Object.freeze({
   },
   applyAction(session, action) {
     if (action?.type === "attack") return applyWorldsBeyondCombatAction(session, action);
+    if (EVOLUTION_ACTIONS.has(action?.type)) return applyWorldsBeyondEvolutionAction(session, action);
     return applyWorldsBeyondAction(session, action);
   },
   listLegalActions(session, playerIndex) {
+    const utility = listWorldsBeyondActions(session, playerIndex).filter(action => !EVOLUTION_ACTIONS.has(action.type));
     return [
-      ...listWorldsBeyondActions(session, playerIndex),
+      ...utility,
+      ...listWorldsBeyondEvolutionActions(session, playerIndex),
       ...listWorldsBeyondCombatActions(session, playerIndex)
     ];
   }
