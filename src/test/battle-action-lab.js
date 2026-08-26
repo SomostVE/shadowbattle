@@ -1,3 +1,4 @@
+import { createIntermediateController } from "../ai/intermediate-controller.js";
 import { loadReferenceDecks } from "../ai/reference-decks.js";
 import { GAME_IDS } from "../core/game-catalog.js";
 import { GAME_PHASE, GameSession } from "../core/game-session.js";
@@ -48,6 +49,7 @@ let selectedFuseMaterials = new Set();
 let cpuBusy = false;
 let dataReady = false;
 let queue = createQueue();
+let cpuController = null;
 
 claimControls();
 initialize();
@@ -111,6 +113,10 @@ async function startMatch() {
   const cpuDeck = decks.find(deck => deck.id === ui.cpuDeck.value);
   if (!humanDeck || !cpuDeck) return;
 
+  cpuController = createIntermediateController({
+    seed: `${ui.seed.value || "shadowbattle-action-lab"}:cpu:1`,
+    strategy: cpuDeck.strategy
+  });
   eventCursor = 0;
   mulliganSelection = new Set();
   clearSelections();
@@ -127,9 +133,7 @@ async function startMatch() {
     ]
   });
   session.start();
-  const threshold = Number(cpuDeck.strategy?.mulliganMaxCost ?? 3);
-  const cpuReplace = session.players[1].hand.filter(item => Number(item.card?.cost ?? 0) > threshold).map(item => item.instanceId);
-  session.submitMulligan(1, cpuReplace);
+  session.submitMulligan(1, cpuController.chooseMulligan(session, 1));
   render();
   await consumeEvents();
 }
@@ -337,15 +341,15 @@ async function runCpuTurnIfNeeded() {
   render();
   try {
     for (let step = 0; step < 24 && session.phase === GAME_PHASE.MAIN && session.activePlayer === 1; step += 1) {
-      const actions = legalActions(1);
-      const action = chooseCpuAction(actions);
-      if (!action && shouldCpuUseBonusPp()) {
+      if (cpuController?.shouldUseBonusPp(session, 1)) {
         session.useBonusPp(1);
         await consumeEvents();
         render();
         await pause(120);
         continue;
       }
+      const decision = cpuController?.chooseAction(session, 1) ?? null;
+      const action = decision?.action ?? null;
       if (!action) break;
       session.dispatch(action);
       await consumeEvents();
@@ -361,76 +365,6 @@ async function runCpuTurnIfNeeded() {
     cpuBusy = false;
     render();
   }
-}
-
-function chooseCpuAction(actions) {
-  const fuse = actions
-    .filter(action => action.type === "fuse")
-    .sort((a, b) => Number(Boolean(b.projectedTransform)) - Number(Boolean(a.projectedTransform)) || (b.materialInstanceIds?.length ?? 0) - (a.materialInstanceIds?.length ?? 0))[0];
-  if (fuse?.projectedTransform) return fuse;
-
-  const play = actions
-    .filter(action => action.type === "play-card")
-    .sort((a, b) => b.cost - a.cost || modePriority(b) - modePriority(a) || playTargetValue(1, b) - playTargetValue(1, a))[0];
-  if (play) return play;
-  if (fuse && session.players[1].hand.length >= 7) return fuse;
-
-  const engage = actions
-    .filter(action => action.type === "engage")
-    .sort((a, b) => b.cost - a.cost || targetValue(0, b.targetInstanceId) - targetValue(0, a.targetInstanceId))[0];
-  if (engage) return engage;
-  const superEvolution = actions.filter(action => action.type === "super-evolve");
-  if (superEvolution.length) return bestEvolution(superEvolution, 1);
-  const evolution = actions.filter(action => action.type === "evolve");
-  if (evolution.length) return bestEvolution(evolution, 1);
-  const attacks = actions.filter(action => action.type === "attack");
-  const lethal = attacks.find(action => action.target === "leader" && attackValue(1, action.attackerInstanceId) >= session.players[0].hp);
-  if (lethal) return lethal;
-  const wardOrTrade = attacks.filter(action => action.targetInstanceId).sort((a, b) => targetValue(0, b.targetInstanceId) - targetValue(0, a.targetInstanceId))[0];
-  if (wardOrTrade) return wardOrTrade;
-  return attacks.find(action => action.target === "leader") ?? null;
-}
-
-function modePriority(action) {
-  if (action.playMode?.enhanced) return 4;
-  if (action.playMode?.crystallized) return 3;
-  if (action.playMode?.accelerated) return 2;
-  if (action.playMode?.kind === "mode") return 1;
-  return 0;
-}
-
-function bestEvolution(actions, playerIndex) {
-  const enemyIndex = 1 - playerIndex;
-  return [...actions].sort((a, b) =>
-    attackValue(playerIndex, b.followerInstanceId) - attackValue(playerIndex, a.followerInstanceId)
-    || targetValue(enemyIndex, b.targetInstanceId) - targetValue(enemyIndex, a.targetInstanceId)
-  )[0] ?? null;
-}
-
-function shouldCpuUseBonusPp() {
-  const player = session.players[1];
-  if (!player.resources.bonusPpAvailable) return false;
-  const currentPp = Number(player.resources.pp ?? 0);
-  return player.hand.some(item => Number(item.card?.cost ?? 0) === currentPp + 1);
-}
-
-function attackValue(playerIndex, instanceId) {
-  return Number(session.findBoardCard(playerIndex, instanceId)?.attack ?? 0);
-}
-
-function playTargetValue(playerIndex, action) {
-  if (!action?.targetInstanceId) return 0;
-  if (session.findBoardCard(playerIndex, action.targetInstanceId)) {
-    const value = targetValue(playerIndex, action.targetInstanceId);
-    return action.targetKind === "damage" ? -value : value;
-  }
-  return targetValue(1 - playerIndex, action.targetInstanceId);
-}
-
-function targetValue(playerIndex, instanceId) {
-  if (!instanceId) return 0;
-  const target = session.findBoardCard(playerIndex, instanceId);
-  return Number(target?.attack ?? 0) * 2 + Number(target?.defense ?? 0);
 }
 
 function legalActions(playerIndex) {
@@ -478,7 +412,7 @@ function render() {
     ui.phaseLabel.textContent = `${active?.name ?? "Player"}'s turn`;
     ui.turnLabel.textContent = `${snapshot.activePlayer === 0 ? "YOUR" : "CPU"} TURN · ${active?.personalTurn ?? 0}`;
     if (cpuBusy || snapshot.activePlayer === 1) {
-      ui.help.textContent = "CPU is executing legal GameSession actions. The full V5 planner will replace this temporary policy.";
+      ui.help.textContent = "CPU is executing the V6 Intermediate controller over the legal GameSession action graph.";
       setStatus("CPU resolving actions", "ready");
     } else if (selectedFuseTarget) {
       ui.help.textContent = `Choose highlighted Fuse materials, then confirm. ${selectedFuseMaterials.size} selected.`;

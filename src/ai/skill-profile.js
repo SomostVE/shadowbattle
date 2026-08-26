@@ -7,7 +7,8 @@ export const AI_SKILL_PROFILES = Object.freeze({
     nearBestWindow: 0.8,
     temperature: 0.55,
     hiddenInformationSamples: 6,
-    explanationLimit: 4
+    explanationLimit: 4,
+    actionFloor: 0.35
   })
 });
 
