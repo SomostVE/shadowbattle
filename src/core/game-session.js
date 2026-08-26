@@ -28,6 +28,7 @@ export class GameSession {
     this.rng = createRng(this.seed);
     this.requestedFirstPlayer = firstPlayer;
     this.players = players.map((player, index) => makePlayerShell(player, index));
+    this.deckManifests = players.map(player => createDeckManifest(player?.deck));
     this.cardCatalogById = new Map();
     this.cardCatalogByName = new Map();
     this.registerCardDefinitions(cardCatalog);
@@ -88,6 +89,11 @@ export class GameSession {
   listLegalActions(playerIndex = this.activePlayer) {
     if (typeof this.ruleset.listLegalActions !== "function") return [];
     return this.ruleset.listLegalActions(this, playerIndex);
+  }
+
+  getDeckManifest(playerIndex) {
+    this.getPlayer(playerIndex);
+    return this.deckManifests[playerIndex].map(row => ({ ...row }));
   }
 
   submitMulligan(playerIndex, cardInstanceIds = []) {
@@ -344,6 +350,29 @@ export class GameSession {
 }
 
 export { ACTION as GAME_ACTION, PHASE as GAME_PHASE };
+
+function createDeckManifest(deck) {
+  const rows = new Map();
+  for (const value of Array.isArray(deck) ? deck : []) {
+    const card = typeof value === "object" && value !== null ? value : { id: value };
+    const cardId = card.id ?? card.cardId ?? value;
+    const key = String(cardId);
+    const existing = rows.get(key);
+    if (existing) {
+      existing.qty += 1;
+      continue;
+    }
+    rows.set(key, {
+      cardId,
+      name: card.name ?? null,
+      className: card.class ?? card.className ?? null,
+      type: card.type ?? null,
+      cost: Math.max(0, Number(card.cost ?? 0) || 0),
+      qty: 1
+    });
+  }
+  return Object.freeze([...rows.values()].map(row => Object.freeze({ ...row })));
+}
 
 function makePlayerShell(input, index) {
   const deck = Array.isArray(input?.deck) ? input.deck : [];
