@@ -8,12 +8,14 @@ import { baseText, section } from "./v5/battle-engine-v5-text.js";
 import { targetEffectSpec } from "./v5/battle-engine-v5-targeting.js";
 import {
   compileWorldsBeyondPostTargetCommands,
-  compileWorldsBeyondPreTargetCommands
+  compileWorldsBeyondPreTargetCommands,
+  compileWorldsBeyondTrailingFilteredDrawCommands
 } from "./v6/effect-commands.js";
 
 const SUPPORTED_TARGET_KINDS = new Set(["damage", "destroy", "banish", "return", "set-defense"]);
 const HAND_DISCARD_SELECTION = /\bselect (?:a|an|one) (?:[a-z]+craft )?card in your hand and discard it\b/i;
 const DAMAGE_NUMBER = "(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\\d+)";
+const TRAILING_FILTERED_DRAW = /\bdraw\s+(?:a|an|one)\s+[a-z]+craft\s+follower\s*\.?\s*$/i;
 
 export function getWorldsBeyondTargetRequirement(source, trigger = "play", mode = null, player = null) {
   if (!source?.card) return null;
@@ -79,7 +81,7 @@ export function getWorldsBeyondTargetOptions(session, { trigger = "play", player
   const player = session.getPlayer(playerIndex);
   const requirement = getWorldsBeyondTargetRequirement(source, trigger, mode, player);
   if (!requirement) return [];
-  return targetableEnemyFollowers(session.getPlayer(1 - playerIndex).board);
+  return targetOptionsForSpec(session, playerIndex, requirement);
 }
 
 export function resolveWorldsBeyondTrigger(session, { trigger, playerIndex, source, targetInstanceId = null, discardInstanceId = null, mode = null }) {
@@ -109,7 +111,8 @@ export function resolveWorldsBeyondTrigger(session, { trigger, playerIndex, sour
 
   const text = conditional.text;
   const targetSpec = worldsBeyondTargetEffectSpec(text, source);
-  const targetOptions = targetSpec ? targetableEnemyFollowers(session.getPlayer(1 - playerIndex).board) : [];
+  const targetOptions = targetSpec ? targetOptionsForSpec(session, playerIndex, targetSpec) : [];
+  const targetPlayer = targetSpec ? targetPlayerForSpec(playerIndex, targetSpec) : null;
   const discardRequired = HAND_DISCARD_SELECTION.test(text);
   const discardOptions = discardRequired ? player.hand.filter(item => item.instanceId !== source.instanceId) : [];
   let target = null;
@@ -144,6 +147,8 @@ export function resolveWorldsBeyondTrigger(session, { trigger, playerIndex, sour
       resolved: !unresolved,
       target: target ? session.cardView(target) : null,
       targetKind: targetSpec?.kind ?? null,
+      targetSide: targetSpec?.targetSide ?? "enemy",
+      targetPlayer,
       targetRequired: Boolean(targetSpec && targetOptions.length),
       targetAvailable: targetOptions.length > 0,
       discard: discard ? session.cardView(discard) : null,
@@ -208,14 +213,28 @@ function naturalLifecycle(text, pattern) {
 
 function worldsBeyondTargetEffectSpec(text, source) {
   const legacy = targetEffectSpec({ mode: { text }, instance: source });
-  if (legacy) return legacy;
+  if (legacy) return { ...legacy, targetSide: "enemy" };
 
-  let match = String(text ?? "").match(/select an enemy follower(?: on the field)? and set its defense to\s+(\d+)/i);
-  if (match) return { kind: "set-defense", amount: Number(match[1]) || 0, selectedGrammar: true };
+  let match = String(text ?? "").match(/select an allied follower(?: on the field)? and deal it\s+(\d+)\s+damage/i);
+  if (match) return { kind: "damage", amount: Number(match[1]) || 0, selectedGrammar: true, targetSide: "allied" };
+
+  match = String(text ?? "").match(/select an enemy follower(?: on the field)? and set its defense to\s+(\d+)/i);
+  if (match) return { kind: "set-defense", amount: Number(match[1]) || 0, selectedGrammar: true, targetSide: "enemy" };
 
   match = String(text ?? "").match(/set (?:an|a|the) enemy follower(?:'s|’s) defense to\s+(\d+)/i);
-  if (match) return { kind: "set-defense", amount: Number(match[1]) || 0 };
+  if (match) return { kind: "set-defense", amount: Number(match[1]) || 0, targetSide: "enemy" };
   return null;
+}
+
+function targetOptionsForSpec(session, playerIndex, targetSpec) {
+  if (targetSpec?.targetSide === "allied") {
+    return session.getPlayer(playerIndex).board.filter(unit => cardType(unit) === "follower");
+  }
+  return targetableEnemyFollowers(session.getPlayer(1 - playerIndex).board);
+}
+
+function targetPlayerForSpec(playerIndex, targetSpec) {
+  return targetSpec?.targetSide === "allied" ? playerIndex : 1 - playerIndex;
 }
 
 function hasUnsupportedChoiceOrCondition(text, { targetSpec = null, discardRequired = false } = {}) {
@@ -223,8 +242,8 @@ function hasUnsupportedChoiceOrCondition(text, { targetSpec = null, discardRequi
   if (discardRequired) inspect = inspect.replace(/\bselect (?:a|an|one) (?:[a-z]+craft )?card in your hand and discard it\.?/gi, "");
   if (targetSpec) {
     inspect = inspect
-      .replace(/\bselect an enemy follower(?: on the field)? and\s*/gi, "")
-      .replace(/\bdeal\s+\d+\s+damage to (?:an|a|the) enemy follower\b/gi, "")
+      .replace(/\bselect (?:an )?(?:enemy|allied) follower(?: on the field)? and\s*/gi, "")
+      .replace(/\bdeal(?: it)?\s+\d+\s+damage(?: to (?:an|a|the) enemy follower)?\b/gi, "")
       .replace(/\bdestroy (?:an|a|the) enemy follower\b/gi, "")
       .replace(/\bbanish (?:an|a|the) enemy follower\b/gi, "")
       .replace(/\breturn (?:an|a|the) enemy follower to (?:its owner'?s|their) hand\b/gi, "")
@@ -243,6 +262,7 @@ function unsupportedResidualText(text, { targetSpec = null, discardRequired = fa
   const patterns = [
     /\bGain Crest\s*:\s*[^.;\n]+/gi,
     /\bdraw\s+(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+cards?\b/gi,
+    new RegExp(TRAILING_FILTERED_DRAW.source, "gi"),
     /\b(?:restore|recover)\s+(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+defense to your leader\b/gi,
     /\bdeal\s+(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+damage to (?:the )?enemy leader\b/gi,
     new RegExp(`\\bdeal\\s+${DAMAGE_NUMBER}\\s+damage to (?:all|each) followers? with the highest defense\\b`, "gi"),
@@ -265,6 +285,7 @@ function unsupportedResidualText(text, { targetSpec = null, discardRequired = fa
 function stripSupportedTargetText(text) {
   let inspect = String(text ?? "");
   const patterns = [
+    /\bselect an allied follower(?: on the field)? and deal it \d+ damage\b/gi,
     /\bselect an enemy follower(?: on the field)? and deal it \d+ damage\b/gi,
     /\bselect an enemy follower(?: on the field)? and destroy it\b/gi,
     /\bselect an enemy follower(?: on the field)? and banish it\b/gi,
@@ -282,6 +303,7 @@ function stripSupportedTargetText(text) {
 
 function executeSimpleEffects(session, { text, playerIndex, source, targetSpec = null, target = null, discard = null, notes = [] }) {
   const enemyIndex = 1 - playerIndex;
+  const targetPlayer = targetSpec ? targetPlayerForSpec(playerIndex, targetSpec) : enemyIndex;
   let applied = false;
 
   const preApplied = commandsApplied(resolveEffectCommands(
@@ -312,17 +334,17 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
 
   if (targetSpec && target) {
     if (targetSpec.kind === "damage") {
-      const damage = session.damageFollower(enemyIndex, target.instanceId, targetSpec.amount, { actor: playerIndex, source, reason: "ability", resolveDeath: false });
-      if (Number(target.defense ?? 0) <= 0) destroyWorldsBeyondFollower(session, enemyIndex, target.instanceId, { actor: playerIndex, source, reason: "ability", byAbility: true });
+      const damage = session.damageFollower(targetPlayer, target.instanceId, targetSpec.amount, { actor: playerIndex, source, reason: "ability", resolveDeath: false });
+      if (Number(target.defense ?? 0) <= 0) destroyWorldsBeyondFollower(session, targetPlayer, target.instanceId, { actor: playerIndex, source, reason: "ability", byAbility: true });
       applied = damage > 0 || applied;
     } else if (targetSpec.kind === "destroy") {
-      const destroyed = Boolean(destroyWorldsBeyondFollower(session, enemyIndex, target.instanceId, { actor: playerIndex, source, reason: "ability", byAbility: true }));
+      const destroyed = Boolean(destroyWorldsBeyondFollower(session, targetPlayer, target.instanceId, { actor: playerIndex, source, reason: "ability", byAbility: true }));
       applied = destroyed || applied;
     } else if (targetSpec.kind === "banish") {
-      const banished = Boolean(banishBoardCard(session, enemyIndex, target.instanceId, { actor: playerIndex, source, reason: "ability" }));
+      const banished = Boolean(banishBoardCard(session, targetPlayer, target.instanceId, { actor: playerIndex, source, reason: "ability" }));
       applied = banished || applied;
     } else if (targetSpec.kind === "return") {
-      const returned = Boolean(returnBoardCardToHand(session, enemyIndex, target.instanceId, { actor: playerIndex, source, reason: "ability" }));
+      const returned = Boolean(returnBoardCardToHand(session, targetPlayer, target.instanceId, { actor: playerIndex, source, reason: "ability" }));
       applied = returned || applied;
     } else if (targetSpec.kind === "set-defense") {
       const before = Number(target.defense ?? target.card?.defense ?? 0);
@@ -340,7 +362,7 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
           source: session.cardView(source)
         }
       });
-      if (amount <= 0) destroyWorldsBeyondFollower(session, enemyIndex, target.instanceId, { actor: playerIndex, source, reason: "ability", byAbility: true });
+      if (amount <= 0) destroyWorldsBeyondFollower(session, targetPlayer, target.instanceId, { actor: playerIndex, source, reason: "ability", byAbility: true });
       applied = true;
     }
   }
@@ -419,6 +441,12 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
     });
     applied = true;
   }
+
+  const trailingApplied = commandsApplied(resolveEffectCommands(
+    session,
+    compileWorldsBeyondTrailingFilteredDrawCommands(text, { playerIndex, source })
+  ));
+  applied = trailingApplied || applied;
 
   return { applied, unresolved: false, text, targetSpec, target, discard, notes };
 }
