@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { BATTLE_EVENT } from "../src/core/battle-events.js";
 import { GAME_IDS } from "../src/core/game-catalog.js";
 import { GameSession } from "../src/core/game-session.js";
+import { hasWorldsBeyondKeyword } from "../src/core/rulesets/svwb/combat-readiness.js";
 import { gainWorldsBeyondCrest } from "../src/core/rulesets/svwb/crests.js";
 
 function fillerDeck(prefix) {
@@ -73,7 +74,8 @@ test("Devotee of Repose Crest gives a random allied follower -2 attack and Ward"
   game.endTurn(0);
 
   assert.equal(ally.attack, 1);
-  assert.equal(ally.card.keywords.includes("Ward"), true);
+  assert.equal(hasWorldsBeyondKeyword(ally, "Ward"), true);
+  assert.equal(ally.card.keywords.includes("Ward"), false, "temporary Ward must not mutate the canonical Codex definition");
   const enemyAttacks = game.listLegalActions(1).filter(action => action.type === "attack" && action.attackerInstanceId === enemy.instanceId);
   assert.equal(enemyAttacks.some(action => action.target === "leader"), false, "Ward must block leader attacks");
   assert.equal(enemyAttacks.some(action => action.targetInstanceId === ally.instanceId), true);

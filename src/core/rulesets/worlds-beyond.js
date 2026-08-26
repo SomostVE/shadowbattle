@@ -73,7 +73,9 @@ export const WORLDS_BEYOND_RULESET = Object.freeze({
     return applyWorldsBeyondAction(session, action);
   },
   listLegalActions(session, playerIndex) {
-    const nonCombat = listWorldsBeyondActions(session, playerIndex).filter(action => action.type !== "attack");
-    return [...nonCombat, ...listWorldsBeyondCombatActions(session, playerIndex)];
+    return [
+      ...listWorldsBeyondActions(session, playerIndex),
+      ...listWorldsBeyondCombatActions(session, playerIndex)
+    ];
   }
 });
