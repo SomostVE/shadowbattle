@@ -58,7 +58,11 @@ export class BattleAnimationQueue {
   }
 
   enqueueMany(events, context = {}) {
-    for (const event of events) this.enqueue(event, context);
+    const batch = [...events];
+    if (!batch.length) return this.tail;
+    this.tail = this.tail.then(async () => {
+      for (const event of batch) await this.play(event, context);
+    });
     return this.tail;
   }
 
