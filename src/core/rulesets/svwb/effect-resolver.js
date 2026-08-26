@@ -223,12 +223,18 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
 
   for (const match of text.matchAll(/\bdeal\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+damage to (?:all|each) enemy followers?\b/gi)) {
     const amount = numberWord(match[1]);
-    const targets = [...session.players[enemyIndex].board].filter(unit => cardType(unit) === "follower");
-    for (const unit of targets) {
-      session.damageFollower(enemyIndex, unit.instanceId, amount, { actor: playerIndex, source, reason: "ability", resolveDeath: false });
-      if (Number(unit.defense ?? 0) <= 0) destroyWorldsBeyondFollower(session, enemyIndex, unit.instanceId, { actor: playerIndex, source, reason: "ability", byAbility: true });
-    }
-    applied = targets.length > 0 || applied;
+    const targets = session.players[enemyIndex].board
+      .filter(unit => cardType(unit) === "follower")
+      .map(unit => ({ owner: enemyIndex, unit }));
+    applied = resolveFollowerAreaDamage(session, targets, amount, { actor: playerIndex, source }) || applied;
+  }
+
+  for (const match of text.matchAll(/\bdeal\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+damage to (?:all|each) followers?\b/gi)) {
+    const amount = numberWord(match[1]);
+    const targets = session.players.flatMap((player, owner) => player.board
+      .filter(unit => cardType(unit) === "follower")
+      .map(unit => ({ owner, unit })));
+    applied = resolveFollowerAreaDamage(session, targets, amount, { actor: playerIndex, source }) || applied;
   }
 
   for (const match of text.matchAll(/\bdeal\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+damage to (?:a random|random) enemy follower\b/gi)) {
@@ -263,6 +269,22 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
   }
 
   return { applied, unresolved: false, text, targetSpec, target, notes };
+}
+
+function resolveFollowerAreaDamage(session, targets, amount, { actor, source } = {}) {
+  if (!targets.length) return false;
+
+  for (const { owner, unit } of targets) {
+    if (!session.findBoardCard(owner, unit.instanceId)) continue;
+    session.damageFollower(owner, unit.instanceId, amount, { actor, source, reason: "ability", resolveDeath: false });
+  }
+
+  for (const { owner, unit } of targets) {
+    const live = session.findBoardCard(owner, unit.instanceId);
+    if (!live || Number(live.defense ?? 0) > 0) continue;
+    destroyWorldsBeyondFollower(session, owner, live.instanceId, { actor, source, reason: "ability", byAbility: true });
+  }
+  return true;
 }
 
 function commandsApplied(results) {
