@@ -12,7 +12,16 @@ function card(instanceId, { cost = 0, attack = 0, defense = 0, type = "Follower"
   return { instanceId, cardId: instanceId, name: instanceId, cost, attack, defense, type, evolved: false, superEvolved: false };
 }
 
-function player(index, { hp = 20, pp = 5, hand = [], board = [], bonusPpAvailable = false, mulliganDone = false } = {}) {
+function player(index, {
+  hp = 20,
+  pp = 5,
+  hand = [],
+  board = [],
+  bonusPpAvailable = false,
+  mulliganDone = false,
+  evolutionPoints = 2,
+  superEvolutionPoints = 2
+} = {}) {
   return {
     index,
     hp,
@@ -23,8 +32,8 @@ function player(index, { hp = 20, pp = 5, hand = [], board = [], bonusPpAvailabl
     resources: {
       pp,
       maxPp: pp,
-      evolutionPoints: 2,
-      superEvolutionPoints: 2,
+      evolutionPoints,
+      superEvolutionPoints,
       bonusPpAvailable
     },
     mulliganDone
@@ -131,6 +140,98 @@ test("Bonus PP is recommended only when it unlocks a meaningful visible hand pla
     actions: []
   });
   assert.equal(shouldUseIntermediateBonusPp(noUnlock, 1), false);
+});
+
+test("discard variants preserve valuable cards when a cheaper legal discard exists", () => {
+  const source = card("source", { cost: 2, type: "Spell" });
+  const cheap = card("cheap", { cost: 1, attack: 1, defense: 1 });
+  const valuable = card("valuable", { cost: 6, attack: 5, defense: 5 });
+  const target = card("target", { attack: 3, defense: 3 });
+  const game = session({
+    ai: player(1, { hand: [source, cheap, valuable], pp: 5 }),
+    enemy: player(0, { board: [target] }),
+    actions: [
+      { type: "play-card", player: 1, cardInstanceId: "source", cost: 2, effectiveType: "spell", targetInstanceId: "target", targetKind: "destroy", discardInstanceId: "cheap" },
+      { type: "play-card", player: 1, cardInstanceId: "source", cost: 2, effectiveType: "spell", targetInstanceId: "target", targetKind: "destroy", discardInstanceId: "valuable" }
+    ]
+  });
+
+  const ranked = evaluateIntermediateActions(game, 1);
+  assert.equal(ranked[0].action.discardInstanceId, "cheap");
+  assert.ok(ranked[0].reasons.includes("discard"));
+});
+
+test("Fuse prefers the lower-value material when both produce the same transformation", () => {
+  const target = card("fuse-source", { cost: 2, type: "Spell" });
+  const cheap = card("cheap-material", { cost: 1, attack: 1, defense: 1 });
+  const valuable = card("valuable-material", { cost: 6, attack: 5, defense: 5 });
+  const game = session({
+    ai: player(1, { hand: [target, cheap, valuable] }),
+    enemy: player(0),
+    actions: [
+      { type: "fuse", player: 1, targetInstanceId: "fuse-source", materialInstanceIds: ["cheap-material"], projectedTransform: "Artifact Ω" },
+      { type: "fuse", player: 1, targetInstanceId: "fuse-source", materialInstanceIds: ["valuable-material"], projectedTransform: "Artifact Ω" }
+    ]
+  });
+
+  const ranked = evaluateIntermediateActions(game, 1);
+  assert.deepEqual(ranked[0].action.materialInstanceIds, ["cheap-material"]);
+  assert.ok(ranked[0].reasons.includes("material-cost"));
+});
+
+test("targeted damage prefers a follower it can remove over a larger follower it only scratches", () => {
+  const spell = card("damage-spell", { cost: 2, type: "Spell" });
+  const killable = card("killable", { attack: 3, defense: 2 });
+  const tank = card("tank", { attack: 5, defense: 5 });
+  const game = session({
+    ai: player(1, { hand: [spell] }),
+    enemy: player(0, { board: [killable, tank] }),
+    actions: [
+      { type: "play-card", player: 1, cardInstanceId: "damage-spell", cost: 2, effectiveType: "spell", targetInstanceId: "killable", targetKind: "damage", targetAmount: 3 },
+      { type: "play-card", player: 1, cardInstanceId: "damage-spell", cost: 2, effectiveType: "spell", targetInstanceId: "tank", targetKind: "damage", targetAmount: 3 }
+    ]
+  });
+
+  const ranked = evaluateIntermediateActions(game, 1, { strategy: { tradeBias: 0.7 } });
+  assert.equal(ranked[0].action.targetInstanceId, "killable");
+  assert.ok(ranked[0].reasons.includes("removes-follower"));
+});
+
+test("allied self-damage avoids killing a follower when a survivable legal target exists", () => {
+  const spell = card("self-damage", { cost: 2, type: "Spell" });
+  const fragile = card("fragile", { attack: 1, defense: 1 });
+  const sturdy = card("sturdy", { attack: 5, defense: 5 });
+  const game = session({
+    ai: player(1, { hand: [spell], board: [fragile, sturdy] }),
+    enemy: player(0),
+    actions: [
+      { type: "play-card", player: 1, cardInstanceId: "self-damage", cost: 2, effectiveType: "spell", targetInstanceId: "fragile", targetKind: "damage", targetAmount: 1 },
+      { type: "play-card", player: 1, cardInstanceId: "self-damage", cost: 2, effectiveType: "spell", targetInstanceId: "sturdy", targetKind: "damage", targetAmount: 1 }
+    ]
+  });
+
+  const ranked = evaluateIntermediateActions(game, 1);
+  assert.equal(ranked[0].action.targetInstanceId, "sturdy");
+  assert.ok(ranked.find(item => item.action.targetInstanceId === "fragile").reasons.includes("self-lethal"));
+});
+
+test("naked Super Evo is conserved when a strong normal development play is available", () => {
+  const follower = card("board-follower", { attack: 4, defense: 4 });
+  const development = card("development", { cost: 4, attack: 4, defense: 4 });
+  const game = session({
+    ai: player(1, { hand: [development], board: [follower], pp: 4, superEvolutionPoints: 1 }),
+    enemy: player(0),
+    actions: [
+      { type: "super-evolve", player: 1, followerInstanceId: "board-follower" },
+      { type: "play-card", player: 1, cardInstanceId: "development", cost: 4, effectiveType: "follower" }
+    ]
+  });
+
+  const ranked = evaluateIntermediateActions(game, 1);
+  assert.equal(ranked[0].action.type, "play-card");
+  const evo = ranked.find(item => item.action.type === "super-evolve");
+  assert.ok(evo.reasons.includes("no-immediate-pressure"));
+  assert.ok(evo.reasons.includes("last-evolution-point"));
 });
 
 test("seeded intermediate controllers make reproducible near-best choices", () => {
