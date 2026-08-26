@@ -93,6 +93,9 @@ export function evaluateWorldsBeyondClassCondition(textValue, player, card, { co
     }
   }
 
+  const repeat = parseRepeatedAction(text);
+  if (repeat) text = expandRepeatedAction(repeat, repeat.count);
+
   text = normalizeResolvedText(text);
   return { text, active: Boolean(text), notes, mechanic };
 }
