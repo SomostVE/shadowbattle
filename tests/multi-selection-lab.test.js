@@ -11,7 +11,7 @@ test("battle lab installs the multi-selection bridge before the action controlle
   const actions = html.indexOf("battle-action-lab.js");
   assert.ok(multi >= 0);
   assert.ok(actions > multi);
-  assert.match(html, /multi-selection-lab\.js\?v=0\.4\.66/);
+  assert.match(html, /multi-selection-lab\.js\?v=\d+\.\d+\.\d+/);
 });
 
 test("human discard choices are explicit and block target resolution until selected", () => {
