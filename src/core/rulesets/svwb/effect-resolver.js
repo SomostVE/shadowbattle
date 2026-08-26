@@ -109,8 +109,8 @@ export function resolveWorldsBeyondTrigger(session, { trigger, playerIndex, sour
   if (!originalText) return { applied: false, unresolved: false, text: "" };
 
   const player = session.getPlayer(playerIndex);
-  const conditional = evaluateWorldsBeyondClassCondition(originalText, player, source.card, { consume: true });
-  if (!conditional.active || !conditional.text) {
+  const preview = evaluateWorldsBeyondClassCondition(originalText, player, source.card);
+  if (!preview.active || !preview.text) {
     session.emit(BATTLE_EVENT.ABILITY_TRIGGER, {
       actor: playerIndex,
       payload: {
@@ -121,14 +121,14 @@ export function resolveWorldsBeyondTrigger(session, { trigger, playerIndex, sour
         resolved: true,
         applied: false,
         conditionInactive: true,
-        conditionNotes: conditional.notes,
-        classMechanic: conditional.mechanic
+        conditionNotes: preview.notes,
+        classMechanic: preview.mechanic
       }
     });
-    return { applied: false, unresolved: false, text: originalText, conditionInactive: true, notes: conditional.notes };
+    return { applied: false, unresolved: false, text: originalText, conditionInactive: true, notes: preview.notes };
   }
 
-  const text = conditional.text;
+  const text = preview.text;
   const targetSpec = worldsBeyondTargetEffectSpec(text, source);
   const targetOptions = targetSpec ? targetOptionsForSpec(session, playerIndex, targetSpec) : [];
   const targetPlayer = targetSpec ? targetPlayerForSpec(playerIndex, targetSpec) : null;
@@ -154,7 +154,15 @@ export function resolveWorldsBeyondTrigger(session, { trigger, playerIndex, sour
   }
 
   const unsupportedTarget = Boolean(targetSpec && !SUPPORTED_TARGET_KINDS.has(targetSpec.kind));
-  const unresolved = targetMissing || invalidTarget || discardMissing || invalidDiscard || unsupportedTarget || hasUnsupportedChoiceOrCondition(text, { targetSpec, discardRequired });
+  const unsupportedChoice = hasUnsupportedChoiceOrCondition(text, { targetSpec, discardRequired });
+  const unsupportedResidual = unsupportedResidualText(text, { targetSpec, discardRequired });
+  const supportBlocked = unsupportedTarget || unsupportedChoice || Boolean(unsupportedResidual);
+  const unresolved = targetMissing || invalidTarget || discardMissing || invalidDiscard || supportBlocked;
+
+  const conditional = unresolved
+    ? preview
+    : evaluateWorldsBeyondClassCondition(originalText, player, source.card, { consume: true });
+  const resolvedText = conditional.text || text;
 
   session.emit(BATTLE_EVENT.ABILITY_TRIGGER, {
     actor: playerIndex,
@@ -162,7 +170,7 @@ export function resolveWorldsBeyondTrigger(session, { trigger, playerIndex, sour
       trigger,
       mode: mode?.kind ?? null,
       card: session.cardView(source),
-      text,
+      text: resolvedText,
       originalText,
       resolved: !unresolved,
       target: target ? session.cardView(target) : null,
@@ -175,13 +183,26 @@ export function resolveWorldsBeyondTrigger(session, { trigger, playerIndex, sour
       discardRequired,
       discardAvailable: discardOptions.length > 0,
       discardSkipped: discardCanSkip && !discard,
+      unsupportedResidual: unsupportedResidual || null,
+      supportBlocked,
       conditionNotes: conditional.notes,
       classMechanic: conditional.mechanic
     }
   });
 
-  if (unresolved) return { applied: false, unresolved: true, text, targetSpec, target, discard, notes: conditional.notes };
-  return executeSimpleEffects(session, { text, playerIndex, source, targetSpec, target, discard, notes: conditional.notes });
+  if (unresolved) {
+    return {
+      applied: false,
+      unresolved: true,
+      text: resolvedText,
+      targetSpec,
+      target,
+      discard,
+      residual: unsupportedResidual,
+      notes: conditional.notes
+    };
+  }
+  return executeSimpleEffects(session, { text: resolvedText, playerIndex, source, targetSpec, target, discard, notes: conditional.notes });
 }
 
 export function gainWorldsBeyondShadows(session, playerIndex, amount = 1) {
@@ -293,6 +314,7 @@ function unsupportedResidualText(text, { targetSpec = null, discardRequired = fa
     new RegExp(`\\bdeal\\s+${DAMAGE_NUMBER}\\s+damage to (?:all|each) followers?\\b(?!\\s+with\\b)`, "gi"),
     /\bdeal\s+(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+damage to (?:a random|random) enemy follower\b/gi,
     /\bdestroy (?:a random|random) enemy follower\b/gi,
+    /\bgive this follower\s+(?:Storm|Rush|Ward|Bane|Drain)(?:\s+and\s+(?:Storm|Rush|Ward|Bane|Drain))?\b/gi,
     /\bgive this follower\s+\+\d+\s*\/\s*\+\d+\b/gi
   ];
   if (!targetSpec) patterns.push(new RegExp(SUMMON_COPIES.source, "gi"), new RegExp(SUMMON_SINGLE.source, "gi"));
