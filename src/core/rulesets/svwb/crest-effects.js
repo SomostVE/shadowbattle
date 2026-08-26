@@ -1,5 +1,9 @@
 import { BATTLE_EVENT, BATTLE_VISIBILITY } from "../../battle-events.js";
 import { resolveEffectCommands } from "../../effect-commands.js";
+import {
+  grantWorldsBeyondKeyword,
+  hasWorldsBeyondKeyword
+} from "./combat-readiness.js";
 import { crestView, getWorldsBeyondCrests } from "./crests.js";
 import { destroyWorldsBeyondFollower } from "./effect-resolver.js";
 import {
@@ -53,7 +57,7 @@ export function resolveWorldsBeyondCrestTurnEnd(session, playerIndex, crest) {
       const unit = candidates[Math.floor(session.rng() * candidates.length)] ?? candidates[0];
       const before = currentAttack(unit);
       unit.attack = Math.max(0, before - 2);
-      grantKeyword(unit, "Ward");
+      grantWorldsBeyondKeyword(unit, "Ward");
       session.emit(BATTLE_EVENT.FOLLOWER_BUFF, {
         actor: playerIndex,
         payload: {
@@ -146,7 +150,7 @@ export function resolveWorldsBeyondCrestLastWords(session, playerIndex, crest) {
 
   if (name === "lapis, shining seraph") {
     const unit = summonCrestFollower(session, playerIndex, crest, { grantStorm: true });
-    emitCrestActivation(session, playerIndex, crest, "last-words", { summoned: Boolean(unit), storm: Boolean(unit && hasKeyword(unit, "Storm")), fieldFull: !unit && session.getPlayer(playerIndex).board.length >= session.ruleset.maxBoardSize });
+    emitCrestActivation(session, playerIndex, crest, "last-words", { summoned: Boolean(unit), storm: Boolean(unit && hasWorldsBeyondKeyword(unit, "Storm")), fieldFull: !unit && session.getPlayer(playerIndex).board.length >= session.ruleset.maxBoardSize });
     return true;
   }
 
@@ -202,10 +206,10 @@ function summonCrestFollower(session, playerIndex, crest, { evolve = false, gran
     superEvolved: false,
     attacksRemaining: 1,
     hasAttacked: false,
-    canAttackFollowers: hasKeyword({ card }, "Rush") || hasKeyword({ card }, "Storm"),
-    canAttackLeader: hasKeyword({ card }, "Storm")
+    canAttackFollowers: hasWorldsBeyondKeyword({ card }, "Rush") || hasWorldsBeyondKeyword({ card }, "Storm"),
+    canAttackLeader: hasWorldsBeyondKeyword({ card }, "Storm")
   };
-  if (grantStorm && !hasKeyword(instance, "Storm")) grantKeyword(instance, "Storm");
+  if (grantStorm) grantWorldsBeyondKeyword(instance, "Storm");
   if (grantStorm) {
     instance.canAttackFollowers = true;
     instance.canAttackLeader = true;
@@ -279,32 +283,12 @@ function emitCrestActivation(session, playerIndex, crest, action, detail = {}) {
   });
 }
 
-function grantKeyword(instance, keyword) {
-  const wanted = normalize(keyword);
-  const current = Array.isArray(instance?.card?.keywords) ? instance.card.keywords : [];
-  if (current.some(value => normalize(value) === wanted)) return false;
-  instance.grantedKeywords = [...(instance.grantedKeywords ?? []), keyword];
-  instance.card = { ...instance.card, keywords: [...current, keyword] };
-  return true;
-}
-
 function currentAttack(instance) {
   return Number(instance?.attack ?? (Number(instance?.card?.attack ?? 0) + Number(instance?.attackBonus ?? 0)));
 }
 
 function cardType(instance) {
   return String(instance?.card?.type ?? instance?.type ?? "").trim().toLowerCase();
-}
-
-function hasKeyword(instance, keyword) {
-  const wanted = normalize(keyword);
-  if ((instance?.grantedKeywords ?? []).some(value => normalize(value) === wanted)) return true;
-  if ((instance?.card?.keywords ?? []).some(value => normalize(value) === wanted)) return true;
-  return new RegExp(`\\b${escapeRegex(keyword)}\\b`, "i").test(String(instance?.card?.text ?? ""));
-}
-
-function escapeRegex(value) {
-  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function normalize(value) {
