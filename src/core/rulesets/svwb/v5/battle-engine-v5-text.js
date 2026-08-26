@@ -49,7 +49,8 @@ export function baseText(text) {
   const colonIndex = value.search(/\b(?:Last Words|Strike|Clash|Evolve|Super-Evolve|Enhance|Accelerate|Crystallize|Engage|On Spellboost|At the start of your turn|At the end of your turn)\s*\(?\s*\d*\s*\)?\s*:/i);
   const naturalIndex = value.search(/(?<!["“])\b(?:At the end of your turn|At the start of your turn|When this follower evolves),\s*/i);
   const reactiveIndex = reactiveParagraphIndex(value);
-  const indexes = [colonIndex, naturalIndex, reactiveIndex].filter(index => index >= 0);
+  const passiveIndex = passiveKeywordParagraphIndex(value);
+  const indexes = [colonIndex, naturalIndex, reactiveIndex, passiveIndex].filter(index => index >= 0);
   const index = indexes.length ? Math.min(...indexes) : -1;
   return index < 0 ? value : value.slice(0, index).trim();
 }
@@ -82,11 +83,16 @@ function truncateSectionTail(value) {
   const tail = String(value ?? "");
   const natural = tail.search(/(?<!["“])\b(?:at the end of your turn|at the start of your turn|when this follower evolves),\s*/i);
   const reactive = reactiveParagraphIndex(tail);
-  const indexes = [natural, reactive].filter(index => index >= 0);
+  const passive = passiveKeywordParagraphIndex(tail);
+  const indexes = [natural, reactive, passive].filter(index => index >= 0);
   const end = indexes.length ? Math.min(...indexes) : tail.length;
   return tail.slice(0, end).trim();
 }
 
 function reactiveParagraphIndex(value) {
   return String(value ?? "").search(/(?:^|\n+)\s*(?:Whenever\b|During your turn,\s*whenever\b|Once on each of your turns,\s*when\b|Activates in hand\.\s*Whenever\b)/i);
+}
+
+function passiveKeywordParagraphIndex(value) {
+  return String(value ?? "").search(/(?:^|\n+)\s*(?:Storm|Rush|Ward|Bane|Drain|Aura|Ambush|Intimidate)\s*\.?\s*(?=\n+|$)/i);
 }
