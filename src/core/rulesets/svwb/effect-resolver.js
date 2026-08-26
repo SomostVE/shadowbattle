@@ -13,6 +13,7 @@ import {
 
 const SUPPORTED_TARGET_KINDS = new Set(["damage", "destroy", "banish", "return", "set-defense"]);
 const HAND_DISCARD_SELECTION = /\bselect (?:a|an|one) (?:[a-z]+craft )?card in your hand and discard it\b/i;
+const DAMAGE_NUMBER = "(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\\d+)";
 
 export function getWorldsBeyondTargetRequirement(source, trigger = "play", mode = null, player = null) {
   if (!source?.card) return null;
@@ -265,7 +266,29 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
   ));
   applied = postApplied || applied;
 
-  for (const match of text.matchAll(/\bdeal\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+damage to (?:all|each) enemy followers?\b/gi)) {
+  for (const match of text.matchAll(new RegExp(`\\bdeal\\s+${DAMAGE_NUMBER}\\s+damage to (?:all|each) followers? with the highest defense\\b`, "gi"))) {
+    const amount = numberWord(match[1]);
+    const allFollowers = session.players.flatMap((player, owner) => player.board
+      .filter(unit => cardType(unit) === "follower")
+      .map(unit => ({ owner, unit })));
+    const highest = maxValue(allFollowers, item => Number(item.unit.defense ?? item.unit.card?.defense ?? 0));
+    const targets = highest == null
+      ? []
+      : allFollowers.filter(item => Number(item.unit.defense ?? item.unit.card?.defense ?? 0) === highest);
+    applied = resolveFollowerAreaDamage(session, targets, amount, { actor: playerIndex, source }) || applied;
+  }
+
+  for (const match of text.matchAll(new RegExp(`\\bdeal\\s+${DAMAGE_NUMBER}\\s+damage to (?:all|each) leaders? with the highest defense\\b`, "gi"))) {
+    const amount = numberWord(match[1]);
+    const highest = Math.max(...session.players.map(player => Number(player.hp ?? 0)));
+    const targets = session.players
+      .map((player, owner) => ({ owner, hp: Number(player.hp ?? 0) }))
+      .filter(item => item.hp === highest)
+      .map(item => item.owner);
+    applied = resolveLeaderAreaDamage(session, targets, amount, { actor: playerIndex, source }) || applied;
+  }
+
+  for (const match of text.matchAll(new RegExp(`\\bdeal\\s+${DAMAGE_NUMBER}\\s+damage to (?:all|each) enemy followers?\\b(?!\\s+with\\b)`, "gi"))) {
     const amount = numberWord(match[1]);
     const targets = session.players[enemyIndex].board
       .filter(unit => cardType(unit) === "follower")
@@ -273,7 +296,7 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
     applied = resolveFollowerAreaDamage(session, targets, amount, { actor: playerIndex, source }) || applied;
   }
 
-  for (const match of text.matchAll(/\bdeal\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+damage to (?:all|each) followers?\b/gi)) {
+  for (const match of text.matchAll(new RegExp(`\\bdeal\\s+${DAMAGE_NUMBER}\\s+damage to (?:all|each) followers?\\b(?!\\s+with\\b)`, "gi"))) {
     const amount = numberWord(match[1]);
     const targets = session.players.flatMap((player, owner) => player.board
       .filter(unit => cardType(unit) === "follower")
@@ -329,6 +352,44 @@ function resolveFollowerAreaDamage(session, targets, amount, { actor, source } =
     destroyWorldsBeyondFollower(session, owner, live.instanceId, { actor, source, reason: "ability", byAbility: true });
   }
   return true;
+}
+
+function resolveLeaderAreaDamage(session, targetPlayerIndexes, amount, { actor, source } = {}) {
+  const targets = [...new Set(targetPlayerIndexes)].filter(index => index === 0 || index === 1);
+  const damage = Math.max(0, Number(amount) || 0);
+  if (!targets.length || !damage || session.phase === "ended") return false;
+
+  const lethal = [];
+  for (const targetPlayer of targets) {
+    const player = session.getPlayer(targetPlayer);
+    player.hp = Math.max(0, Number(player.hp ?? 0) - damage);
+    session.emit(BATTLE_EVENT.LEADER_DAMAGE, {
+      actor,
+      payload: {
+        targetPlayer,
+        amount: damage,
+        hp: player.hp,
+        source: source ? session.cardView(source) : null,
+        reason: "ability"
+      }
+    });
+    if (player.hp <= 0) lethal.push(targetPlayer);
+  }
+
+  if (lethal.length) {
+    const loser = lethal.length > 1 ? session.activePlayer : lethal[0];
+    session.finishMatch(1 - loser, "leader-defense-zero", {
+      loser,
+      losers: lethal,
+      simultaneous: lethal.length > 1
+    });
+  }
+  return true;
+}
+
+function maxValue(items, select) {
+  if (!items.length) return null;
+  return Math.max(...items.map(select));
 }
 
 function commandsApplied(results) {
