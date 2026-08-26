@@ -1,0 +1,26 @@
+name: Patch hidden information branch
+
+on:
+  push:
+    branches: [ai/v6-hidden-information-0.4.83]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ai/v6-hidden-information-0.4.83
+      - name: Patch GameSession
+        run: python scripts/patch-deck-manifest.py
+      - name: Commit manifest API
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/core/game-session.js
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Expose static deck manifests for AI inference"
+          git push origin HEAD:ai/v6-hidden-information-0.4.83
