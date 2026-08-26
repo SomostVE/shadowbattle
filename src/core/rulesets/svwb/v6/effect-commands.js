@@ -1,11 +1,13 @@
 import { BATTLE_EVENT, BATTLE_VISIBILITY } from "../../../battle-events.js";
 import { createEffectCommand } from "../../../effect-commands.js";
 import { gainWorldsBeyondCrest } from "../crests.js";
+import { addWorldsBeyondGeneratedCard } from "../generated-cards.js";
 
 export const SVWB_EFFECT_COMMAND = Object.freeze({
   GAIN_CREST: "svwb:gain-crest",
   DRAW: "draw",
   DRAW_FILTERED: "svwb:draw-filtered",
+  ADD_TO_HAND: "svwb:add-to-hand",
   SUMMON: "svwb:summon",
   HEAL_LEADER: "heal-leader",
   DAMAGE_LEADER: "damage-leader"
@@ -57,6 +59,16 @@ export function createWorldsBeyondFilteredDrawCommand(playerIndex, { cardClass =
   }, options.metadata);
 }
 
+export function createWorldsBeyondAddToHandCommand(playerIndex, cardName, options = {}) {
+  return createWorldsBeyondEffectCommand(SVWB_EFFECT_COMMAND.ADD_TO_HAND, {
+    playerIndex,
+    cardName: String(cardName ?? "").trim(),
+    reason: options.reason ?? "ability",
+    sourceCardId: options.sourceCardId ?? null,
+    sourceCardName: options.sourceCardName ?? null
+  }, options.metadata);
+}
+
 export function createWorldsBeyondSummonCommand(playerIndex, cardName, count = 1, options = {}) {
   return createWorldsBeyondEffectCommand(SVWB_EFFECT_COMMAND.SUMMON, {
     playerIndex,
@@ -82,6 +94,10 @@ export function compileWorldsBeyondPreTargetCommands(text, { playerIndex, source
   const sourceOptions = cardSourceOptions(source, "pre-target");
   const value = String(text ?? "");
 
+  const addToHand = value.match(/^\s*Add\s+(?:a|an|one)\s+(.+?)\s+to your hand\s*\.?\s*$/i);
+  if (addToHand) {
+    indexed.push({ index: addToHand.index ?? 0, command: createWorldsBeyondAddToHandCommand(playerIndex, addToHand[1].trim(), sourceOptions) });
+  }
   for (const match of value.matchAll(/\bGain Crest\s*:\s*([^.;\n]+)/gi)) {
     indexed.push({ index: match.index ?? 0, command: createWorldsBeyondGainCrestCommand(playerIndex, match[1].trim(), sourceOptions) });
   }
@@ -154,6 +170,10 @@ export function resolveWorldsBeyondEffectCommand(session, command) {
     return resolveFilteredDraw(session, playerIndex, payload);
   }
 
+  if (command.type === SVWB_EFFECT_COMMAND.ADD_TO_HAND) {
+    return resolveAddToHand(session, playerIndex, payload);
+  }
+
   if (command.type === SVWB_EFFECT_COMMAND.SUMMON) {
     return resolveSummon(session, playerIndex, payload, source);
   }
@@ -194,6 +214,19 @@ export function resolveWorldsBeyondEffectCommand(session, command) {
   }
 
   throw new Error(`Unsupported Worlds Beyond effect command: ${command?.type ?? "unknown"}`);
+}
+
+function resolveAddToHand(session, playerIndex, payload) {
+  const definition = session.findCardDefinition({ name: payload.cardName });
+  if (!definition) return { applied: false, added: 0, burned: 0, missingCard: true, cardName: payload.cardName ?? null };
+  const result = addWorldsBeyondGeneratedCard(session, playerIndex, definition, { reason: payload.reason ?? "ability" });
+  return {
+    applied: result.added || result.burned,
+    added: result.added ? 1 : 0,
+    burned: result.burned ? 1 : 0,
+    missingCard: false,
+    cardName: definition.name ?? payload.cardName ?? null
+  };
 }
 
 function resolveFilteredDraw(session, playerIndex, payload) {
