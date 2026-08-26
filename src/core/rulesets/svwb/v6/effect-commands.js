@@ -85,10 +85,10 @@ export function compileWorldsBeyondPreTargetCommands(text, { playerIndex, source
   for (const match of value.matchAll(/\bGain Crest\s*:\s*([^.;\n]+)/gi)) {
     indexed.push({ index: match.index ?? 0, command: createWorldsBeyondGainCrestCommand(playerIndex, match[1].trim(), sourceOptions) });
   }
-  for (const match of value.matchAll(/\bSummon\s+(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+copies of\s+([^.]+?)\s*\.?\s*(?=$|\s)/gi)) {
+  for (const match of value.matchAll(/\bSummon\s+(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+copies of\s+([^.]+?)\s*(?:\.|$)/gi)) {
     indexed.push({ index: match.index ?? 0, command: createWorldsBeyondSummonCommand(playerIndex, match[2].trim(), numberWord(match[1]), sourceOptions) });
   }
-  for (const match of value.matchAll(/\bSummon\s+(?:a|an|one)\s+([^.]+?)\s*\.?\s*(?=$|\s)/gi)) {
+  for (const match of value.matchAll(/\bSummon\s+(?:a|an|one)\s+([^.]+?)\s*(?:\.|$)/gi)) {
     indexed.push({ index: match.index ?? 0, command: createWorldsBeyondSummonCommand(playerIndex, match[1].trim(), 1, sourceOptions) });
   }
 
