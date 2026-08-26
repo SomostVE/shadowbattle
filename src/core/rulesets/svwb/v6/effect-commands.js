@@ -1,10 +1,11 @@
-import { BATTLE_EVENT } from "../../../battle-events.js";
+import { BATTLE_EVENT, BATTLE_VISIBILITY } from "../../../battle-events.js";
 import { createEffectCommand } from "../../../effect-commands.js";
 import { gainWorldsBeyondCrest } from "../crests.js";
 
 export const SVWB_EFFECT_COMMAND = Object.freeze({
   GAIN_CREST: "svwb:gain-crest",
   DRAW: "draw",
+  DRAW_FILTERED: "svwb:draw-filtered",
   HEAL_LEADER: "heal-leader",
   DAMAGE_LEADER: "damage-leader"
 });
@@ -40,6 +41,16 @@ export function createWorldsBeyondDrawCommand(playerIndex, amount, options = {})
   return createWorldsBeyondEffectCommand(SVWB_EFFECT_COMMAND.DRAW, {
     playerIndex,
     amount,
+    reason: options.reason ?? "ability"
+  }, options.metadata);
+}
+
+export function createWorldsBeyondFilteredDrawCommand(playerIndex, { cardClass = null, cardType = null } = {}, options = {}) {
+  return createWorldsBeyondEffectCommand(SVWB_EFFECT_COMMAND.DRAW_FILTERED, {
+    playerIndex,
+    amount: 1,
+    cardClass,
+    cardType,
     reason: options.reason ?? "ability"
   }, options.metadata);
 }
@@ -84,6 +95,15 @@ export function compileWorldsBeyondPostTargetCommands(text, { playerIndex, sourc
   return commands;
 }
 
+export function compileWorldsBeyondTrailingFilteredDrawCommands(text, { playerIndex, source } = {}) {
+  const match = String(text ?? "").match(/\bdraw\s+(?:a|an|one)\s+([a-z]+craft)\s+(follower)\s*\.?\s*$/i);
+  if (!match) return [];
+  return [createWorldsBeyondFilteredDrawCommand(playerIndex, {
+    cardClass: match[1],
+    cardType: match[2]
+  }, cardSourceOptions(source, "trailing"))];
+}
+
 export function resolveWorldsBeyondEffectCommand(session, command) {
   const payload = command?.payload ?? {};
   const playerIndex = validPlayer(payload.playerIndex);
@@ -98,6 +118,10 @@ export function resolveWorldsBeyondEffectCommand(session, command) {
     const requested = positiveAmount(payload.amount);
     const drawn = requested ? session.draw(playerIndex, requested, { reason: payload.reason ?? "ability" }) : [];
     return { applied: requested > 0, requested, drawn: drawn.length };
+  }
+
+  if (command.type === SVWB_EFFECT_COMMAND.DRAW_FILTERED) {
+    return resolveFilteredDraw(session, playerIndex, payload);
   }
 
   if (command.type === SVWB_EFFECT_COMMAND.HEAL_LEADER) {
@@ -138,6 +162,42 @@ export function resolveWorldsBeyondEffectCommand(session, command) {
   throw new Error(`Unsupported Worlds Beyond effect command: ${command?.type ?? "unknown"}`);
 }
 
+function resolveFilteredDraw(session, playerIndex, payload) {
+  const player = session.getPlayer(playerIndex);
+  const wantedClass = normalize(payload.cardClass);
+  const wantedType = normalize(payload.cardType);
+  const candidates = player.deck
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) => {
+      const card = item?.card ?? item;
+      return (!wantedClass || normalize(card?.class) === wantedClass)
+        && (!wantedType || normalize(card?.type) === wantedType);
+    });
+  if (!candidates.length) return { applied: false, requested: 1, drawn: 0, matched: 0 };
+
+  const selected = candidates[Math.floor(session.rng() * candidates.length)] ?? candidates[0];
+  const [card] = player.deck.splice(selected.index, 1);
+  if (!card) return { applied: false, requested: 1, drawn: 0, matched: candidates.length };
+
+  if (player.hand.length >= session.ruleset.maxHandSize) {
+    player.cemetery.push(card);
+    session.emit(BATTLE_EVENT.CARD_BURNED, {
+      actor: playerIndex,
+      visibility: BATTLE_VISIBILITY.OWNER,
+      payload: { card: session.cardView(card), reason: payload.reason ?? "ability" }
+    });
+    return { applied: true, requested: 1, drawn: 0, burned: 1, matched: candidates.length };
+  }
+
+  player.hand.push(card);
+  session.emit(BATTLE_EVENT.DRAW, {
+    actor: playerIndex,
+    visibility: BATTLE_VISIBILITY.OWNER,
+    payload: { reason: payload.reason ?? "ability", count: 1, cards: [session.cardView(card)] }
+  });
+  return { applied: true, requested: 1, drawn: 1, burned: 0, matched: candidates.length };
+}
+
 function cardSourceOptions(source, stage) {
   return {
     reason: "ability",
@@ -174,6 +234,10 @@ function validPlayer(value) {
 
 function positiveAmount(value) {
   return Math.max(0, Number(value) || 0);
+}
+
+function normalize(value) {
+  return String(value ?? "").trim().toLowerCase();
 }
 
 function numberWord(value) {
