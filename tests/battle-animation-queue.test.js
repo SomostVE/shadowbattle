@@ -15,6 +15,19 @@ test("battle animation queue preserves GameSession event order", async () => {
   assert.deepEqual(seen, [10, 11]);
 });
 
+test("batched events stay ordered with surrounding queued animations", async () => {
+  const seen = [];
+  const queue = new BattleAnimationQueue({ reducedMotion: true });
+  for (const type of ["a", "b", "c", "d"]) queue.register(type, async event => seen.push(event.type));
+
+  queue.enqueue({ type: "a" });
+  queue.enqueueMany([{ type: "b" }, { type: "c" }]);
+  queue.enqueue({ type: "d" });
+  await queue.flush();
+
+  assert.deepEqual(seen, ["a", "b", "c", "d"]);
+});
+
 test("unhandled battle events do not add invisible animation delays", async () => {
   const queue = new BattleAnimationQueue({ timings: { idle: 1000 } });
   const result = await Promise.race([
