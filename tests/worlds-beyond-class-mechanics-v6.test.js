@@ -134,7 +134,7 @@ test("On Spellboost preambles do not hide the playable spell effect", () => {
     card: { class: "Runecraft", type: "Spell", text }
   };
   const support = getWorldsBeyondTriggerSupport(source, "play", null, player("Runecraft"));
-  assert.equal(support.supported, true);
+  assert.equal(support.supported, true, JSON.stringify(support));
   assert.equal(support.targetSpec.kind, "damage");
   assert.equal(support.targetSpec.amount, 5);
 });
