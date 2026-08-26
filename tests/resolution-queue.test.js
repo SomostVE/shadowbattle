@@ -18,6 +18,23 @@ test("BattleResolutionQueue resolves nested work in deterministic FIFO order", (
   assert.deepEqual(queue.getState(), { pending: 0, processing: false, nextId: 3, maxSteps: 512 });
 });
 
+test("BattleResolutionQueue keeps unprocessed work after a synchronous resolver throws", () => {
+  const queue = new BattleResolutionQueue();
+  const order = [];
+  queue.enqueue("first", () => order.push("first"));
+  queue.enqueue("broken", () => {
+    order.push("broken");
+    throw new Error("boom");
+  });
+  queue.enqueue("later", () => order.push("later"));
+
+  assert.throws(() => queue.drain(), /boom/);
+  assert.equal(queue.size, 1);
+  const completed = queue.drain();
+  assert.deepEqual(order, ["first", "broken", "later"]);
+  assert.deepEqual(completed.map(item => item.label), ["later"]);
+});
+
 test("BattleResolutionQueue stops runaway reaction loops", () => {
   const queue = new BattleResolutionQueue({ maxSteps: 3 });
   const loop = () => queue.enqueue("loop", loop);
