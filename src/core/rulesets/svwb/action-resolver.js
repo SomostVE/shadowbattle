@@ -117,25 +117,19 @@ export function listWorldsBeyondActions(session, playerIndex) {
       cost: info.cost
     };
     const targetRequirement = getWorldsBeyondTargetRequirement(amulet, "engage", null, player);
-    const discardRequired = requiresWorldsBeyondHandDiscard(amulet, "engage", null, player);
-    const discardOptions = discardRequired ? handDiscardOptions(player, amulet) : [null];
-    if (discardRequired && !discardOptions.length) continue;
-
     if (!targetRequirement) {
-      for (const discard of discardOptions) actions.push(withDiscardSelection(baseAction, discard, discardRequired));
+      actions.push(baseAction);
       continue;
     }
     const targets = getWorldsBeyondTargetOptions(session, { trigger: "engage", playerIndex, source: amulet });
     if (!targets.length) continue;
     for (const target of targets) {
-      for (const discard of discardOptions) {
-        actions.push(withDiscardSelection({
-          ...baseAction,
-          targetInstanceId: target.instanceId,
-          targetKind: targetRequirement.kind,
-          targetAmount: targetRequirement.amount ?? 0
-        }, discard, discardRequired));
-      }
+      actions.push({
+        ...baseAction,
+        targetInstanceId: target.instanceId,
+        targetKind: targetRequirement.kind,
+        targetAmount: targetRequirement.amount ?? 0
+      });
     }
   }
 
@@ -266,8 +260,6 @@ function engage(session, action) {
 
   const requirement = getWorldsBeyondTargetRequirement(amulet, "engage", null, player);
   const targets = requirement ? getWorldsBeyondTargetOptions(session, { trigger: "engage", playerIndex, source: amulet }) : [];
-  const discardRequired = requiresWorldsBeyondHandDiscard(amulet, "engage", null, player);
-  validateDiscardSelection(player, amulet, discardRequired, action.discardInstanceId);
   if (targets.length && !action.targetInstanceId) throw new Error("This Engage ability requires a target");
   if (action.targetInstanceId && !targets.some(target => target.instanceId === action.targetInstanceId)) throw new Error("Selected Engage target is not legal");
   if (requirement && !targets.length) throw new Error("This Engage ability has no legal target");
@@ -280,17 +272,10 @@ function engage(session, action) {
       card: session.cardView(amulet),
       cost: info.cost,
       ppRemaining: player.resources.pp,
-      target: action.targetInstanceId ? session.cardView(session.findBoardCard(1 - playerIndex, action.targetInstanceId)) : null,
-      discard: action.discardInstanceId ? session.cardView(player.hand.find(item => item.instanceId === action.discardInstanceId)) : null
+      target: action.targetInstanceId ? session.cardView(session.findBoardCard(1 - playerIndex, action.targetInstanceId)) : null
     }
   });
-  resolveWorldsBeyondTrigger(session, {
-    trigger: "engage",
-    playerIndex,
-    source: amulet,
-    targetInstanceId: action.targetInstanceId ?? null,
-    discardInstanceId: action.discardInstanceId ?? null
-  });
+  resolveWorldsBeyondTrigger(session, { trigger: "engage", playerIndex, source: amulet, targetInstanceId: action.targetInstanceId ?? null });
   return session.getSnapshot(playerIndex);
 }
 
