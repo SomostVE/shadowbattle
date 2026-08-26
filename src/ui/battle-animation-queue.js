@@ -64,16 +64,12 @@ export class BattleAnimationQueue {
 
   async play(event, context = {}) {
     const handler = this.handlers.get(event.type);
+    if (!handler) return;
     const duration = this.reducedMotion ? 0 : Math.max(0, Number(this.timings[event.type] ?? 0));
-    if (handler) await handler(event, { ...context, duration, reducedMotion: this.reducedMotion });
-    else if (duration > 0) await delay(duration);
+    await handler(event, { ...context, duration, reducedMotion: this.reducedMotion });
   }
 
   flush() {
     return this.tail;
   }
-}
-
-function delay(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
 }
