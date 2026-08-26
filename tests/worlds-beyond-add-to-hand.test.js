@@ -134,7 +134,7 @@ test("a generated card entering a full hand is burned and creates exactly one Sh
   assert.equal(player.cemetery.length, cemeteryBefore + 1);
   assert.equal(player.resources.shadows, shadowsBefore + 1);
   const burned = game.getEvents({ viewer: 0 }).find(event => event.type === BATTLE_EVENT.CARD_BURNED && event.payload.reason === "test-full-hand");
-  assert.equal(burned?.payload.card?.id, MAJESTIC_MEGALORCA.id);
+  assert.equal(burned?.payload.card?.cardId, MAJESTIC_MEGALORCA.id);
   assert.equal(game.getEvents({ viewer: 1 }).some(event => event.type === BATTLE_EVENT.CARD_BURNED && event.payload.reason === "test-full-hand"), false);
 });
 
