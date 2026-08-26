@@ -35,6 +35,46 @@ export function requiresWorldsBeyondHandDiscard(source, trigger = "play", mode =
   return Boolean(conditional.active && HAND_DISCARD_SELECTION.test(conditional.text));
 }
 
+export function getWorldsBeyondTriggerSupport(source, trigger = "play", mode = null, player = null) {
+  if (!source?.card) return { supported: false, text: "", residual: "missing source card", targetSpec: null, discardRequired: false };
+  const originalText = preprocessWorldsBeyondFuseText(source, triggerText(source, trigger, mode));
+  if (!originalText) return { supported: true, text: "", residual: "", targetSpec: null, discardRequired: false, conditionInactive: false };
+
+  const evaluationPlayer = prospectiveTargetPlayer(player, source, trigger);
+  const conditional = evaluationPlayer
+    ? evaluateWorldsBeyondClassCondition(originalText, evaluationPlayer, source.card)
+    : { text: originalText, active: true, notes: [], mechanic: null };
+  if (!conditional.active || !conditional.text) {
+    return {
+      supported: true,
+      text: conditional.text ?? "",
+      residual: "",
+      targetSpec: null,
+      discardRequired: false,
+      conditionInactive: true,
+      notes: conditional.notes ?? [],
+      mechanic: conditional.mechanic ?? null
+    };
+  }
+
+  const text = conditional.text;
+  const targetSpec = worldsBeyondTargetEffectSpec(text, source);
+  const discardRequired = HAND_DISCARD_SELECTION.test(text);
+  const unsupportedTarget = Boolean(targetSpec && !SUPPORTED_TARGET_KINDS.has(targetSpec.kind));
+  const unsupportedChoice = hasUnsupportedChoiceOrCondition(text, { targetSpec, discardRequired });
+  const residual = unsupportedResidualText(text, { targetSpec, discardRequired });
+  return {
+    supported: !unsupportedTarget && !unsupportedChoice && !residual,
+    text,
+    residual,
+    targetSpec,
+    discardRequired,
+    conditionInactive: false,
+    notes: conditional.notes ?? [],
+    mechanic: conditional.mechanic ?? null
+  };
+}
+
 export function getWorldsBeyondTargetOptions(session, { trigger = "play", playerIndex, source, mode = null } = {}) {
   const player = session.getPlayer(playerIndex);
   const requirement = getWorldsBeyondTargetRequirement(source, trigger, mode, player);
@@ -193,6 +233,51 @@ function hasUnsupportedChoiceOrCondition(text, { targetSpec = null, discardRequi
   }
   inspect = inspect.replace(/\bGain Crest\s*:\s*[^.;\n]+[.;]?/gi, "");
   return /\b(?:select|choose)\b|\bif\b|\bunless\b|\bfor each\b|\bwhenever\b|\bwhen(?:ever)?\b|\brandomly select\b|\bX\b|\b(?:Earth Rite|Engage|Fuse|Transmute|Crest|Faith|Reanimate)\b/i.test(inspect);
+}
+
+function unsupportedResidualText(text, { targetSpec = null, discardRequired = false } = {}) {
+  let inspect = String(text ?? "");
+  if (discardRequired) inspect = inspect.replace(new RegExp(HAND_DISCARD_SELECTION.source, "gi"), " ");
+  if (targetSpec) inspect = stripSupportedTargetText(inspect);
+
+  const patterns = [
+    /\bGain Crest\s*:\s*[^.;\n]+/gi,
+    /\bdraw\s+(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+cards?\b/gi,
+    /\b(?:restore|recover)\s+(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+defense to your leader\b/gi,
+    /\bdeal\s+(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+damage to (?:the )?enemy leader\b/gi,
+    new RegExp(`\\bdeal\\s+${DAMAGE_NUMBER}\\s+damage to (?:all|each) followers? with the highest defense\\b`, "gi"),
+    new RegExp(`\\bdeal\\s+${DAMAGE_NUMBER}\\s+damage to (?:all|each) leaders? with the highest defense\\b`, "gi"),
+    new RegExp(`\\bdeal\\s+${DAMAGE_NUMBER}\\s+damage to (?:all|each) enemy followers?\\b(?!\\s+with\\b)`, "gi"),
+    new RegExp(`\\bdeal\\s+${DAMAGE_NUMBER}\\s+damage to (?:all|each) followers?\\b(?!\\s+with\\b)`, "gi"),
+    /\bdeal\s+(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+damage to (?:a random|random) enemy follower\b/gi,
+    /\bdestroy (?:a random|random) enemy follower\b/gi,
+    /\bgive this follower\s+\+\d+\s*\/\s*\+\d+\b/gi
+  ];
+  for (const pattern of patterns) inspect = inspect.replace(pattern, " ");
+
+  return inspect
+    .replace(/[.;,:!?()[\]{}"“”]/g, " ")
+    .replace(/\b(?:and|then)\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function stripSupportedTargetText(text) {
+  let inspect = String(text ?? "");
+  const patterns = [
+    /\bselect an enemy follower(?: on the field)? and deal it \d+ damage\b/gi,
+    /\bselect an enemy follower(?: on the field)? and destroy it\b/gi,
+    /\bselect an enemy follower(?: on the field)? and banish it\b/gi,
+    /\bselect an enemy follower(?: on the field)? and return it to (?:its owner'?s|their) hand\b/gi,
+    /\bselect an enemy follower(?: on the field)? and set its defense to \d+\b/gi,
+    /\bdeal\s+\d+\s+damage to (?:an|a|the) enemy follower\b/gi,
+    /\bdestroy (?:an|a|the) enemy follower\b/gi,
+    /\bbanish (?:an|a|the) enemy follower\b/gi,
+    /\breturn (?:an|a|the) enemy follower to (?:its owner'?s|their) hand\b/gi,
+    /\bset (?:an|a|the) enemy follower(?:'s|’s) defense to\s+\d+\b/gi
+  ];
+  for (const pattern of patterns) inspect = inspect.replace(pattern, " ");
+  return inspect;
 }
 
 function executeSimpleEffects(session, { text, playerIndex, source, targetSpec = null, target = null, discard = null, notes = [] }) {
