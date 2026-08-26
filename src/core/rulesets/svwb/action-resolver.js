@@ -7,6 +7,7 @@ import {
   gainWorldsBeyondShadows,
   getWorldsBeyondTargetOptions,
   getWorldsBeyondTargetRequirement,
+  requiresWorldsBeyondHandDiscard,
   resolveWorldsBeyondTrigger
 } from "./effect-resolver.js";
 import { getWorldsBeyondEngageInfo } from "./engage.js";
@@ -78,23 +79,29 @@ export function listWorldsBeyondActions(session, playerIndex) {
         effectiveType: type
       };
       const targetRequirement = getWorldsBeyondTargetRequirement(card, "play", mode, player);
+      const discardRequired = requiresWorldsBeyondHandDiscard(card, "play", mode, player);
+      const discardOptions = discardRequired ? handDiscardOptions(player, card) : [null];
+      if (discardRequired && !discardOptions.length) continue;
+
       if (!targetRequirement) {
-        actions.push(baseAction);
+        for (const discard of discardOptions) actions.push(withDiscardSelection(baseAction, discard, discardRequired));
         continue;
       }
 
       const targets = getWorldsBeyondTargetOptions(session, { trigger: "play", playerIndex, source: card, mode });
       if (targets.length) {
         for (const target of targets) {
-          actions.push({
-            ...baseAction,
-            targetInstanceId: target.instanceId,
-            targetKind: targetRequirement.kind,
-            targetAmount: targetRequirement.amount ?? 0
-          });
+          for (const discard of discardOptions) {
+            actions.push(withDiscardSelection({
+              ...baseAction,
+              targetInstanceId: target.instanceId,
+              targetKind: targetRequirement.kind,
+              targetAmount: targetRequirement.amount ?? 0
+            }, discard, discardRequired));
+          }
         }
       } else if (type !== "spell") {
-        actions.push(baseAction);
+        for (const discard of discardOptions) actions.push(withDiscardSelection(baseAction, discard, discardRequired));
       }
     }
   }
@@ -110,19 +117,25 @@ export function listWorldsBeyondActions(session, playerIndex) {
       cost: info.cost
     };
     const targetRequirement = getWorldsBeyondTargetRequirement(amulet, "engage", null, player);
+    const discardRequired = requiresWorldsBeyondHandDiscard(amulet, "engage", null, player);
+    const discardOptions = discardRequired ? handDiscardOptions(player, amulet) : [null];
+    if (discardRequired && !discardOptions.length) continue;
+
     if (!targetRequirement) {
-      actions.push(baseAction);
+      for (const discard of discardOptions) actions.push(withDiscardSelection(baseAction, discard, discardRequired));
       continue;
     }
     const targets = getWorldsBeyondTargetOptions(session, { trigger: "engage", playerIndex, source: amulet });
     if (!targets.length) continue;
     for (const target of targets) {
-      actions.push({
-        ...baseAction,
-        targetInstanceId: target.instanceId,
-        targetKind: targetRequirement.kind,
-        targetAmount: targetRequirement.amount ?? 0
-      });
+      for (const discard of discardOptions) {
+        actions.push(withDiscardSelection({
+          ...baseAction,
+          targetInstanceId: target.instanceId,
+          targetKind: targetRequirement.kind,
+          targetAmount: targetRequirement.amount ?? 0
+        }, discard, discardRequired));
+      }
     }
   }
 
@@ -155,6 +168,8 @@ function playCard(session, action) {
 
   const requirement = getWorldsBeyondTargetRequirement(instance, "play", mode, player);
   const targets = requirement ? getWorldsBeyondTargetOptions(session, { trigger: "play", playerIndex, source: instance, mode }) : [];
+  const discardRequired = requiresWorldsBeyondHandDiscard(instance, "play", mode, player);
+  validateDiscardSelection(player, instance, discardRequired, action.discardInstanceId);
   if (targets.length && !action.targetInstanceId) throw new Error("This card requires an effect target");
   if (action.targetInstanceId && !targets.some(target => target.instanceId === action.targetInstanceId)) throw new Error("Selected effect target is not legal");
   if (requirement && type === "spell" && !targets.length) throw new Error("This spell has no legal target");
@@ -196,7 +211,14 @@ function playCard(session, action) {
     session.emit(BATTLE_EVENT.SPELL_CAST, { actor: playerIndex, payload: { card: session.cardView(instance), mode: mode.kind } });
   }
 
-  resolveWorldsBeyondTrigger(session, { trigger: "play", playerIndex, source: instance, targetInstanceId: action.targetInstanceId ?? null, mode });
+  resolveWorldsBeyondTrigger(session, {
+    trigger: "play",
+    playerIndex,
+    source: instance,
+    targetInstanceId: action.targetInstanceId ?? null,
+    discardInstanceId: action.discardInstanceId ?? null,
+    mode
+  });
   if (type === "spell") gainWorldsBeyondShadows(session, playerIndex, 1);
   if (mode.accelerated || mode.kind === "accelerate") restoreOriginalCardForm(instance);
   return session.getSnapshot(playerIndex);
@@ -244,6 +266,8 @@ function engage(session, action) {
 
   const requirement = getWorldsBeyondTargetRequirement(amulet, "engage", null, player);
   const targets = requirement ? getWorldsBeyondTargetOptions(session, { trigger: "engage", playerIndex, source: amulet }) : [];
+  const discardRequired = requiresWorldsBeyondHandDiscard(amulet, "engage", null, player);
+  validateDiscardSelection(player, amulet, discardRequired, action.discardInstanceId);
   if (targets.length && !action.targetInstanceId) throw new Error("This Engage ability requires a target");
   if (action.targetInstanceId && !targets.some(target => target.instanceId === action.targetInstanceId)) throw new Error("Selected Engage target is not legal");
   if (requirement && !targets.length) throw new Error("This Engage ability has no legal target");
@@ -256,10 +280,17 @@ function engage(session, action) {
       card: session.cardView(amulet),
       cost: info.cost,
       ppRemaining: player.resources.pp,
-      target: action.targetInstanceId ? session.cardView(session.findBoardCard(1 - playerIndex, action.targetInstanceId)) : null
+      target: action.targetInstanceId ? session.cardView(session.findBoardCard(1 - playerIndex, action.targetInstanceId)) : null,
+      discard: action.discardInstanceId ? session.cardView(player.hand.find(item => item.instanceId === action.discardInstanceId)) : null
     }
   });
-  resolveWorldsBeyondTrigger(session, { trigger: "engage", playerIndex, source: amulet, targetInstanceId: action.targetInstanceId ?? null });
+  resolveWorldsBeyondTrigger(session, {
+    trigger: "engage",
+    playerIndex,
+    source: amulet,
+    targetInstanceId: action.targetInstanceId ?? null,
+    discardInstanceId: action.discardInstanceId ?? null
+  });
   return session.getSnapshot(playerIndex);
 }
 
@@ -287,6 +318,30 @@ function evolve(session, action, superEvolution) {
   session.emit(superEvolution ? BATTLE_EVENT.SUPER_EVOLVE : BATTLE_EVENT.EVOLVE, { actor: playerIndex, payload: { card: session.cardView(follower), pointsRemaining: player.resources[pointsKey], statBonus: bonus } });
   resolveWorldsBeyondTrigger(session, { trigger: superEvolution ? "super-evolve" : "evolve", playerIndex, source: follower });
   return session.getSnapshot(playerIndex);
+}
+
+function handDiscardOptions(player, source) {
+  return player.hand.filter(item => item.instanceId !== source?.instanceId);
+}
+
+function withDiscardSelection(action, discard, required) {
+  if (!required || !discard) return action;
+  return {
+    ...action,
+    discardInstanceId: discard.instanceId,
+    discardCardId: discard.cardId ?? discard.card?.id ?? null
+  };
+}
+
+function validateDiscardSelection(player, source, required, discardInstanceId) {
+  if (!required) {
+    if (discardInstanceId) throw new Error("This action does not require a discard selection");
+    return null;
+  }
+  if (!discardInstanceId) throw new Error("This action requires a card to discard");
+  const discard = player.hand.find(item => item.instanceId === discardInstanceId && item.instanceId !== source?.instanceId) ?? null;
+  if (!discard) throw new Error("Selected discard card is not in the active player's hand");
+  return discard;
 }
 
 function playModes(instance, player) {
