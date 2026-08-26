@@ -25,14 +25,25 @@ test("human battle controls dispatch real GameSession actions", () => {
   assert.match(controller, /attackOpponentLeader/);
 });
 
-test("targeted card and Engage effects share the legal target graph with attacks", () => {
+test("targeted card, Engage and evolution effects share the legal target graph with attacks", () => {
   assert.match(controller, /selectedPlayCard/);
   assert.match(controller, /selectedEngageAmulet/);
+  assert.match(controller, /selectedEvolution/);
   assert.match(controller, /targetInstanceId/);
   assert.match(controller, /resolveEnemyFollowerTarget/);
   assert.match(controller, /Choose effect target/);
   assert.match(controller, /Choose Engage target/);
+  assert.match(controller, /Choose evolution target/);
+  assert.match(controller, /evolutionTarget/);
   assert.match(controller, /is-effect-target/);
+});
+
+test("targeted Evo waits for a human target instead of auto-selecting the first legal branch", () => {
+  assert.match(controller, /const targeted = actions\.filter\(action => action\.targetInstanceId\)/);
+  assert.match(controller, /selectedEvolution = \{ type, followerInstanceId: instanceId \}/);
+  assert.match(controller, /item\.type === selectedEvolution\.type/);
+  assert.match(controller, /item\.followerInstanceId === selectedEvolution\.followerInstanceId/);
+  assert.match(controller, /targetValue\(enemyIndex, b\.targetInstanceId\)/);
 });
 
 test("V5 alternative modes require an explicit human choice when multiple modes are legal", () => {
