@@ -92,11 +92,15 @@ export function isSpellboostRecipientCard(card) {
 
 export function classMechanicStatus(player) {
   const className = playerClassName(player) ?? "Neutral";
-  if (className === "Forestcraft") return [{ key: "combo", label: "Combo", value: Math.max(0, Number(player.cardsPlayedThisTurn) || 0) }];
-  if (className === "Swordcraft") return [{ key: "rally", label: "Rally", value: Math.max(0, Number(player.rally) || 0) }];
-  if (className === "Runecraft") return [{ key: "earthRite", label: "Earth Sigils", value: Math.max(0, Number(player.earthSigils) || 0) }];
-  if (className === "Dragoncraft") return [{ key: "overflow", label: "Overflow", value: (Number(player.maxPp) || 0) >= 7 ? "Active" : "Inactive" }];
-  if (className === "Abysscraft") return [{ key: "necromancy", label: "Shadows", value: Math.max(0, Number(player.shadows) || 0) }];
+  const resources = player?.resources ?? player ?? {};
+  if (className === "Forestcraft") return [{ key: "combo", label: "Combo", value: Math.max(0, Number(player?.cardsPlayedThisTurn ?? resources.combo) || 0) }];
+  if (className === "Swordcraft") return [{ key: "rally", label: "Rally", value: Math.max(0, Number(resources.rally) || 0) }];
+  if (className === "Runecraft") return [
+    { key: "spellboost", label: "Spellboost", value: "Hand" },
+    { key: "earthRite", label: "Earth Sigils", value: Math.max(0, Number(resources.earthSigils) || 0) }
+  ];
+  if (className === "Dragoncraft") return [{ key: "overflow", label: "Overflow", value: (Number(resources.maxPp) || 0) >= 7 ? "Active" : "Inactive" }];
+  if (className === "Abysscraft") return [{ key: "necromancy", label: "Shadows", value: Math.max(0, Number(resources.shadows) || 0) }];
   return [];
 }
 
