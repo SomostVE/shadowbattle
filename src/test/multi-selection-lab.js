@@ -31,15 +31,38 @@ function captureMultiSelection(event) {
     return;
   }
 
-  const enemyTarget = event.target.closest?.("#battle-opponent-board .sb-battle-unit-hitbox");
-  if (enemyTarget && pending && pendingHasTarget() && !selectedDiscardInstanceId) {
+  const boardTarget = event.target.closest?.("#battle-player-board .sb-battle-unit-hitbox, #battle-opponent-board .sb-battle-unit-hitbox");
+  if (boardTarget && pending && pendingHasTarget() && !selectedDiscardInstanceId) {
     event.preventDefault();
     event.stopImmediatePropagation();
-    setHelp("Choose a highlighted card in your hand to discard before selecting the enemy target.", "Choose discard");
+    setHelp("Choose a highlighted card in your hand to discard before selecting the effect target.", "Choose discard");
     return;
   }
 
-  if (replaying || !handCard) return;
+  if (replaying) return;
+
+  const engageButton = event.target.closest?.("#battle-player-board .sb-battle-evolution-button.is-engage");
+  if (engageButton) {
+    const unit = engageButton.closest?.(".sb-battle-unit[data-instance-id]");
+    const sourceId = unit?.dataset.instanceId ?? null;
+    const actions = sourceId
+      ? rawActions(0).filter(action => action.type === "engage" && action.amuletInstanceId === sourceId && action.discardInstanceId)
+      : [];
+    if (actions.length) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      beginSelection({
+        sourceType: "engage",
+        sourceId,
+        playModeKey: null,
+        replayNode: engageButton,
+        replayAfterDiscard: true
+      });
+      return;
+    }
+  }
+
+  if (!handCard) return;
 
   const sourceId = handCard.dataset.instanceId;
   const actions = rawActions(0).filter(action => action.type === "play-card" && action.cardInstanceId === sourceId);
@@ -47,7 +70,13 @@ function captureMultiSelection(event) {
   if (discardActions.length && discardActions.every(action => !action.targetInstanceId) && uniqueModeKeys(discardActions).size <= 1) {
     event.preventDefault();
     event.stopImmediatePropagation();
-    beginSelection({ sourceId, playModeKey: discardActions[0]?.playModeKey ?? null, replayNode: handCard });
+    beginSelection({
+      sourceType: "play-card",
+      sourceId,
+      playModeKey: discardActions[0]?.playModeKey ?? null,
+      replayNode: handCard,
+      replayAfterDiscard: true
+    });
   }
 }
 
@@ -64,12 +93,20 @@ function syncFromRenderedSelection() {
     if (actions.length) {
       const modeKeys = uniqueModeKeys(actions);
       beginSelection({
+        sourceType: "play-card",
         sourceId,
         playModeKey: modeKeys.size === 1 ? actions[0].playModeKey ?? null : pending?.playModeKey ?? null,
-        replayNode: selectedPlay
-      }, { preserveDiscard: pending?.sourceId === sourceId });
+        replayNode: selectedPlay,
+        replayAfterDiscard: false
+      }, { preserveDiscard: pending?.sourceType === "play-card" && pending?.sourceId === sourceId });
       return;
     }
+  }
+
+  const selectedEngage = document.querySelector("#battle-player-board .sb-battle-unit.is-engage-selected[data-instance-id]");
+  if (selectedEngage && pending?.sourceType === "engage" && selectedEngage.dataset.instanceId === pending.sourceId) {
+    decorateDiscardCandidates();
+    return;
   }
 
   if (pending && !pendingSourceStillLegal()) clearSelection();
@@ -82,7 +119,7 @@ function beginSelection(next, { preserveDiscard = false } = {}) {
   const hasTarget = pendingHasTarget();
   setHelp(
     selectedDiscardInstanceId
-      ? (hasTarget ? "Discard selected. Choose the highlighted enemy follower." : "Discard selected. Resolving selection…")
+      ? (hasTarget ? "Discard selected. Choose the highlighted effect target." : "Discard selected. Resolving selection…")
       : "Choose a highlighted card in your hand to discard.",
     selectedDiscardInstanceId ? (hasTarget ? "Choose effect target" : "Discard selected") : "Choose discard"
   );
@@ -92,18 +129,24 @@ function selectDiscard(instanceId) {
   selectedDiscardInstanceId = instanceId;
   decorateDiscardCandidates();
 
-  if (!pendingHasTarget() && pending?.replayNode) {
+  if (pending?.replayAfterDiscard && pending?.replayNode) {
     const node = pending.replayNode;
+    pending.replayAfterDiscard = false;
     replaying = true;
     try {
       node.click();
     } finally {
       replaying = false;
     }
+    if (!pending || !pendingSourceStillLegal()) return;
+  }
+
+  if (pendingHasTarget()) {
+    setHelp("Discard selected. Choose the highlighted effect target.", "Choose effect target");
     return;
   }
 
-  setHelp("Discard selected. Choose the highlighted enemy follower.", "Choose effect target");
+  setHelp("Discard selected. Resolving selection…", "Discard selected");
 }
 
 function decorateDiscardCandidates() {
@@ -143,10 +186,15 @@ function rawActions(playerIndex) {
 
 function selectionActions() {
   if (!pending) return [];
-  return rawActions(0).filter(action => action.type === "play-card"
-    && action.cardInstanceId === pending.sourceId
-    && action.discardInstanceId
-    && (!pending.playModeKey || action.playModeKey === pending.playModeKey));
+  return rawActions(0).filter(action => {
+    if (!action.discardInstanceId) return false;
+    if (pending.sourceType === "engage") {
+      return action.type === "engage" && action.amuletInstanceId === pending.sourceId;
+    }
+    return action.type === "play-card"
+      && action.cardInstanceId === pending.sourceId
+      && (!pending.playModeKey || action.playModeKey === pending.playModeKey);
+  });
 }
 
 function pendingHasTarget() {
@@ -163,9 +211,11 @@ function isDiscardCandidate(instanceId) {
 
 function prioritizeSelectedDiscard(actions, selection, discardInstanceId) {
   return prioritizeDiscardGroups(actions, action => {
-    const sameSource = action.type === "play-card"
-      && action.cardInstanceId === selection.sourceId
-      && (!selection.playModeKey || action.playModeKey === selection.playModeKey);
+    const sameSource = selection.sourceType === "engage"
+      ? action.type === "engage" && action.amuletInstanceId === selection.sourceId
+      : action.type === "play-card"
+        && action.cardInstanceId === selection.sourceId
+        && (!selection.playModeKey || action.playModeKey === selection.playModeKey);
     if (!sameSource || !action.discardInstanceId) return 1;
     return action.discardInstanceId === discardInstanceId ? 0 : 2;
   });
@@ -207,6 +257,7 @@ function discardGroupKey(action) {
   return [
     action.type,
     action.cardInstanceId ?? "",
+    action.amuletInstanceId ?? "",
     action.playModeKey ?? "",
     action.targetInstanceId ?? "",
     action.cost ?? 0
