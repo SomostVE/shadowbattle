@@ -26,7 +26,7 @@ export function returnBoardCardToHand(session, playerIndex, instanceId, { actor 
   if (index < 0) return null;
   const card = player.board[index];
   player.board.splice(index, 1);
-  resetReturnedCard(card);
+  resetReturnedCard(session, card);
 
   const handFull = player.hand.length >= session.ruleset.maxHandSize;
   if (handFull) player.cemetery.push(card);
@@ -53,8 +53,18 @@ export function restoreOriginalCardForm(card) {
   delete card.alternativeMode;
 }
 
-function resetReturnedCard(card) {
+function resetReturnedCard(session, card) {
   restoreOriginalCardForm(card);
+
+  // Board effects may clone/mutate the instance's card definition (for
+  // example a granted Ward). Restore the canonical definition registered by
+  // GameSession so those temporary keywords cannot survive a bounce/replay.
+  const canonical = session.findCardDefinition({
+    id: card.cardId ?? card.card?.id ?? null,
+    name: card.card?.name ?? null
+  });
+  if (canonical) card.card = canonical;
+
   card.costDelta = 0;
   card.attackBonus = 0;
   card.defenseBonus = 0;
@@ -71,4 +81,9 @@ function resetReturnedCard(card) {
   delete card.canAttackLeader;
   delete card.countdown;
   delete card.playedTurn;
+  delete card.grantedKeywords;
+  delete card.permanentAttackLock;
+  delete card.himekaBanishAtOwnTurnEnd;
+  delete card.himekaBanishActor;
+  delete card.engagedThisTurn;
 }
