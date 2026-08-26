@@ -106,7 +106,7 @@ test("CPU lab driver uses the reusable V6 Intermediate controller", () => {
 
 test("Intermediate controller scores every supported V6 action family", () => {
   for (const action of ["attack", "play-card", "engage", "evolve", "super-evolve", "fuse"]) {
-    assert.match(ai, new RegExp(`case \\"${action}\\"`));
+    assert.match(ai, new RegExp(`case "${action}"`));
   }
   assert.match(ai, /projectedTransform/);
   assert.match(ai, /getSnapshot\(playerIndex\)/);
