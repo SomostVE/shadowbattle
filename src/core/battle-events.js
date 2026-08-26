@@ -6,6 +6,7 @@ export const BATTLE_EVENT = Object.freeze({
   TURN_START: "turn-start",
   DRAW: "draw",
   CARD_BURNED: "card-burned",
+  CARD_DISCARDED: "card-discarded",
   TURN_END: "turn-end",
   BONUS_PP: "bonus-pp",
   CARD_PLAY: "card-play",

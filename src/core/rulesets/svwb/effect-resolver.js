@@ -12,6 +12,7 @@ import {
 } from "./v6/effect-commands.js";
 
 const SUPPORTED_TARGET_KINDS = new Set(["damage", "destroy", "banish", "return", "set-defense"]);
+const HAND_DISCARD_SELECTION = /\bselect (?:a|an|one) (?:[a-z]+craft )?card in your hand and discard it\b/i;
 
 export function getWorldsBeyondTargetRequirement(source, trigger = "play", mode = null, player = null) {
   if (!source?.card) return null;
@@ -24,6 +25,15 @@ export function getWorldsBeyondTargetRequirement(source, trigger = "play", mode 
   return spec ? { ...spec, text: conditional.text } : null;
 }
 
+export function requiresWorldsBeyondHandDiscard(source, trigger = "play", mode = null, player = null) {
+  if (!source?.card) return false;
+  const originalText = preprocessWorldsBeyondFuseText(source, triggerText(source, trigger, mode));
+  if (!originalText) return false;
+  const evaluationPlayer = prospectiveTargetPlayer(player, source, trigger);
+  const conditional = evaluationPlayer ? evaluateWorldsBeyondClassCondition(originalText, evaluationPlayer, source.card) : { text: originalText, active: true };
+  return Boolean(conditional.active && HAND_DISCARD_SELECTION.test(conditional.text));
+}
+
 export function getWorldsBeyondTargetOptions(session, { trigger = "play", playerIndex, source, mode = null } = {}) {
   const player = session.getPlayer(playerIndex);
   const requirement = getWorldsBeyondTargetRequirement(source, trigger, mode, player);
@@ -31,7 +41,7 @@ export function getWorldsBeyondTargetOptions(session, { trigger = "play", player
   return targetableEnemyFollowers(session.getPlayer(1 - playerIndex).board);
 }
 
-export function resolveWorldsBeyondTrigger(session, { trigger, playerIndex, source, targetInstanceId = null, mode = null }) {
+export function resolveWorldsBeyondTrigger(session, { trigger, playerIndex, source, targetInstanceId = null, discardInstanceId = null, mode = null }) {
   if (!source?.card) return { applied: false, unresolved: false, text: "" };
   const originalText = preprocessWorldsBeyondFuseText(source, triggerText(source, trigger, mode));
   if (!originalText) return { applied: false, unresolved: false, text: "" };
@@ -59,18 +69,28 @@ export function resolveWorldsBeyondTrigger(session, { trigger, playerIndex, sour
   const text = conditional.text;
   const targetSpec = worldsBeyondTargetEffectSpec(text, source);
   const targetOptions = targetSpec ? targetableEnemyFollowers(session.getPlayer(1 - playerIndex).board) : [];
+  const discardRequired = HAND_DISCARD_SELECTION.test(text);
+  const discardOptions = discardRequired ? player.hand.filter(item => item.instanceId !== source.instanceId) : [];
   let target = null;
   let targetMissing = false;
   let invalidTarget = false;
+  let discard = null;
+  let discardMissing = false;
+  let invalidDiscard = false;
 
   if (targetSpec && targetOptions.length) {
     target = targetOptions.find(unit => unit.instanceId === targetInstanceId) ?? null;
     targetMissing = !targetInstanceId;
     invalidTarget = Boolean(targetInstanceId && !target);
   }
+  if (discardRequired) {
+    discard = discardOptions.find(item => item.instanceId === discardInstanceId) ?? null;
+    discardMissing = !discardInstanceId;
+    invalidDiscard = Boolean(discardInstanceId && !discard);
+  }
 
   const unsupportedTarget = Boolean(targetSpec && !SUPPORTED_TARGET_KINDS.has(targetSpec.kind));
-  const unresolved = targetMissing || invalidTarget || unsupportedTarget || hasUnsupportedChoiceOrCondition(text, { targetSpec });
+  const unresolved = targetMissing || invalidTarget || discardMissing || invalidDiscard || unsupportedTarget || hasUnsupportedChoiceOrCondition(text, { targetSpec, discardRequired });
 
   session.emit(BATTLE_EVENT.ABILITY_TRIGGER, {
     actor: playerIndex,
@@ -85,13 +105,16 @@ export function resolveWorldsBeyondTrigger(session, { trigger, playerIndex, sour
       targetKind: targetSpec?.kind ?? null,
       targetRequired: Boolean(targetSpec && targetOptions.length),
       targetAvailable: targetOptions.length > 0,
+      discard: discard ? session.cardView(discard) : null,
+      discardRequired,
+      discardAvailable: discardOptions.length > 0,
       conditionNotes: conditional.notes,
       classMechanic: conditional.mechanic
     }
   });
 
-  if (unresolved) return { applied: false, unresolved: true, text, targetSpec, target, notes: conditional.notes };
-  return executeSimpleEffects(session, { text, playerIndex, source, targetSpec, target, notes: conditional.notes });
+  if (unresolved) return { applied: false, unresolved: true, text, targetSpec, target, discard, notes: conditional.notes };
+  return executeSimpleEffects(session, { text, playerIndex, source, targetSpec, target, discard, notes: conditional.notes });
 }
 
 export function gainWorldsBeyondShadows(session, playerIndex, amount = 1) {
@@ -154,8 +177,9 @@ function worldsBeyondTargetEffectSpec(text, source) {
   return null;
 }
 
-function hasUnsupportedChoiceOrCondition(text, { targetSpec = null } = {}) {
+function hasUnsupportedChoiceOrCondition(text, { targetSpec = null, discardRequired = false } = {}) {
   let inspect = String(text ?? "");
+  if (discardRequired) inspect = inspect.replace(/\bselect (?:a|an|one) (?:[a-z]+craft )?card in your hand and discard it\.?/gi, "");
   if (targetSpec) {
     inspect = inspect
       .replace(/\bselect an enemy follower(?: on the field)? and\s*/gi, "")
@@ -170,7 +194,7 @@ function hasUnsupportedChoiceOrCondition(text, { targetSpec = null } = {}) {
   return /\b(?:select|choose)\b|\bif\b|\bunless\b|\bfor each\b|\bwhenever\b|\bwhen(?:ever)?\b|\brandomly select\b|\bX\b|\b(?:Earth Rite|Engage|Fuse|Transmute|Crest|Faith|Reanimate)\b/i.test(inspect);
 }
 
-function executeSimpleEffects(session, { text, playerIndex, source, targetSpec = null, target = null, notes = [] }) {
+function executeSimpleEffects(session, { text, playerIndex, source, targetSpec = null, target = null, discard = null, notes = [] }) {
   const enemyIndex = 1 - playerIndex;
   let applied = false;
 
@@ -179,6 +203,26 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
     compileWorldsBeyondPreTargetCommands(text, { playerIndex, source })
   ));
   applied = preApplied || applied;
+
+  if (discard) {
+    const player = session.getPlayer(playerIndex);
+    const index = player.hand.findIndex(item => item.instanceId === discard.instanceId);
+    if (index >= 0) {
+      const [discarded] = player.hand.splice(index, 1);
+      player.cemetery.push(discarded);
+      gainWorldsBeyondShadows(session, playerIndex, 1);
+      session.emit(BATTLE_EVENT.CARD_DISCARDED, {
+        actor: playerIndex,
+        payload: {
+          owner: playerIndex,
+          card: session.cardView(discarded),
+          source: source ? session.cardView(source) : null,
+          reason: "ability"
+        }
+      });
+      applied = true;
+    }
+  }
 
   if (targetSpec && target) {
     if (targetSpec.kind === "damage") {
@@ -268,7 +312,7 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
     applied = true;
   }
 
-  return { applied, unresolved: false, text, targetSpec, target, notes };
+  return { applied, unresolved: false, text, targetSpec, target, discard, notes };
 }
 
 function resolveFollowerAreaDamage(session, targets, amount, { actor, source } = {}) {
