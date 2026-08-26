@@ -140,8 +140,7 @@ test("Ferocious Flame resolves allied damage, random enemy damage, then filtered
 
   const opponentEvents = game.getEvents({ viewer: 1 });
   const opponentDraw = opponentEvents.find(event => event.type === BATTLE_EVENT.DRAW && event.actor === 0 && event.sequence === events[filteredDrawIndex].sequence);
-  assert.ok(opponentDraw);
-  assert.equal(opponentDraw.payload.cards, undefined, "filtered draw identity stays hidden from the opponent");
+  assert.equal(opponentDraw, undefined, "owner-private filtered draw event is absent from the opponent view");
 });
 
 test("Ferocious Flame outside Overflow keeps both damage clauses but does not tutor", () => {
