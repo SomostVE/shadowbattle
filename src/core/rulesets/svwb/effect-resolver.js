@@ -11,7 +11,7 @@ import {
   compileWorldsBeyondPreTargetCommands
 } from "./v6/effect-commands.js";
 
-const SUPPORTED_TARGET_KINDS = new Set(["damage", "destroy", "banish", "return"]);
+const SUPPORTED_TARGET_KINDS = new Set(["damage", "destroy", "banish", "return", "set-defense"]);
 
 export function getWorldsBeyondTargetRequirement(source, trigger = "play", mode = null, player = null) {
   if (!source?.card) return null;
@@ -20,7 +20,7 @@ export function getWorldsBeyondTargetRequirement(source, trigger = "play", mode 
   const evaluationPlayer = prospectiveTargetPlayer(player, source, trigger);
   const conditional = evaluationPlayer ? evaluateWorldsBeyondClassCondition(originalText, evaluationPlayer, source.card) : { text: originalText, active: true };
   if (!conditional.active || !conditional.text) return null;
-  const spec = targetEffectSpec({ mode: { text: conditional.text }, instance: source });
+  const spec = worldsBeyondTargetEffectSpec(conditional.text, source);
   return spec ? { ...spec, text: conditional.text } : null;
 }
 
@@ -57,7 +57,7 @@ export function resolveWorldsBeyondTrigger(session, { trigger, playerIndex, sour
   }
 
   const text = conditional.text;
-  const targetSpec = targetEffectSpec({ mode: { text }, instance: source });
+  const targetSpec = worldsBeyondTargetEffectSpec(text, source);
   const targetOptions = targetSpec ? targetableEnemyFollowers(session.getPlayer(1 - playerIndex).board) : [];
   let target = null;
   let targetMissing = false;
@@ -142,6 +142,18 @@ function naturalLifecycle(text, pattern) {
   return (next < 0 ? tail : tail.slice(0, next)).trim();
 }
 
+function worldsBeyondTargetEffectSpec(text, source) {
+  const legacy = targetEffectSpec({ mode: { text }, instance: source });
+  if (legacy) return legacy;
+
+  let match = String(text ?? "").match(/select an enemy follower(?: on the field)? and set its defense to\s+(\d+)/i);
+  if (match) return { kind: "set-defense", amount: Number(match[1]) || 0, selectedGrammar: true };
+
+  match = String(text ?? "").match(/set (?:an|a|the) enemy follower(?:'s|’s) defense to\s+(\d+)/i);
+  if (match) return { kind: "set-defense", amount: Number(match[1]) || 0 };
+  return null;
+}
+
 function hasUnsupportedChoiceOrCondition(text, { targetSpec = null } = {}) {
   let inspect = String(text ?? "");
   if (targetSpec) {
@@ -150,7 +162,9 @@ function hasUnsupportedChoiceOrCondition(text, { targetSpec = null } = {}) {
       .replace(/\bdeal\s+\d+\s+damage to (?:an|a|the) enemy follower\b/gi, "")
       .replace(/\bdestroy (?:an|a|the) enemy follower\b/gi, "")
       .replace(/\bbanish (?:an|a|the) enemy follower\b/gi, "")
-      .replace(/\breturn (?:an|a|the) enemy follower to (?:its owner'?s|their) hand\b/gi, "");
+      .replace(/\breturn (?:an|a|the) enemy follower to (?:its owner'?s|their) hand\b/gi, "")
+      .replace(/\bset (?:an|a|the) enemy follower(?:'s|’s) defense to\s+\d+\b/gi, "")
+      .replace(/\bset its defense to\s+\d+\b/gi, "");
   }
   inspect = inspect.replace(/\bGain Crest\s*:\s*[^.;\n]+[.;]?/gi, "");
   return /\b(?:select|choose)\b|\bif\b|\bunless\b|\bfor each\b|\bwhenever\b|\bwhen(?:ever)?\b|\brandomly select\b|\bX\b|\b(?:Earth Rite|Engage|Fuse|Transmute|Crest|Faith|Reanimate)\b/i.test(inspect);
@@ -180,6 +194,24 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
     } else if (targetSpec.kind === "return") {
       const returned = Boolean(returnBoardCardToHand(session, enemyIndex, target.instanceId, { actor: playerIndex, source, reason: "ability" }));
       applied = returned || applied;
+    } else if (targetSpec.kind === "set-defense") {
+      const before = Number(target.defense ?? target.card?.defense ?? 0);
+      const amount = Math.max(0, Number(targetSpec.amount) || 0);
+      target.maxDefense = amount;
+      target.defense = amount;
+      session.emit(BATTLE_EVENT.FOLLOWER_BUFF, {
+        actor: playerIndex,
+        payload: {
+          card: session.cardView(target),
+          attack: 0,
+          defense: amount - before,
+          setDefense: amount,
+          reason: "ability",
+          source: session.cardView(source)
+        }
+      });
+      if (amount <= 0) destroyWorldsBeyondFollower(session, enemyIndex, target.instanceId, { actor: playerIndex, source, reason: "ability", byAbility: true });
+      applied = true;
     }
   }
 
