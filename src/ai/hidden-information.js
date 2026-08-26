@@ -85,7 +85,9 @@ export function sampleOpponentHands(belief, { samples = 6, rng = Math.random } =
   for (let sampleIndex = 0; sampleIndex < count; sampleIndex += 1) {
     const copy = [...pool];
     for (let index = 0; index < handSize; index += 1) {
-      const swap = index + Math.floor(clamp01(rng()) * (copy.length - index));
+      const remaining = copy.length - index;
+      const offset = Math.min(remaining - 1, Math.floor(unitIntervalExclusive(rng()) * remaining));
+      const swap = index + offset;
       [copy[index], copy[swap]] = [copy[swap], copy[index]];
     }
     out.push(Object.freeze(copy.slice(0, handSize).map(row => Object.freeze({ ...row }))));
@@ -219,6 +221,11 @@ function emptyBelief(playerIndex) {
     pressure: 0,
     remaining: Object.freeze([])
   });
+}
+
+function unitIntervalExclusive(value) {
+  const normalized = Math.max(0, Number(value) || 0);
+  return Math.min(1 - Number.EPSILON, normalized);
 }
 
 function clamp01(value) {
