@@ -215,7 +215,6 @@ function summonCrestFollower(session, playerIndex, crest, { evolve = false, gran
     instance.canAttackLeader = true;
   }
   player.board.push(instance);
-  player.resources.rally = Math.max(0, Number(player.resources.rally ?? 0)) + 1;
   session.emit(BATTLE_EVENT.FOLLOWER_ENTER, { actor: playerIndex, payload: { card: session.cardView(instance), position: player.board.length - 1, reason: "crest-last-words" } });
 
   if (evolve) {
