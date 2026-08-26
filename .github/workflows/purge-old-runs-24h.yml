@@ -1,0 +1,107 @@
+name: Purge workflow runs older than 24h
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/purge-old-runs-24h.yml"
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  purge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Delete workflow runs older than 24 hours
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cutoff_epoch="$(date -u -d '24 hours ago' +%s)"
+          deleted=0
+          skipped=0
+          round=0
+
+          echo "Cutoff: $(date -u -d "@${cutoff_epoch}" --iso-8601=seconds)"
+
+          while :; do
+            round=$((round + 1))
+            candidates="$(mktemp)"
+
+            for page in $(seq 1 10); do
+              body="$(curl --fail-with-body --silent --show-error \
+                -H "Authorization: Bearer ${GH_TOKEN}" \
+                -H "Accept: application/vnd.github+json" \
+                -H "X-GitHub-Api-Version: 2022-11-28" \
+                "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs?per_page=100&page=${page}")"
+
+              count="$(jq '.workflow_runs | length' <<<"${body}")"
+              [ "${count}" -eq 0 ] && break
+
+              jq -r '.workflow_runs[] | [.id, .created_at, .status, .name] | @tsv' <<<"${body}" |
+              while IFS=$'\t' read -r run_id created_at status name; do
+                created_epoch="$(date -u -d "${created_at}" +%s)"
+                if [ "${created_epoch}" -lt "${cutoff_epoch}" ]; then
+                  printf '%s\t%s\t%s\t%s\n' "${run_id}" "${created_at}" "${status}" "${name}" >> "${candidates}"
+                fi
+              done
+            done
+
+            candidate_count="$(wc -l < "${candidates}")"
+            if [ "${candidate_count}" -eq 0 ]; then
+              rm -f "${candidates}"
+              break
+            fi
+
+            echo "Round ${round}: ${candidate_count} old runs found"
+            deleted_this_round=0
+
+            while IFS=$'\t' read -r run_id created_at status name; do
+              code="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+                -X DELETE \
+                -H "Authorization: Bearer ${GH_TOKEN}" \
+                -H "Accept: application/vnd.github+json" \
+                -H "X-GitHub-Api-Version: 2022-11-28" \
+                "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}")"
+
+              if [ "${code}" = "204" ] || [ "${code}" = "404" ]; then
+                deleted=$((deleted + 1))
+                deleted_this_round=$((deleted_this_round + 1))
+              elif [ "${code}" = "403" ] || [ "${code}" = "429" ]; then
+                sleep 10
+                retry="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+                  -X DELETE \
+                  -H "Authorization: Bearer ${GH_TOKEN}" \
+                  -H "Accept: application/vnd.github+json" \
+                  -H "X-GitHub-Api-Version: 2022-11-28" \
+                  "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}")"
+                if [ "${retry}" = "204" ] || [ "${retry}" = "404" ]; then
+                  deleted=$((deleted + 1))
+                  deleted_this_round=$((deleted_this_round + 1))
+                else
+                  skipped=$((skipped + 1))
+                  echo "Skipped ${run_id} (${name}) HTTP ${retry}"
+                fi
+              else
+                skipped=$((skipped + 1))
+                echo "Skipped ${run_id} (${name}) HTTP ${code}"
+              fi
+
+              sleep 0.45
+            done < "${candidates}"
+
+            rm -f "${candidates}"
+
+            if [ "${deleted_this_round}" -eq 0 ]; then
+              echo "No further deletions possible; stopping to avoid an infinite loop."
+              break
+            fi
+          done
+
+          echo "Deleted: ${deleted}"
+          echo "Skipped: ${skipped}"
