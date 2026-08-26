@@ -21,6 +21,17 @@ test("human discard choices are explicit and block target resolution until selec
   assert.match(controller, /stopImmediatePropagation/);
   assert.match(controller, /Choose discard/);
   assert.match(controller, /prioritizeSelectedDiscard/);
+  assert.match(controller, /#battle-player-board \.sb-battle-unit-hitbox, #battle-opponent-board \.sb-battle-unit-hitbox/);
+});
+
+test("Engage discard variants use the same explicit human selection bridge", () => {
+  assert.match(controller, /sb-battle-evolution-button\.is-engage/);
+  assert.match(controller, /sourceType: "engage"/);
+  assert.match(controller, /action\.type === "engage" && action\.amuletInstanceId === sourceId/);
+  assert.match(controller, /pending\.sourceType === "engage"/);
+  assert.match(controller, /action\.amuletInstanceId === pending\.sourceId/);
+  assert.match(controller, /action\.amuletInstanceId \?\? ""/);
+  assert.match(controller, /replayAfterDiscard/);
 });
 
 test("CPU discard variants are deliberately ranked instead of taking hand order", () => {
@@ -28,4 +39,5 @@ test("CPU discard variants are deliberately ranked instead of taking hand order"
   assert.match(controller, /discardValue/);
   assert.match(controller, /findHandCard/);
   assert.match(controller, /card\.cost/);
+  assert.match(controller, /action\.amuletInstanceId \?\? ""/);
 });

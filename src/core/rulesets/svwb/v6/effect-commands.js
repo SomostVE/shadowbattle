@@ -6,6 +6,7 @@ export const SVWB_EFFECT_COMMAND = Object.freeze({
   GAIN_CREST: "svwb:gain-crest",
   DRAW: "draw",
   DRAW_FILTERED: "svwb:draw-filtered",
+  SUMMON: "svwb:summon",
   HEAL_LEADER: "heal-leader",
   DAMAGE_LEADER: "damage-leader"
 });
@@ -45,13 +46,25 @@ export function createWorldsBeyondDrawCommand(playerIndex, amount, options = {})
   }, options.metadata);
 }
 
-export function createWorldsBeyondFilteredDrawCommand(playerIndex, { cardClass = null, cardType = null } = {}, options = {}) {
+export function createWorldsBeyondFilteredDrawCommand(playerIndex, { cardClass = null, cardType = null, cardName = null } = {}, options = {}) {
   return createWorldsBeyondEffectCommand(SVWB_EFFECT_COMMAND.DRAW_FILTERED, {
     playerIndex,
     amount: 1,
     cardClass,
     cardType,
+    cardName,
     reason: options.reason ?? "ability"
+  }, options.metadata);
+}
+
+export function createWorldsBeyondSummonCommand(playerIndex, cardName, count = 1, options = {}) {
+  return createWorldsBeyondEffectCommand(SVWB_EFFECT_COMMAND.SUMMON, {
+    playerIndex,
+    cardName: String(cardName ?? "").trim(),
+    count: Math.max(0, Number(count) || 0),
+    reason: options.reason ?? "ability",
+    sourceCardId: options.sourceCardId ?? null,
+    sourceCardName: options.sourceCardName ?? null
   }, options.metadata);
 }
 
@@ -65,12 +78,21 @@ export function createWorldsBeyondGainCrestCommand(playerIndex, crestName, optio
 }
 
 export function compileWorldsBeyondPreTargetCommands(text, { playerIndex, source } = {}) {
-  const commands = [];
+  const indexed = [];
   const sourceOptions = cardSourceOptions(source, "pre-target");
-  for (const match of String(text ?? "").matchAll(/\bGain Crest\s*:\s*([^.;\n]+)/gi)) {
-    commands.push(createWorldsBeyondGainCrestCommand(playerIndex, match[1].trim(), sourceOptions));
+  const value = String(text ?? "");
+
+  for (const match of value.matchAll(/\bGain Crest\s*:\s*([^.;\n]+)/gi)) {
+    indexed.push({ index: match.index ?? 0, command: createWorldsBeyondGainCrestCommand(playerIndex, match[1].trim(), sourceOptions) });
   }
-  return commands;
+  for (const match of value.matchAll(/\bSummon\s+(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+copies of\s+([^.]+?)\s*(?:\.|$)/gi)) {
+    indexed.push({ index: match.index ?? 0, command: createWorldsBeyondSummonCommand(playerIndex, match[2].trim(), numberWord(match[1]), sourceOptions) });
+  }
+  for (const match of value.matchAll(/\bSummon\s+(?:a|an|one)\s+([^.]+?)\s*(?:\.|$)/gi)) {
+    indexed.push({ index: match.index ?? 0, command: createWorldsBeyondSummonCommand(playerIndex, match[1].trim(), 1, sourceOptions) });
+  }
+
+  return indexed.sort((left, right) => left.index - right.index).map(item => item.command);
 }
 
 export function compileWorldsBeyondPostTargetCommands(text, { playerIndex, source } = {}) {
@@ -96,11 +118,19 @@ export function compileWorldsBeyondPostTargetCommands(text, { playerIndex, sourc
 }
 
 export function compileWorldsBeyondTrailingFilteredDrawCommands(text, { playerIndex, source } = {}) {
-  const match = String(text ?? "").match(/\bdraw\s+(?:a|an|one)\s+([a-z]+craft)\s+(follower)\s*\.?\s*$/i);
-  if (!match) return [];
+  const value = String(text ?? "");
+  const typed = value.match(/\bdraw\s+(?:a|an|one)\s+([a-z]+craft)\s+(follower)\s*\.?\s*$/i);
+  if (typed) {
+    return [createWorldsBeyondFilteredDrawCommand(playerIndex, {
+      cardClass: typed[1],
+      cardType: typed[2]
+    }, cardSourceOptions(source, "trailing"))];
+  }
+
+  const named = value.match(/\bdraw\s+(?:a|an|one)\s+([A-Z][A-Za-z0-9'’&,:\- ]+?)\s*\.?\s*$/);
+  if (!named) return [];
   return [createWorldsBeyondFilteredDrawCommand(playerIndex, {
-    cardClass: match[1],
-    cardType: match[2]
+    cardName: named[1].trim()
   }, cardSourceOptions(source, "trailing"))];
 }
 
@@ -122,6 +152,10 @@ export function resolveWorldsBeyondEffectCommand(session, command) {
 
   if (command.type === SVWB_EFFECT_COMMAND.DRAW_FILTERED) {
     return resolveFilteredDraw(session, playerIndex, payload);
+  }
+
+  if (command.type === SVWB_EFFECT_COMMAND.SUMMON) {
+    return resolveSummon(session, playerIndex, payload, source);
   }
 
   if (command.type === SVWB_EFFECT_COMMAND.HEAL_LEADER) {
@@ -166,12 +200,14 @@ function resolveFilteredDraw(session, playerIndex, payload) {
   const player = session.getPlayer(playerIndex);
   const wantedClass = normalize(payload.cardClass);
   const wantedType = normalize(payload.cardType);
+  const wantedName = normalize(payload.cardName);
   const candidates = player.deck
     .map((item, index) => ({ item, index }))
     .filter(({ item }) => {
       const card = item?.card ?? item;
       return (!wantedClass || normalize(card?.class) === wantedClass)
-        && (!wantedType || normalize(card?.type) === wantedType);
+        && (!wantedType || normalize(card?.type) === wantedType)
+        && (!wantedName || normalize(card?.name) === wantedName);
     });
   if (!candidates.length) return { applied: false, requested: 1, drawn: 0, matched: 0 };
 
@@ -196,6 +232,50 @@ function resolveFilteredDraw(session, playerIndex, payload) {
     payload: { reason: payload.reason ?? "ability", count: 1, cards: [session.cardView(card)] }
   });
   return { applied: true, requested: 1, drawn: 1, burned: 0, matched: candidates.length };
+}
+
+function resolveSummon(session, playerIndex, payload, source) {
+  const player = session.getPlayer(playerIndex);
+  const requested = positiveAmount(payload.count);
+  const definition = session.findCardDefinition({ name: payload.cardName });
+  if (!requested || !definition || normalize(definition.type) !== "follower") {
+    return { applied: false, requested, summoned: 0, missingCard: !definition, cardName: payload.cardName ?? null };
+  }
+
+  const slots = Math.max(0, Number(session.ruleset.maxBoardSize ?? 5) - player.board.length);
+  const count = Math.min(requested, slots);
+  const summoned = [];
+  for (let index = 0; index < count; index += 1) {
+    const cardId = definition.id ?? definition.cardId ?? definition.sourceCardId ?? definition.name;
+    const instance = {
+      instanceId: `${playerIndex}:summon:${session.eventSequence}:${index}:${String(cardId)}`,
+      owner: playerIndex,
+      cardId,
+      card: definition,
+      costDelta: 0,
+      attackBonus: 0,
+      defenseBonus: 0,
+      spellboost: 0,
+      attack: Number(definition.attack ?? 0),
+      defense: Number(definition.defense ?? 0),
+      maxDefense: Number(definition.defense ?? 0),
+      evolved: false,
+      superEvolved: false
+    };
+    player.board.push(instance);
+    session.emit(BATTLE_EVENT.FOLLOWER_ENTER, {
+      actor: playerIndex,
+      payload: {
+        card: session.cardView(instance),
+        position: player.board.length - 1,
+        summoned: true,
+        source: source ? session.cardView(source) : null,
+        reason: payload.reason ?? "ability"
+      }
+    });
+    summoned.push(instance);
+  }
+  return { applied: summoned.length > 0, requested, summoned: summoned.length, cardName: definition.name ?? payload.cardName ?? null };
 }
 
 function cardSourceOptions(source, stage) {

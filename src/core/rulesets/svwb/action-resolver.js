@@ -3,6 +3,7 @@ import { restoreOriginalCardForm } from "../../zone-actions.js";
 import { applyWorldsBeyondCombatAction } from "./combat-actions.js";
 import { hasWorldsBeyondKeyword } from "./combat-readiness.js";
 import {
+  canSkipWorldsBeyondHandDiscard,
   destroyWorldsBeyondFollower,
   gainWorldsBeyondShadows,
   getWorldsBeyondTargetOptions,
@@ -120,19 +121,27 @@ export function listWorldsBeyondActions(session, playerIndex) {
       cost: info.cost
     };
     const targetRequirement = getWorldsBeyondTargetRequirement(amulet, "engage", null, player);
+    const discardRequired = requiresWorldsBeyondHandDiscard(amulet, "engage", null, player);
+    const discardCanSkip = discardRequired && canSkipWorldsBeyondHandDiscard(amulet, "engage", null, player);
+    const discardCandidates = discardRequired ? handDiscardOptions(player, amulet) : [null];
+    if (discardRequired && !discardCandidates.length && !discardCanSkip) continue;
+    const discardOptions = discardRequired && !discardCandidates.length ? [null] : discardCandidates;
+
     if (!targetRequirement) {
-      actions.push(baseAction);
+      for (const discard of discardOptions) actions.push(withDiscardSelection(baseAction, discard, discardRequired));
       continue;
     }
     const targets = getWorldsBeyondTargetOptions(session, { trigger: "engage", playerIndex, source: amulet });
     if (!targets.length) continue;
     for (const target of targets) {
-      actions.push({
-        ...baseAction,
-        targetInstanceId: target.instanceId,
-        targetKind: targetRequirement.kind,
-        targetAmount: targetRequirement.amount ?? 0
-      });
+      for (const discard of discardOptions) {
+        actions.push(withDiscardSelection({
+          ...baseAction,
+          targetInstanceId: target.instanceId,
+          targetKind: targetRequirement.kind,
+          targetAmount: targetRequirement.amount ?? 0
+        }, discard, discardRequired));
+      }
     }
   }
 
@@ -269,22 +278,34 @@ function engage(session, action) {
 
   const requirement = getWorldsBeyondTargetRequirement(amulet, "engage", null, player);
   const targets = requirement ? getWorldsBeyondTargetOptions(session, { trigger: "engage", playerIndex, source: amulet }) : [];
+  const discardRequired = requiresWorldsBeyondHandDiscard(amulet, "engage", null, player);
+  const discardCanSkip = discardRequired && canSkipWorldsBeyondHandDiscard(amulet, "engage", null, player);
+  validateDiscardSelection(player, amulet, discardRequired, action.discardInstanceId, { allowMissing: discardCanSkip });
   if (targets.length && !action.targetInstanceId) throw new Error("This Engage ability requires a target");
   if (action.targetInstanceId && !targets.some(target => target.instanceId === action.targetInstanceId)) throw new Error("Selected Engage target is not legal");
   if (requirement && !targets.length) throw new Error("This Engage ability has no legal target");
 
   player.resources.pp -= info.cost;
   amulet.engagedThisTurn = true;
+  const targetOwner = requirement?.targetSide === "allied" ? playerIndex : 1 - playerIndex;
   session.emit(BATTLE_EVENT.ENGAGE, {
     actor: playerIndex,
     payload: {
       card: session.cardView(amulet),
       cost: info.cost,
       ppRemaining: player.resources.pp,
-      target: action.targetInstanceId ? session.cardView(session.findBoardCard(1 - playerIndex, action.targetInstanceId)) : null
+      target: action.targetInstanceId ? session.cardView(session.findBoardCard(targetOwner, action.targetInstanceId)) : null,
+      discardRequired,
+      discardSkipped: discardCanSkip && !action.discardInstanceId
     }
   });
-  resolveWorldsBeyondTrigger(session, { trigger: "engage", playerIndex, source: amulet, targetInstanceId: action.targetInstanceId ?? null });
+  resolveWorldsBeyondTrigger(session, {
+    trigger: "engage",
+    playerIndex,
+    source: amulet,
+    targetInstanceId: action.targetInstanceId ?? null,
+    discardInstanceId: action.discardInstanceId ?? null
+  });
   return session.getSnapshot(playerIndex);
 }
 
@@ -327,12 +348,15 @@ function withDiscardSelection(action, discard, required) {
   };
 }
 
-function validateDiscardSelection(player, source, required, discardInstanceId) {
+function validateDiscardSelection(player, source, required, discardInstanceId, { allowMissing = false } = {}) {
   if (!required) {
     if (discardInstanceId) throw new Error("This action does not require a discard selection");
     return null;
   }
-  if (!discardInstanceId) throw new Error("This action requires a card to discard");
+  if (!discardInstanceId) {
+    if (allowMissing) return null;
+    throw new Error("This action requires a card to discard");
+  }
   const discard = player.hand.find(item => item.instanceId === discardInstanceId && item.instanceId !== source?.instanceId) ?? null;
   if (!discard) throw new Error("Selected discard card is not in the active player's hand");
   return discard;
