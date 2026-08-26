@@ -5,7 +5,7 @@ import { GAME_IDS } from "../src/core/game-catalog.js";
 import { GameSession } from "../src/core/game-session.js";
 
 const RAGING_LIGHTNING = Object.freeze({
-  id: 10343320,
+  id: 10341310,
   name: "Raging Lightning",
   class: "Dragoncraft",
   type: "Spell",
