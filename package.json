@@ -1,10 +1,11 @@
 {
   "name": "shadowbattle",
-  "version": "0.4.83",
+  "version": "0.4.84",
   "private": true,
   "type": "module",
   "scripts": {
     "test": "node --test tests/*.test.js",
+    "audit:svwb": "node scripts/audit-svwb-v6-coverage.mjs",
     "archive:ccg": "node scripts/archive-shadowverse-ccg.mjs",
     "sync:fankits": "node scripts/sync-official-fankits.mjs",
     "build:deck-catalogs": "node scripts/build-deck-catalogs.mjs"
