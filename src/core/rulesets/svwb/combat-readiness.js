@@ -1,6 +1,7 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
 
 const ATTACK_ACTION = "attack";
+const KEYWORD_PATTERNS = new Map();
 
 export function normalizeWorldsBeyondCombatEvent(session, event) {
   if (event?.type !== BATTLE_EVENT.FOLLOWER_ENTER) return null;
@@ -15,15 +16,12 @@ export function normalizeWorldsBeyondCombatEvent(session, event) {
   if (unit.hasAttacked == null) unit.hasAttacked = false;
 
   if (unit.permanentAttackLock) {
-    unit.attacksRemaining = 0;
-    unit.canAttackFollowers = false;
-    unit.canAttackLeader = false;
+    lockAttacks(unit);
     return unit;
   }
 
   const storm = hasWorldsBeyondKeyword(unit, "Storm");
-  const rush = hasWorldsBeyondKeyword(unit, "Rush");
-  unit.canAttackFollowers = storm || rush || Boolean(unit.evolved);
+  unit.canAttackFollowers = storm || hasWorldsBeyondKeyword(unit, "Rush") || Boolean(unit.evolved);
   unit.canAttackLeader = storm;
   return unit;
 }
@@ -32,9 +30,7 @@ export function normalizeWorldsBeyondTurnCombatReadiness(player) {
   for (const unit of player?.board ?? []) {
     if (cardType(unit) !== "follower") continue;
     if (unit.permanentAttackLock) {
-      unit.attacksRemaining = 0;
-      unit.canAttackFollowers = false;
-      unit.canAttackLeader = false;
+      lockAttacks(unit);
       continue;
     }
     unit.attacksRemaining = Math.max(1, Number(unit.attacksRemaining ?? 1));
@@ -42,6 +38,31 @@ export function normalizeWorldsBeyondTurnCombatReadiness(player) {
     unit.canAttackFollowers = true;
     unit.canAttackLeader = true;
   }
+}
+
+export function getWorldsBeyondWardFollowers(player) {
+  return (player?.board ?? []).filter(unit => cardType(unit) === "follower" && hasWorldsBeyondKeyword(unit, "Ward"));
+}
+
+export function getWorldsBeyondAttackCapabilities(session, playerIndex, unit) {
+  if (!session || (playerIndex !== 0 && playerIndex !== 1)) return { followers: false, leader: false };
+  if (session.phase !== "main" || session.activePlayer !== playerIndex || session.winner != null) return { followers: false, leader: false };
+  if (!unit || cardType(unit) !== "follower" || unit.permanentAttackLock || Number(unit.attacksRemaining ?? 0) <= 0) {
+    return { followers: false, leader: false };
+  }
+
+  if (Number(unit.playedTurn) !== Number(session.turn)) {
+    return {
+      followers: Boolean(unit.canAttackFollowers),
+      leader: Boolean(unit.canAttackLeader)
+    };
+  }
+
+  const storm = hasWorldsBeyondKeyword(unit, "Storm");
+  return {
+    followers: Boolean(unit.canAttackFollowers) && (storm || hasWorldsBeyondKeyword(unit, "Rush") || Boolean(unit.evolved)),
+    leader: Boolean(unit.canAttackLeader) && storm
+  };
 }
 
 export function filterWorldsBeyondCombatActions(session, actions = []) {
@@ -55,7 +76,7 @@ export function assertWorldsBeyondCombatAction(session, action) {
   const targetLeader = action?.target === "leader" || !action?.targetInstanceId;
   if ((playerIndex === 0 || playerIndex === 1) && session?.phase === "main") {
     const enemy = session.getPlayer(1 - playerIndex);
-    const wards = enemy.board.filter(unit => cardType(unit) === "follower" && hasWorldsBeyondKeyword(unit, "Ward"));
+    const wards = getWorldsBeyondWardFollowers(enemy);
     if (targetLeader && wards.length) throw new Error("An enemy Ward follower must be attacked first");
     if (!targetLeader && wards.length) {
       const target = enemy.board.find(unit => unit.instanceId === action.targetInstanceId) ?? null;
@@ -70,30 +91,22 @@ export function isWorldsBeyondAttackActionLegal(session, action) {
   if (!session || action?.type !== ATTACK_ACTION) return false;
   const playerIndex = action.player;
   if (playerIndex !== 0 && playerIndex !== 1) return false;
-  if (session.phase !== "main" || session.activePlayer !== playerIndex || session.winner != null) return false;
 
   const player = session.getPlayer(playerIndex);
   const enemy = session.getPlayer(1 - playerIndex);
   const unit = player.board.find(item => item.instanceId === action.attackerInstanceId);
-  if (!unit || cardType(unit) !== "follower" || unit.permanentAttackLock) return false;
-  if (Number(unit.attacksRemaining ?? 0) <= 0) return false;
-
-  const wards = enemy.board.filter(item => cardType(item) === "follower" && hasWorldsBeyondKeyword(item, "Ward"));
+  const capabilities = getWorldsBeyondAttackCapabilities(session, playerIndex, unit);
   const targetLeader = action.target === "leader" || !action.targetInstanceId;
-  if (targetLeader && wards.length) return false;
-  if (!targetLeader) {
-    const target = enemy.board.find(item => item.instanceId === action.targetInstanceId);
-    if (!target || cardType(target) !== "follower") return false;
-    if (wards.length && !hasWorldsBeyondKeyword(target, "Ward")) return false;
+
+  if (targetLeader) {
+    return capabilities.leader && getWorldsBeyondWardFollowers(enemy).length === 0;
   }
+  if (!capabilities.followers) return false;
 
-  const enteredThisTurn = Number(unit.playedTurn) === Number(session.turn);
-  if (!enteredThisTurn) return targetLeader ? Boolean(unit.canAttackLeader) : Boolean(unit.canAttackFollowers);
-
-  const storm = hasWorldsBeyondKeyword(unit, "Storm");
-  if (targetLeader) return Boolean(unit.canAttackLeader) && storm;
-  const rush = hasWorldsBeyondKeyword(unit, "Rush");
-  return Boolean(unit.canAttackFollowers) && (storm || rush || Boolean(unit.evolved));
+  const target = enemy.board.find(item => item.instanceId === action.targetInstanceId);
+  if (!target || cardType(target) !== "follower") return false;
+  const wards = getWorldsBeyondWardFollowers(enemy);
+  return !wards.length || hasWorldsBeyondKeyword(target, "Ward");
 }
 
 export function grantWorldsBeyondKeyword(instance, keyword) {
@@ -118,31 +131,40 @@ export function hasWorldsBeyondKeyword(instance, keyword) {
   ];
   const explicitlyIndexed = explicit.some(value => normalize(keywordName(value)) === wanted);
   const text = cleanRulesText(instance?.card);
+  if (!text.trim()) return explicitlyIndexed;
 
-  if (text.trim()) {
-    const escaped = escapeRegex(keyword);
-    const standalone = new RegExp(`(?:^|[\\r\\n])\\s*${escaped}\\s*\\.?\\s*(?=$|[\\r\\n])`, "im").test(text);
-    if (standalone) return true;
+  const patterns = keywordPatterns(wanted);
+  if (patterns.standalone.test(text)) return true;
 
-    // Beyond Codex indexes every keyword mentioned in a card, including
-    // conditional grants such as "Combo (3) - Give this follower Storm".
-    // When the rules text itself mentions the keyword but it is not a
-    // standalone printed ability, the index must not activate it.
-    const mentionedInRulesText = new RegExp(`\\b${escaped}\\b`, "i").test(text);
-    if (mentionedInRulesText) return false;
+  // Beyond Codex indexes every keyword mentioned in a card, including
+  // conditional grants. A mention in rules prose is not an active keyword.
+  if (patterns.mentioned.test(text)) return false;
 
-    // Synthetic/generated definitions sometimes provide keyword metadata while
-    // omitting that keyword from their abbreviated text. Preserve that explicit
-    // metadata fallback without weakening the Codex conditional-grant guard.
-    return explicitlyIndexed;
-  }
-
+  // Synthetic/generated definitions may expose keyword metadata while omitting
+  // that keyword from abbreviated rules text.
   return explicitlyIndexed;
 }
 
+function lockAttacks(unit) {
+  unit.attacksRemaining = 0;
+  unit.canAttackFollowers = false;
+  unit.canAttackLeader = false;
+}
+
+function keywordPatterns(keyword) {
+  let patterns = KEYWORD_PATTERNS.get(keyword);
+  if (patterns) return patterns;
+  const escaped = escapeRegex(keyword);
+  patterns = {
+    standalone: new RegExp(`(?:^|[\\r\\n])\\s*${escaped}\\s*\\.?\\s*(?=$|[\\r\\n])`, "im"),
+    mentioned: new RegExp(`\\b${escaped}\\b`, "i")
+  };
+  KEYWORD_PATTERNS.set(keyword, patterns);
+  return patterns;
+}
+
 function cleanRulesText(card) {
-  const text = String(card?.text ?? card?.rawSkillText ?? "");
-  return text
+  return String(card?.text ?? card?.rawSkillText ?? "")
     .replace(/<hr\s*\/?\s*>/gi, "\n")
     .replace(/<br\s*\/?\s*>/gi, "\n")
     .replace(/<[^>]+>/g, "");

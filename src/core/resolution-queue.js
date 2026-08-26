@@ -22,20 +22,20 @@ export class BattleResolutionQueue {
     if (this.processing) return [];
     this.processing = true;
     const completed = [];
-    let steps = 0;
+    let cursor = 0;
+    let clearPending = false;
 
     try {
-      while (this.pending.length) {
-        steps += 1;
-        if (steps > this.maxSteps) {
-          this.pending.length = 0;
+      while (cursor < this.pending.length) {
+        if (cursor >= this.maxSteps) {
+          clearPending = true;
           throw new Error(`Battle resolution queue exceeded ${this.maxSteps} steps`);
         }
 
-        const entry = this.pending.shift();
+        const entry = this.pending[cursor++];
         const result = entry.resolver();
         if (result && typeof result.then === "function") {
-          this.pending.length = 0;
+          clearPending = true;
           throw new Error("Battle resolution queue only accepts synchronous resolvers");
         }
         completed.push(Object.freeze({
@@ -45,7 +45,12 @@ export class BattleResolutionQueue {
           result
         }));
       }
+      this.pending.length = 0;
       return completed;
+    } catch (error) {
+      if (clearPending) this.pending.length = 0;
+      else if (cursor > 0) this.pending.splice(0, cursor);
+      throw error;
     } finally {
       this.processing = false;
     }

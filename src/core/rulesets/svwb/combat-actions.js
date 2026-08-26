@@ -2,8 +2,9 @@ import { BATTLE_EVENT } from "../../battle-events.js";
 import { destroyWorldsBeyondFollower, resolveWorldsBeyondTrigger } from "./effect-resolver.js";
 import {
   assertWorldsBeyondCombatAction,
-  hasWorldsBeyondKeyword,
-  isWorldsBeyondAttackActionLegal
+  getWorldsBeyondAttackCapabilities,
+  getWorldsBeyondWardFollowers,
+  hasWorldsBeyondKeyword
 } from "./combat-readiness.js";
 
 const ATTACK_ACTION = "attack";
@@ -12,30 +13,30 @@ export function listWorldsBeyondCombatActions(session, playerIndex) {
   if (!session || session.phase !== "main" || session.activePlayer !== playerIndex || session.winner != null) return [];
   const player = session.getPlayer(playerIndex);
   const enemy = session.getPlayer(1 - playerIndex);
-  const wards = enemy.board.filter(unit => cardType(unit) === "follower" && hasWorldsBeyondKeyword(unit, "Ward"));
+  const wards = getWorldsBeyondWardFollowers(enemy);
   const targets = wards.length ? wards : enemy.board.filter(unit => cardType(unit) === "follower");
   const actions = [];
 
   for (const unit of player.board) {
-    if (cardType(unit) !== "follower" || Number(unit.attacksRemaining ?? 0) <= 0 || unit.permanentAttackLock) continue;
-
-    for (const target of targets) {
-      const action = {
+    const capabilities = getWorldsBeyondAttackCapabilities(session, playerIndex, unit);
+    if (capabilities.followers) {
+      for (const target of targets) {
+        actions.push({
+          type: ATTACK_ACTION,
+          player: playerIndex,
+          attackerInstanceId: unit.instanceId,
+          targetInstanceId: target.instanceId
+        });
+      }
+    }
+    if (capabilities.leader && !wards.length) {
+      actions.push({
         type: ATTACK_ACTION,
         player: playerIndex,
         attackerInstanceId: unit.instanceId,
-        targetInstanceId: target.instanceId
-      };
-      if (isWorldsBeyondAttackActionLegal(session, action)) actions.push(action);
+        target: "leader"
+      });
     }
-
-    const leaderAction = {
-      type: ATTACK_ACTION,
-      player: playerIndex,
-      attackerInstanceId: unit.instanceId,
-      target: "leader"
-    };
-    if (isWorldsBeyondAttackActionLegal(session, leaderAction)) actions.push(leaderAction);
   }
 
   return actions;
