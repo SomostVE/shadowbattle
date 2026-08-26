@@ -5,15 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#090b14">
   <meta name="robots" content="noindex,nofollow,noarchive">
-  <title>ShadowBattle Internal AI Test Lab — Battle Lab</title>
-  <link rel="stylesheet" href="../src/ui/shadowbattle.css?v=0.4.76">
-  <link rel="stylesheet" href="../src/ui/battle-lab.css?v=0.4.76">
-  <link rel="stylesheet" href="../src/ui/battle-actions.css?v=0.4.76">
-  <link rel="stylesheet" href="../src/ui/battle-crests.css?v=0.4.76">
-  <script type="module" src="../src/ui/version-guard.js?v=0.4.76"></script>
+  <title>ShadowBattle Internal AI Test Lab — Battle Function Lab</title>
+  <link rel="stylesheet" href="../src/ui/shadowbattle.css?v=0.4.77">
+  <link rel="stylesheet" href="../src/ui/battle-lab.css?v=0.4.77">
+  <link rel="stylesheet" href="../src/ui/battle-actions.css?v=0.4.77">
+  <link rel="stylesheet" href="../src/ui/battle-crests.css?v=0.4.77">
+  <link rel="stylesheet" href="../src/ui/test-lab-tools.css?v=0.4.77">
+  <script type="module" src="../src/ui/version-guard.js?v=0.4.77"></script>
 </head>
 <body data-game="worlds-beyond">
-  <main class="sb-shell">
+  <main class="sb-shell sb-test-shell">
     <header class="sb-topbar">
       <a class="sb-brand" href="../"><span class="sb-mark">✦</span><span>ShadowBattle</span></a>
       <nav class="sb-nav" aria-label="Internal navigation">
@@ -21,18 +22,21 @@
         <a href="../decks/">Deckbuilder</a>
         <a href="../library/">Deck Library</a>
         <a href="../api/">API</a>
-        <a href="./" aria-current="page">Internal Battle Lab</a>
+        <a href="./" aria-current="page">Battle Lab</a>
       </nav>
     </header>
 
-    <section class="sb-hero sb-lab-hero">
-      <div class="sb-eyebrow">Internal battle sandbox</div>
-      <h1>/test</h1>
-      <p>Interactive GameSession development for Worlds Beyond. This page is the private proving ground for ShadowBattle Engine V6 Alpha, hidden information, CPU decisions and the animation pipeline before Battle becomes public.</p>
+    <section class="sb-test-header">
+      <div>
+        <div class="sb-eyebrow">Internal AI Test Lab · ShadowBattle Engine V6 Alpha</div>
+        <h1>Battle Function Lab</h1>
+        <p>Playable action resolver and minimal development surface for exercising GameSession actions before the final battle UI is built. Hover any visible card to inspect its real Beyond Codex effect.</p>
+      </div>
+      <span id="battle-lab-status" class="sb-status" data-status="planned">Loading Beyond Codex…</span>
     </section>
 
-    <section class="sb-panel">
-      <div class="sb-controls">
+    <section class="sb-panel sb-test-toolbar" aria-label="Battle test controls">
+      <div class="sb-test-toolbar-grid">
         <div class="sb-field">
           <label for="test-game">Game</label>
           <select id="test-game" class="sb-control">
@@ -42,41 +46,29 @@
           </select>
         </div>
         <div class="sb-field">
-          <label for="test-seed">Deterministic seed</label>
+          <label for="test-seed">Seed</label>
           <input id="test-seed" class="sb-control" value="shadowbattle-demo" autocomplete="off">
         </div>
-        <button id="run-decision" class="sb-button" type="button">Run AI decision</button>
-        <button id="reset-test" class="sb-button" type="button">Reset AI log</button>
-      </div>
-    </section>
-
-    <section id="game-session-lab" class="sb-section">
-      <div class="sb-section-title">
-        <div>
-          <div class="sb-eyebrow">GameSession · ShadowBattle Engine V6 Alpha</div>
-          <h2>V6 · Playable action resolver</h2>
+        <div class="sb-field">
+          <label for="battle-player-deck">Human deck</label>
+          <select id="battle-player-deck" class="sb-control" disabled></select>
         </div>
-        <span id="battle-lab-status" class="sb-status" data-status="planned">Loading Beyond Codex…</span>
-      </div>
-
-      <div class="sb-panel sb-battle-controls">
-        <div class="sb-controls">
-          <div class="sb-field sb-field-grow">
-            <label for="battle-player-deck">Human deck</label>
-            <select id="battle-player-deck" class="sb-control" disabled></select>
-          </div>
-          <div class="sb-field sb-field-grow">
-            <label for="battle-cpu-deck">CPU deck</label>
-            <select id="battle-cpu-deck" class="sb-control" disabled></select>
-          </div>
-          <button id="battle-start" class="sb-button sb-button-primary" type="button" disabled>Start GameSession</button>
-          <button id="battle-mulligan" class="sb-button sb-button-primary" type="button" disabled>Confirm mulligan</button>
+        <div class="sb-field">
+          <label for="battle-cpu-deck">CPU deck</label>
+          <select id="battle-cpu-deck" class="sb-control" disabled></select>
+        </div>
+        <div class="sb-test-actions">
+          <button id="battle-start" class="sb-button sb-button-primary" type="button" disabled>Start / Restart</button>
+          <button id="battle-mulligan" class="sb-button sb-button-primary" type="button" disabled>Mulligan</button>
           <button id="battle-bonus-pp" class="sb-button" type="button" disabled>Bonus PP</button>
           <button id="battle-end-turn" class="sb-button" type="button" disabled>End turn</button>
         </div>
       </div>
+      <div id="battle-help" class="sb-test-status-line">Loading the V6 action resolver and reference decks…</div>
+    </section>
 
-      <div class="sb-test-layout sb-battle-layout">
+    <section id="game-session-lab" class="sb-section">
+      <div class="sb-test-workspace">
         <div id="battle-stage" class="sb-board sb-battle-stage" data-phase="loading" aria-label="Worlds Beyond GameSession battle board">
           <section class="sb-battle-side sb-battle-side-opponent" data-player="1">
             <div class="sb-player-line">
@@ -101,29 +93,74 @@
           </section>
 
           <div id="battle-overlay" class="sb-battle-overlay" aria-live="polite">
-            <strong>Worlds Beyond · Engine V6 Alpha</strong>
-            <span>Select two reference decks and start a deterministic session.</span>
+            <strong>Engine V6 Alpha</strong>
+            <span>Select two reference decks and start a deterministic GameSession.</span>
           </div>
         </div>
 
-        <aside class="sb-panel sb-log sb-battle-log-panel">
-          <div class="sb-eyebrow">Event stream</div>
-          <h2 id="battle-phase-label">No session</h2>
-          <p id="battle-help">The V6 renderer consumes semantic GameSession events in deterministic resolution order. Hidden opponent draws are never exposed to the human view.</p>
-          <div id="battle-event-log" class="sb-battle-event-log"></div>
+        <aside class="sb-test-sidebar" aria-label="Battle diagnostics">
+          <section id="battle-card-inspector" class="sb-panel sb-card-inspector">
+            <div class="sb-card-inspector-heading">
+              <div>
+                <div class="sb-eyebrow">Card inspector</div>
+                <h2>Effect check</h2>
+              </div>
+              <span class="sb-status" data-status="ready">Hover</span>
+            </div>
+            <div id="battle-card-inspector-empty" class="sb-card-inspector-empty">Hover a visible card in the hand or on the field. The inspector keeps the last card visible so its effect can be checked while resolving actions.</div>
+            <div id="battle-card-inspector-content" class="sb-card-inspector-content" hidden>
+              <div class="sb-card-inspector-summary">
+                <img id="battle-card-inspector-image" class="sb-card-inspector-image" alt="">
+                <div>
+                  <h3 id="battle-card-inspector-name" class="sb-card-inspector-name"></h3>
+                  <div id="battle-card-inspector-meta" class="sb-card-inspector-meta"></div>
+                  <div id="battle-card-inspector-state" class="sb-card-inspector-state"></div>
+                  <div id="battle-card-inspector-keywords" class="sb-card-inspector-keywords"></div>
+                </div>
+              </div>
+              <div class="sb-card-inspector-effect">
+                <div class="sb-card-inspector-label">Codex effect</div>
+                <p id="battle-card-inspector-text" class="sb-card-inspector-text"></p>
+              </div>
+              <div id="battle-card-inspector-evolved-block" class="sb-card-inspector-effect sb-card-inspector-evolved" hidden>
+                <div class="sb-card-inspector-label">Evolved text</div>
+                <p id="battle-card-inspector-evolved-text" class="sb-card-inspector-text"></p>
+              </div>
+            </div>
+          </section>
+
+          <section class="sb-panel sb-log sb-battle-log-panel sb-test-event-panel">
+            <div class="sb-event-stream-heading">
+              <div>
+                <div class="sb-eyebrow">Event stream</div>
+                <h2 id="battle-phase-label">No session</h2>
+              </div>
+            </div>
+            <div id="battle-event-log" class="sb-battle-event-log"></div>
+          </section>
         </aside>
       </div>
     </section>
 
-    <section class="sb-section sb-grid">
-      <article class="sb-card"><div class="sb-eyebrow">Intermediate AI</div><h3 id="chosen-action">No decision yet</h3><p>The existing decision sandbox stays available while V6 migrates the remaining V5 card and class rules into deterministic interactive resolution.</p><div id="decision-log"></div></article>
-      <article class="sb-card"><div class="sb-eyebrow">Skill budget</div><h3>Intermediate profile</h3><pre id="profile-json" class="sb-code"></pre></article>
-      <article class="sb-card"><div class="sb-eyebrow">Visual boundary</div><h3>Selected game profile</h3><pre id="visual-json" class="sb-code"></pre></article>
-    </section>
+    <details class="sb-test-secondary">
+      <summary>Legacy intermediate-AI decision sandbox</summary>
+      <div class="sb-test-secondary-body">
+        <div class="sb-test-secondary-controls">
+          <button id="run-decision" class="sb-button" type="button">Run AI decision</button>
+          <button id="reset-test" class="sb-button" type="button">Reset AI log</button>
+        </div>
+        <section class="sb-grid">
+          <article class="sb-card"><div class="sb-eyebrow">Intermediate AI</div><h3 id="chosen-action">No decision yet</h3><div id="decision-log"></div></article>
+          <article class="sb-card"><div class="sb-eyebrow">Skill budget</div><h3>Intermediate profile</h3><pre id="profile-json" class="sb-code"></pre></article>
+          <article class="sb-card"><div class="sb-eyebrow">Visual boundary</div><h3>Selected game profile</h3><pre id="visual-json" class="sb-code"></pre></article>
+        </section>
+      </div>
+    </details>
   </main>
-  <script type="module" src="../src/test/test-page.js?v=0.4.76"></script>
-  <script type="module" src="../src/test/multi-selection-lab.js?v=0.4.76"></script>
-  <script type="module" src="../src/test/battle-action-lab.js?v=0.4.76"></script>
-  <script type="module" src="../src/test/crest-lab-overlay.js?v=0.4.76"></script>
+  <script type="module" src="../src/test/test-page.js?v=0.4.77"></script>
+  <script type="module" src="../src/test/multi-selection-lab.js?v=0.4.77"></script>
+  <script type="module" src="../src/test/battle-action-lab.js?v=0.4.77"></script>
+  <script type="module" src="../src/test/crest-lab-overlay.js?v=0.4.77"></script>
+  <script type="module" src="../src/test/card-inspector-lab.js?v=0.4.77"></script>
 </body>
 </html>
