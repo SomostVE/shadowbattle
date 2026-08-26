@@ -5,6 +5,7 @@ import fs from "node:fs/promises";
 const root = new URL("../", import.meta.url);
 const html = await fs.readFile(new URL("test/index.html", root), "utf8");
 const controller = await fs.readFile(new URL("src/test/battle-action-lab.js", root), "utf8");
+const ai = await fs.readFile(new URL("src/ai/intermediate-controller.js", root), "utf8");
 const css = await fs.readFile(new URL("src/ui/battle-actions.css", root), "utf8");
 
 test("internal battle lab loads the playable action controller", () => {
@@ -44,8 +45,6 @@ test("allied effect targets use the same explicit target graph instead of auto-s
   assert.match(controller, /owner === 0/);
   assert.match(controller, /const effectTarget = playTarget \|\| engageTarget \|\| evolutionTarget/);
   assert.match(controller, /hitbox\.disabled = !\(effectTarget \|\| attackReady\)/);
-  assert.match(controller, /playTargetValue\(1, b\) - playTargetValue\(1, a\)/);
-  assert.match(controller, /action\.targetKind === "damage" \? -value : value/);
   assert.match(controller, /Choose a highlighted follower as the card effect target/);
 });
 
@@ -54,7 +53,6 @@ test("targeted Evo waits for a human target instead of auto-selecting the first 
   assert.match(controller, /selectedEvolution = \{ type, followerInstanceId: instanceId \}/);
   assert.match(controller, /item\.type === selectedEvolution\.type/);
   assert.match(controller, /item\.followerInstanceId === selectedEvolution\.followerInstanceId/);
-  assert.match(controller, /targetValue\(enemyIndex, b\.targetInstanceId\)/);
 });
 
 test("V5 alternative modes require an explicit human choice when multiple modes are legal", () => {
@@ -96,14 +94,23 @@ test("Engage is visible as a dedicated amulet action and class resources are rea
   assert.match(css, /\.sb-battle-unit\.is-engage-selected/);
 });
 
-test("CPU lab driver executes legal actions including productive Fuse chains", () => {
-  assert.match(controller, /runCpuTurnIfNeeded/);
-  assert.match(controller, /chooseCpuAction/);
-  assert.match(controller, /action\.type === "fuse"/);
-  assert.match(controller, /projectedTransform/);
-  assert.match(controller, /action\.type === "engage"/);
-  assert.match(controller, /shouldCpuUseBonusPp/);
+test("CPU lab driver uses the reusable V6 Intermediate controller", () => {
+  assert.match(controller, /createIntermediateController/);
+  assert.match(controller, /cpuController\.chooseMulligan\(session, 1\)/);
+  assert.match(controller, /cpuController\?\.shouldUseBonusPp\(session, 1\)/);
+  assert.match(controller, /cpuController\?\.chooseAction\(session, 1\)/);
+  assert.match(controller, /session\.dispatch\(action\)/);
   assert.match(controller, /session\.endTurn\(1\)/);
+  assert.doesNotMatch(controller, /function chooseCpuAction/);
+});
+
+test("Intermediate controller scores every supported V6 action family", () => {
+  for (const action of ["attack", "play-card", "engage", "evolve", "super-evolve", "fuse"]) {
+    assert.match(ai, new RegExp(`case \\"${action}\\"`));
+  }
+  assert.match(ai, /projectedTransform/);
+  assert.match(ai, /getSnapshot\(playerIndex\)/);
+  assert.match(ai, /listLegalActions\(playerIndex\)/);
 });
 
 test("playable board has action, combat target, effect target, evolution and stat presentation", () => {
