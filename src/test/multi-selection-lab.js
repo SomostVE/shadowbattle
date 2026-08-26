@@ -118,7 +118,8 @@ function selectDiscard(instanceId) {
   selectedDiscardInstanceId = instanceId;
   decorateDiscardCandidates();
 
-  if (!pendingHasTarget() && pending?.replayNode) {
+  const shouldReplay = pending?.replayNode && (pending.kind === "engage" || !pendingHasTarget());
+  if (shouldReplay) {
     const node = pending.replayNode;
     replaying = true;
     try {
