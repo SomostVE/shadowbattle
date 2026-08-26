@@ -34,3 +34,29 @@ test("Worlds Beyond provider reuses one normalized catalog load per page", async
     globalThis.fetch = originalFetch;
   }
 });
+
+test("a failed Worlds Beyond catalog request is not cached forever", async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls += 1;
+    if (calls === 1) return { ok: false, status: 503 };
+    return {
+      ok: true,
+      status: 200,
+      async json() {
+        return [{ id: 54321, name: "Recovered Card", type: "Spell", cost: 1 }];
+      }
+    };
+  };
+
+  try {
+    const { worldsBeyondProvider } = await import(`../src/data/providers/worlds-beyond.js?retry-test=${Date.now()}`);
+    await assert.rejects(worldsBeyondProvider.loadCards(), /HTTP 503/);
+    const cards = await worldsBeyondProvider.loadCards();
+    assert.equal(calls, 2);
+    assert.equal(cards[0].uid, "svwb:54321");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
