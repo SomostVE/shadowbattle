@@ -1,5 +1,6 @@
 import { getWorldsBeyondTriggerSupport } from "../src/core/rulesets/svwb/effect-resolver.js";
 
+// Structural audit only: semantic correctness is still enforced by card-level tests.
 const CODEX_URL = process.env.SVWB_CODEX_URL ?? "https://raw.githubusercontent.com/SomostVE/beyond_codex/main/api/v1/cards.json";
 const triggers = ["play", "evolve", "super-evolve", "last-words", "strike", "engage", "turn-start", "turn-end"];
 
