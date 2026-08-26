@@ -39,30 +39,15 @@ function captureMultiSelection(event) {
     return;
   }
 
-  if (replaying) return;
+  if (replaying || !handCard) return;
 
-  const engageButton = event.target.closest?.("#battle-player-board .sb-battle-evolution-button.is-engage");
-  if (engageButton) {
-    const unit = engageButton.closest(".sb-battle-unit[data-instance-id]");
-    const sourceId = unit?.dataset.instanceId;
-    const actions = sourceId ? rawActions(0).filter(action => action.type === "engage" && action.amuletInstanceId === sourceId) : [];
-    if (actions.some(action => action.discardInstanceId)) {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      beginSelection({ kind: "engage", sourceId, replayNode: engageButton });
-      return;
-    }
-  }
-
-  if (handCard) {
-    const sourceId = handCard.dataset.instanceId;
-    const actions = rawActions(0).filter(action => action.type === "play-card" && action.cardInstanceId === sourceId);
-    const discardActions = actions.filter(action => action.discardInstanceId);
-    if (discardActions.length && discardActions.every(action => !action.targetInstanceId) && uniqueModeKeys(discardActions).size <= 1) {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      beginSelection({ kind: "play-card", sourceId, playModeKey: discardActions[0]?.playModeKey ?? null, replayNode: handCard });
-    }
+  const sourceId = handCard.dataset.instanceId;
+  const actions = rawActions(0).filter(action => action.type === "play-card" && action.cardInstanceId === sourceId);
+  const discardActions = actions.filter(action => action.discardInstanceId);
+  if (discardActions.length && discardActions.every(action => !action.targetInstanceId) && uniqueModeKeys(discardActions).size <= 1) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    beginSelection({ sourceId, playModeKey: discardActions[0]?.playModeKey ?? null, replayNode: handCard });
   }
 }
 
@@ -79,21 +64,10 @@ function syncFromRenderedSelection() {
     if (actions.length) {
       const modeKeys = uniqueModeKeys(actions);
       beginSelection({
-        kind: "play-card",
         sourceId,
         playModeKey: modeKeys.size === 1 ? actions[0].playModeKey ?? null : pending?.playModeKey ?? null,
         replayNode: selectedPlay
       }, { preserveDiscard: pending?.sourceId === sourceId });
-      return;
-    }
-  }
-
-  const selectedEngage = document.querySelector("#battle-player-board .sb-battle-unit.is-engage-selected[data-instance-id]");
-  if (selectedEngage) {
-    const sourceId = selectedEngage.dataset.instanceId;
-    const actions = rawActions(0).filter(action => action.type === "engage" && action.amuletInstanceId === sourceId && action.discardInstanceId);
-    if (actions.length) {
-      beginSelection({ kind: "engage", sourceId, replayNode: selectedEngage.querySelector(".sb-battle-evolution-button.is-engage") }, { preserveDiscard: pending?.sourceId === sourceId });
       return;
     }
   }
@@ -118,8 +92,7 @@ function selectDiscard(instanceId) {
   selectedDiscardInstanceId = instanceId;
   decorateDiscardCandidates();
 
-  const shouldReplay = pending?.replayNode && (pending.kind === "engage" || !pendingHasTarget());
-  if (shouldReplay) {
+  if (!pendingHasTarget() && pending?.replayNode) {
     const node = pending.replayNode;
     replaying = true;
     try {
@@ -170,15 +143,10 @@ function rawActions(playerIndex) {
 
 function selectionActions() {
   if (!pending) return [];
-  return rawActions(0).filter(action => {
-    if (!action.discardInstanceId) return false;
-    if (pending.kind === "play-card") {
-      return action.type === "play-card"
-        && action.cardInstanceId === pending.sourceId
-        && (!pending.playModeKey || action.playModeKey === pending.playModeKey);
-    }
-    return action.type === "engage" && action.amuletInstanceId === pending.sourceId;
-  });
+  return rawActions(0).filter(action => action.type === "play-card"
+    && action.cardInstanceId === pending.sourceId
+    && action.discardInstanceId
+    && (!pending.playModeKey || action.playModeKey === pending.playModeKey));
 }
 
 function pendingHasTarget() {
@@ -195,9 +163,9 @@ function isDiscardCandidate(instanceId) {
 
 function prioritizeSelectedDiscard(actions, selection, discardInstanceId) {
   return prioritizeDiscardGroups(actions, action => {
-    const sameSource = selection.kind === "play-card"
-      ? action.type === "play-card" && action.cardInstanceId === selection.sourceId && (!selection.playModeKey || action.playModeKey === selection.playModeKey)
-      : action.type === "engage" && action.amuletInstanceId === selection.sourceId;
+    const sameSource = action.type === "play-card"
+      && action.cardInstanceId === selection.sourceId
+      && (!selection.playModeKey || action.playModeKey === selection.playModeKey);
     if (!sameSource || !action.discardInstanceId) return 1;
     return action.discardInstanceId === discardInstanceId ? 0 : 2;
   });
@@ -238,7 +206,7 @@ function discardGroupKey(action) {
   if (!action?.discardInstanceId) return "";
   return [
     action.type,
-    action.cardInstanceId ?? action.amuletInstanceId ?? "",
+    action.cardInstanceId ?? "",
     action.playModeKey ?? "",
     action.targetInstanceId ?? "",
     action.cost ?? 0
