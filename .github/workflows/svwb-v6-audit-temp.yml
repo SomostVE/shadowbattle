@@ -1,0 +1,16 @@
+name: SVWB V6 Codex Audit Temp
+
+on:
+  push:
+    branches: [engine/svwb-completeness-0.4.84]
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - name: Audit current Beyond Codex
+        run: node scripts/audit-svwb-v6-coverage.mjs
