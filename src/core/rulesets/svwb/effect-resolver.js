@@ -307,16 +307,7 @@ function targetPlayerForSpec(playerIndex, targetSpec) {
 function hasUnsupportedChoiceOrCondition(text, { targetSpec = null, discardRequired = false } = {}) {
   let inspect = String(text ?? "");
   if (discardRequired) inspect = inspect.replace(/\bselect (?:a|an|one) (?:[a-z]+craft )?card in your hand and discard it\.?/gi, "");
-  if (targetSpec) {
-    inspect = inspect
-      .replace(/\bselect (?:an )?(?:enemy|allied) follower(?: on the field)? and\s*/gi, "")
-      .replace(/\bdeal(?: it)?\s+\d+\s+damage(?: to (?:an|a|the) enemy follower)?\b/gi, "")
-      .replace(/\bdestroy (?:an|a|the) enemy follower\b/gi, "")
-      .replace(/\bbanish (?:an|a|the) enemy follower\b/gi, "")
-      .replace(/\breturn (?:an|a|the) enemy follower to (?:its owner'?s|their) hand\b/gi, "")
-      .replace(/\bset (?:an|a|the) enemy follower(?:'s|’s) defense to\s+\d+\b/gi, "")
-      .replace(/\bset its defense to\s+\d+\b/gi, "");
-  }
+  if (targetSpec) inspect = stripSupportedTargetText(inspect);
   inspect = inspect.replace(/\bGain Crest\s*:\s*[^.;\n]+[.;]?/gi, "");
   return /\b(?:select|choose)\b|\bif\b|\bunless\b|\bfor each\b|\bwhenever\b|\bwhen(?:ever)?\b|\brandomly select\b|\bX\b|\b(?:Earth Rite|Engage|Fuse|Transmute|Crest|Faith|Reanimate)\b/i.test(inspect);
 }
