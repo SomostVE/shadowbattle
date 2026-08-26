@@ -7,6 +7,7 @@ import {
   gainWorldsBeyondShadows,
   getWorldsBeyondTargetOptions,
   getWorldsBeyondTargetRequirement,
+  getWorldsBeyondTriggerSupport,
   requiresWorldsBeyondHandDiscard,
   resolveWorldsBeyondTrigger
 } from "./effect-resolver.js";
@@ -68,6 +69,7 @@ export function listWorldsBeyondActions(session, playerIndex) {
       const type = effectivePlayType(card, mode);
       const needsBoard = type === "follower" || type === "amulet";
       if (needsBoard && player.board.length >= session.ruleset.maxBoardSize) continue;
+      if (type === "spell" && !getWorldsBeyondTriggerSupport(card, "play", mode, player).supported) continue;
 
       const baseAction = {
         type: SVWB_ACTION.PLAY_CARD,
@@ -110,6 +112,7 @@ export function listWorldsBeyondActions(session, playerIndex) {
     if (cardType(amulet) !== "amulet" || amulet.engagedThisTurn) continue;
     const info = getWorldsBeyondEngageInfo(amulet);
     if (!info || info.cost > Number(player.resources.pp ?? 0)) continue;
+    if (!getWorldsBeyondTriggerSupport(amulet, "engage", null, player).supported) continue;
     const baseAction = {
       type: SVWB_ACTION.ENGAGE,
       player: playerIndex,
@@ -159,6 +162,9 @@ function playCard(session, action) {
   if (cost > player.resources.pp) throw new Error(`Not enough PP to play ${instance.card?.name ?? "card"}`);
   if ((type === "follower" || type === "amulet") && player.board.length >= session.ruleset.maxBoardSize) throw new Error("The board is full");
   if (!new Set(["follower", "spell", "amulet"]).has(type)) throw new Error(`Unsupported card type: ${instance.card?.type ?? "unknown"}`);
+  if (type === "spell" && !getWorldsBeyondTriggerSupport(instance, "play", mode, player).supported) {
+    throw new Error("This spell effect is not fully supported by the Worlds Beyond resolver");
+  }
 
   const requirement = getWorldsBeyondTargetRequirement(instance, "play", mode, player);
   const targets = requirement ? getWorldsBeyondTargetOptions(session, { trigger: "play", playerIndex, source: instance, mode }) : [];
@@ -257,6 +263,9 @@ function engage(session, action) {
   const info = getWorldsBeyondEngageInfo(amulet);
   if (!info) throw new Error("This amulet has no Engage ability");
   if (info.cost > Number(player.resources.pp ?? 0)) throw new Error("Not enough PP to Engage this amulet");
+  if (!getWorldsBeyondTriggerSupport(amulet, "engage", null, player).supported) {
+    throw new Error("This Engage effect is not fully supported by the Worlds Beyond resolver");
+  }
 
   const requirement = getWorldsBeyondTargetRequirement(amulet, "engage", null, player);
   const targets = requirement ? getWorldsBeyondTargetOptions(session, { trigger: "engage", playerIndex, source: amulet }) : [];
