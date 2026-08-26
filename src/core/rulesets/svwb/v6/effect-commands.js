@@ -153,7 +153,7 @@ export function compileWorldsBeyondTrailingFilteredDrawCommands(text, { playerIn
 export function resolveWorldsBeyondEffectCommand(session, command) {
   const payload = command?.payload ?? {};
   const playerIndex = validPlayer(payload.playerIndex);
-  const source = resolveSource(session, payload);
+  const source = resolveSource(session, payload, command?.metadata);
 
   if (command.type === SVWB_EFFECT_COMMAND.GAIN_CREST) {
     const result = gainWorldsBeyondCrest(session, playerIndex, payload.crestName, source?.card ?? null);
@@ -324,7 +324,17 @@ function cardSourceOptions(source, stage) {
   };
 }
 
-function resolveSource(session, payload) {
+function resolveSource(session, payload, metadata = {}) {
+  const playerIndex = Number(payload.playerIndex);
+  const sourceInstanceId = metadata?.sourceInstanceId;
+  if ((playerIndex === 0 || playerIndex === 1) && sourceInstanceId) {
+    const player = session.getPlayer(playerIndex);
+    for (const zone of [player.hand, player.board, player.cemetery, player.deck, player.banished]) {
+      const instance = (zone ?? []).find(item => item?.instanceId === sourceInstanceId);
+      if (instance) return instance;
+    }
+  }
+
   if (payload.sourceCardId == null && !payload.sourceCardName) return null;
   const card = session.findCardDefinition({
     id: payload.sourceCardId ?? null,
@@ -333,7 +343,7 @@ function resolveSource(session, payload) {
   if (!card) return null;
   return {
     instanceId: null,
-    owner: Number(payload.playerIndex),
+    owner: playerIndex,
     cardId: card.id ?? card.cardId ?? payload.sourceCardId ?? null,
     card
   };
