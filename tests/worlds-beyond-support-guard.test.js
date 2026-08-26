@@ -4,16 +4,16 @@ import { GAME_IDS } from "../src/core/game-catalog.js";
 import { GameSession } from "../src/core/game-session.js";
 import { getWorldsBeyondTriggerSupport } from "../src/core/rulesets/svwb/effect-resolver.js";
 
-const FEROCIOUS_FLAME = Object.freeze({
-  id: 10343310,
-  name: "Ferocious Flame",
+const CALL_OF_THE_MEGALORCA = Object.freeze({
+  id: 10241310,
+  name: "Call of the Megalorca",
   class: "Dragoncraft",
   type: "Spell",
-  cost: 1,
+  cost: 2,
   attack: 0,
   defense: 0,
-  keywords: ["Overflow"],
-  text: "Select an allied follower on the field and deal it 1 damage. Deal 3 damage to a random enemy follower. If you're in Overflow, draw a Dragoncraft follower."
+  keywords: ["Call of the Megalorca", "Majestic Megalorca", "Overflow"],
+  text: "Summon a Majestic Megalorca. If you're in Overflow, draw a Call of the Megalorca."
 });
 
 const FAN_OF_OTOHIME = Object.freeze({
@@ -104,22 +104,18 @@ function follower(instanceId, owner, name = "Follower", defense = 5) {
   };
 }
 
-test("Ferocious Flame is withheld until allied targeting and filtered draw are fully supported", () => {
+test("Call of the Megalorca is withheld while Summon and named draw remain unsupported", () => {
   const game = readyGame(7);
-  const spell = replaceHandCard(game, FEROCIOUS_FLAME);
-  game.players[0].board.push(follower("ally", 0, "Ally"));
-  game.players[1].board.push(follower("enemy", 1, "Enemy"));
+  const spell = replaceHandCard(game, CALL_OF_THE_MEGALORCA);
 
   const support = getWorldsBeyondTriggerSupport(spell, "play", null, game.players[0]);
   assert.equal(support.supported, false);
-  assert.match(`${support.text} ${support.residual}`, /allied follower|Dragoncraft follower/i);
+  assert.match(`${support.text} ${support.residual}`, /Summon a Majestic Megalorca|Call of the Megalorca/i);
   assert.equal(game.listLegalActions(0).some(action => action.type === "play-card" && action.cardInstanceId === spell.instanceId), false);
 
   const pp = game.players[0].resources.pp;
   const hand = game.players[0].hand.length;
   const cemetery = game.players[0].cemetery.length;
-  const allyDefense = game.players[0].board[0].defense;
-  const enemyDefense = game.players[1].board[0].defense;
   assert.throws(
     () => game.dispatch({ type: "play-card", player: 0, cardInstanceId: spell.instanceId }),
     /not fully supported/i
@@ -127,8 +123,6 @@ test("Ferocious Flame is withheld until allied targeting and filtered draw are f
   assert.equal(game.players[0].resources.pp, pp);
   assert.equal(game.players[0].hand.length, hand);
   assert.equal(game.players[0].cemetery.length, cemetery);
-  assert.equal(game.players[0].board[0].defense, allyDefense);
-  assert.equal(game.players[1].board[0].defense, enemyDefense);
 });
 
 test("Fan of Otohime Engage is withheld instead of discarding without summoning", () => {

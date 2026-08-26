@@ -38,6 +38,17 @@ test("targeted card, Engage and evolution effects share the legal target graph w
   assert.match(controller, /is-effect-target/);
 });
 
+test("allied effect targets use the same explicit target graph instead of auto-selecting", () => {
+  assert.match(controller, /resolveAlliedFollowerTarget/);
+  assert.match(controller, /resolveEffectFollowerTarget/);
+  assert.match(controller, /owner === 0/);
+  assert.match(controller, /const effectTarget = playTarget \|\| engageTarget \|\| evolutionTarget/);
+  assert.match(controller, /hitbox\.disabled = !\(effectTarget \|\| attackReady\)/);
+  assert.match(controller, /playTargetValue\(1, b\) - playTargetValue\(1, a\)/);
+  assert.match(controller, /action\.targetKind === "damage" \? -value : value/);
+  assert.match(controller, /Choose a highlighted follower as the card effect target/);
+});
+
 test("targeted Evo waits for a human target instead of auto-selecting the first legal branch", () => {
   assert.match(controller, /const targeted = actions\.filter\(action => action\.targetInstanceId\)/);
   assert.match(controller, /selectedEvolution = \{ type, followerInstanceId: instanceId \}/);
