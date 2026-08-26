@@ -1,6 +1,7 @@
 import { createIntermediateController } from "../ai/intermediate-controller.js";
 import { loadReferenceDecks } from "../ai/reference-decks.js";
 import { GAME_IDS } from "../core/game-catalog.js";
+import { resolveMatchSeed } from "../core/match-seed.js";
 import { GAME_PHASE, GameSession } from "../core/game-session.js";
 import { worldsBeyondProvider } from "../data/providers/worlds-beyond.js";
 import { BattleAnimationQueue } from "../ui/battle-animation-queue.js";
@@ -113,8 +114,9 @@ async function startMatch() {
   const cpuDeck = decks.find(deck => deck.id === ui.cpuDeck.value);
   if (!humanDeck || !cpuDeck) return;
 
+  const matchSeed = resolveMatchSeed(ui.seed.value);
   cpuController = createIntermediateController({
-    seed: `${ui.seed.value || "shadowbattle-action-lab"}:cpu:1`,
+    seed: `${matchSeed}:cpu:1`,
     strategy: cpuDeck.strategy
   });
   eventCursor = 0;
@@ -124,7 +126,7 @@ async function startMatch() {
   queue = createQueue();
   session = new GameSession({
     gameId: GAME_IDS.WORLDS_BEYOND,
-    seed: ui.seed.value || "shadowbattle-action-lab",
+    seed: matchSeed,
     firstPlayer: "random",
     cardCatalog: [...cards.values()],
     players: [
