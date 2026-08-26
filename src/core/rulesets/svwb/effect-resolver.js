@@ -15,7 +15,10 @@ import {
 const SUPPORTED_TARGET_KINDS = new Set(["damage", "destroy", "banish", "return", "set-defense"]);
 const HAND_DISCARD_SELECTION = /\bselect (?:a|an|one) (?:[a-z]+craft )?card in your hand and discard it\b/i;
 const DAMAGE_NUMBER = "(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\\d+)";
-const TRAILING_FILTERED_DRAW = /\bdraw\s+(?:a|an|one)\s+[a-z]+craft\s+follower\s*\.?\s*$/i;
+const TRAILING_TYPED_DRAW = /\bdraw\s+(?:a|an|one)\s+[a-z]+craft\s+follower\s*\.?\s*$/i;
+const TRAILING_NAMED_DRAW = /\bdraw\s+(?:a|an|one)\s+[A-Z][A-Za-z0-9'’&,:\- ]+?\s*\.?\s*$/;
+const SUMMON_COPIES = /\bSummon\s+(?:one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+copies of\s+[^.]+/gi;
+const SUMMON_SINGLE = /\bSummon\s+(?:a|an|one)\s+[^.]+/gi;
 
 export function getWorldsBeyondTargetRequirement(source, trigger = "play", mode = null, player = null) {
   if (!source?.card) return null;
@@ -35,6 +38,22 @@ export function requiresWorldsBeyondHandDiscard(source, trigger = "play", mode =
   const evaluationPlayer = prospectiveTargetPlayer(player, source, trigger);
   const conditional = evaluationPlayer ? evaluateWorldsBeyondClassCondition(originalText, evaluationPlayer, source.card) : { text: originalText, active: true };
   return Boolean(conditional.active && HAND_DISCARD_SELECTION.test(conditional.text));
+}
+
+export function canSkipWorldsBeyondHandDiscard(source, trigger = "play", mode = null, player = null) {
+  if (trigger !== "engage" || !source?.card || !player) return false;
+  const originalText = preprocessWorldsBeyondFuseText(source, triggerText(source, trigger, mode));
+  if (!originalText) return false;
+  const conditional = evaluateWorldsBeyondClassCondition(originalText, player, source.card);
+  if (!conditional.active || !conditional.text) return false;
+  const match = HAND_DISCARD_SELECTION.exec(conditional.text);
+  if (!match || match.index <= 0) return false;
+  const options = (player.hand ?? []).filter(item => item.instanceId !== source.instanceId);
+  if (options.length) return false;
+  const prefix = conditional.text.slice(0, match.index).trim();
+  if (!prefix) return false;
+  const prefixTarget = worldsBeyondTargetEffectSpec(prefix, source);
+  return !unsupportedResidualText(prefix, { targetSpec: prefixTarget, discardRequired: false });
 }
 
 export function getWorldsBeyondTriggerSupport(source, trigger = "play", mode = null, player = null) {
@@ -115,6 +134,7 @@ export function resolveWorldsBeyondTrigger(session, { trigger, playerIndex, sour
   const targetPlayer = targetSpec ? targetPlayerForSpec(playerIndex, targetSpec) : null;
   const discardRequired = HAND_DISCARD_SELECTION.test(text);
   const discardOptions = discardRequired ? player.hand.filter(item => item.instanceId !== source.instanceId) : [];
+  const discardCanSkip = discardRequired && canSkipWorldsBeyondHandDiscard(source, trigger, mode, player);
   let target = null;
   let targetMissing = false;
   let invalidTarget = false;
@@ -129,7 +149,7 @@ export function resolveWorldsBeyondTrigger(session, { trigger, playerIndex, sour
   }
   if (discardRequired) {
     discard = discardOptions.find(item => item.instanceId === discardInstanceId) ?? null;
-    discardMissing = !discardInstanceId;
+    discardMissing = !discardInstanceId && !discardCanSkip;
     invalidDiscard = Boolean(discardInstanceId && !discard);
   }
 
@@ -154,6 +174,7 @@ export function resolveWorldsBeyondTrigger(session, { trigger, playerIndex, sour
       discard: discard ? session.cardView(discard) : null,
       discardRequired,
       discardAvailable: discardOptions.length > 0,
+      discardSkipped: discardCanSkip && !discard,
       conditionNotes: conditional.notes,
       classMechanic: conditional.mechanic
     }
@@ -262,7 +283,8 @@ function unsupportedResidualText(text, { targetSpec = null, discardRequired = fa
   const patterns = [
     /\bGain Crest\s*:\s*[^.;\n]+/gi,
     /\bdraw\s+(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+cards?\b/gi,
-    new RegExp(TRAILING_FILTERED_DRAW.source, "gi"),
+    new RegExp(TRAILING_TYPED_DRAW.source, "gi"),
+    new RegExp(TRAILING_NAMED_DRAW.source, "g"),
     /\b(?:restore|recover)\s+(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+defense to your leader\b/gi,
     /\bdeal\s+(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+damage to (?:the )?enemy leader\b/gi,
     new RegExp(`\\bdeal\\s+${DAMAGE_NUMBER}\\s+damage to (?:all|each) followers? with the highest defense\\b`, "gi"),
@@ -273,6 +295,7 @@ function unsupportedResidualText(text, { targetSpec = null, discardRequired = fa
     /\bdestroy (?:a random|random) enemy follower\b/gi,
     /\bgive this follower\s+\+\d+\s*\/\s*\+\d+\b/gi
   ];
+  if (!targetSpec) patterns.push(new RegExp(SUMMON_COPIES.source, "gi"), new RegExp(SUMMON_SINGLE.source, "gi"));
   for (const pattern of patterns) inspect = inspect.replace(pattern, " ");
 
   return inspect
