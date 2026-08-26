@@ -10,11 +10,12 @@ async function read(path) {
 
 test("Battle Lab exposes a dedicated effect inspector next to the board", async () => {
   const html = await read("test/index.html");
+  const { version } = JSON.parse(await read("version.json"));
   assert.match(html, /id="battle-card-inspector"/);
   assert.match(html, /id="battle-card-inspector-text"/);
   assert.match(html, /id="battle-card-inspector-evolved-text"/);
-  assert.match(html, /card-inspector-lab\.js\?v=0\.4\.79/);
-  assert.match(html, /test-lab-tools\.css\?v=0\.4\.79/);
+  assert.equal(html.includes(`card-inspector-lab.js?v=${version}`), true);
+  assert.equal(html.includes(`test-lab-tools.css?v=${version}`), true);
 });
 
 test("card inspector reads real Beyond Codex text without treating the keyword index as runtime state", async () => {
