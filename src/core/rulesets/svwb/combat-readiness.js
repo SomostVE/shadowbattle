@@ -50,7 +50,19 @@ export function filterWorldsBeyondCombatActions(session, actions = []) {
 
 export function assertWorldsBeyondCombatAction(session, action) {
   if (action?.type !== ATTACK_ACTION || isWorldsBeyondAttackActionLegal(session, action)) return;
-  const targetLeader = action.target === "leader" || !action.targetInstanceId;
+
+  const playerIndex = action?.player;
+  const targetLeader = action?.target === "leader" || !action?.targetInstanceId;
+  if ((playerIndex === 0 || playerIndex === 1) && session?.phase === "main") {
+    const enemy = session.getPlayer(1 - playerIndex);
+    const wards = enemy.board.filter(unit => cardType(unit) === "follower" && hasWorldsBeyondKeyword(unit, "Ward"));
+    if (targetLeader && wards.length) throw new Error("An enemy Ward follower must be attacked first");
+    if (!targetLeader && wards.length) {
+      const target = enemy.board.find(unit => unit.instanceId === action.targetInstanceId) ?? null;
+      if (target && !hasWorldsBeyondKeyword(target, "Ward")) throw new Error("An enemy Ward follower must be attacked first");
+    }
+  }
+
   throw new Error(targetLeader ? "Follower cannot attack the enemy leader yet" : "Follower cannot attack enemy followers yet");
 }
 
@@ -100,23 +112,32 @@ export function hasWorldsBeyondKeyword(instance, keyword) {
   const granted = keywordValues(instance?.grantedKeywords);
   if (granted.some(value => normalize(keywordName(value)) === wanted)) return true;
 
-  // Beyond Codex's `keywords` array is an index of every keyword mentioned by a
-  // card, including conditional text such as "Combo (3) - Give this follower
-  // Storm". It is therefore not authoritative for active combat abilities.
-  // Printed combat keywords are represented as standalone rules-text lines.
-  const text = cleanRulesText(instance?.card);
-  if (text.trim()) {
-    const escaped = escapeRegex(keyword);
-    return new RegExp(`(?:^|[\\r\\n])\\s*${escaped}\\s*\\.?\\s*(?=$|[\\r\\n])`, "im").test(text);
-  }
-
-  // Synthetic/test/generated definitions may omit rules text entirely. Only in
-  // that case is the keyword metadata safe as a fallback.
   const explicit = [
     ...keywordValues(instance?.card?.keywords),
     ...keywordValues(instance?.card?.keyword)
   ];
-  return explicit.some(value => normalize(keywordName(value)) === wanted);
+  const explicitlyIndexed = explicit.some(value => normalize(keywordName(value)) === wanted);
+  const text = cleanRulesText(instance?.card);
+
+  if (text.trim()) {
+    const escaped = escapeRegex(keyword);
+    const standalone = new RegExp(`(?:^|[\\r\\n])\\s*${escaped}\\s*\\.?\\s*(?=$|[\\r\\n])`, "im").test(text);
+    if (standalone) return true;
+
+    // Beyond Codex indexes every keyword mentioned in a card, including
+    // conditional grants such as "Combo (3) - Give this follower Storm".
+    // When the rules text itself mentions the keyword but it is not a
+    // standalone printed ability, the index must not activate it.
+    const mentionedInRulesText = new RegExp(`\\b${escaped}\\b`, "i").test(text);
+    if (mentionedInRulesText) return false;
+
+    // Synthetic/generated definitions sometimes provide keyword metadata while
+    // omitting that keyword from their abbreviated text. Preserve that explicit
+    // metadata fallback without weakening the Codex conditional-grant guard.
+    return explicitlyIndexed;
+  }
+
+  return explicitlyIndexed;
 }
 
 function cleanRulesText(card) {
