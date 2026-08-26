@@ -1,18 +1,19 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
 import { crestView } from "./crests.js";
+import { addWorldsBeyondGeneratedCard } from "./generated-cards.js";
 
 export function resolveWorldsBeyondForestCrestTurnStart(session, playerIndex, crest) {
   if (!crest || session.phase !== "main") return false;
   if (normalize(crest.name) !== "titania, queen of fairies") return false;
 
   const card = session.findCardDefinition({ name: "Fairy" });
-  const generated = card ? addGeneratedCard(session, playerIndex, card, "titania-crest") : null;
+  const result = card ? addWorldsBeyondGeneratedCard(session, playerIndex, card, { reason: "titania-crest" }) : null;
   session.emit(BATTLE_EVENT.CREST_ACTIVATE, {
     actor: playerIndex,
     payload: {
       action: "turn-start",
       crest: crestView(crest),
-      generated: Boolean(generated),
+      generated: Boolean(result?.added),
       generatedCard: "Fairy"
     }
   });
@@ -45,14 +46,14 @@ export function resolveWorldsBeyondForestCrestTurnEnd(session, playerIndex, cres
 
   if (name === "great hart of the glacial realm" && combo >= 3) {
     const card = session.findCardDefinition({ name: "Deepwood Bounty" });
-    const generated = card ? addGeneratedCard(session, playerIndex, card, "great-hart-crest") : null;
+    const result = card ? addWorldsBeyondGeneratedCard(session, playerIndex, card, { reason: "great-hart-crest" }) : null;
     session.emit(BATTLE_EVENT.CREST_ACTIVATE, {
       actor: playerIndex,
       payload: {
         action: "turn-end",
         crest: crestView(crest),
         combo,
-        generated: Boolean(generated),
+        generated: Boolean(result?.added),
         generatedCard: "Deepwood Bounty"
       }
     });
@@ -60,33 +61,6 @@ export function resolveWorldsBeyondForestCrestTurnEnd(session, playerIndex, cres
   }
 
   return false;
-}
-
-function addGeneratedCard(session, playerIndex, card, reason) {
-  const player = session.getPlayer(playerIndex);
-  const instance = {
-    instanceId: `generated:${playerIndex}:${session.eventSequence}:${String(card.id ?? card.cardId ?? card.name)}`,
-    owner: playerIndex,
-    cardId: card.id ?? card.cardId ?? null,
-    card,
-    costDelta: 0,
-    attackBonus: 0,
-    defenseBonus: 0,
-    spellboost: 0
-  };
-
-  if (player.hand.length >= session.ruleset.maxHandSize) {
-    player.cemetery.push(instance);
-    session.emit(BATTLE_EVENT.CARD_BURNED, {
-      actor: playerIndex,
-      visibility: "owner",
-      payload: { card: session.cardView(instance), reason }
-    });
-    return null;
-  }
-
-  player.hand.push(instance);
-  return instance;
 }
 
 function cardType(instance) {

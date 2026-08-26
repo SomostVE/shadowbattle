@@ -17,6 +17,7 @@ const HAND_DISCARD_SELECTION = /\bselect (?:a|an|one) (?:[a-z]+craft )?card in y
 const DAMAGE_NUMBER = "(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\\d+)";
 const TRAILING_TYPED_DRAW = /\bdraw\s+(?:a|an|one)\s+[a-z]+craft\s+follower\s*\.?\s*$/i;
 const TRAILING_NAMED_DRAW = /\bdraw\s+(?:a|an|one)\s+[A-Z][A-Za-z0-9'’&,:\- ]+?\s*\.?\s*$/;
+const ADD_TO_HAND_SINGLE = /^\s*Add\s+(?:a|an|one)\s+.+?\s+to your hand\s*\.?\s*$/i;
 const SUMMON_COPIES = /\bSummon\s+(?:one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+copies of\s+[^.]+/gi;
 const SUMMON_SINGLE = /\bSummon\s+(?:a|an|one)\s+[^.]+/gi;
 
@@ -303,6 +304,7 @@ function unsupportedResidualText(text, { targetSpec = null, discardRequired = fa
 
   const patterns = [
     /\bGain Crest\s*:\s*[^.;\n]+/gi,
+    new RegExp(ADD_TO_HAND_SINGLE.source, "gi"),
     /\bdraw\s+(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+cards?\b/gi,
     new RegExp(TRAILING_TYPED_DRAW.source, "gi"),
     new RegExp(TRAILING_NAMED_DRAW.source, "g"),
