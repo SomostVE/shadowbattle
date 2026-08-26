@@ -17,7 +17,8 @@ export function getWorldsBeyondTargetRequirement(source, trigger = "play", mode 
   if (!source?.card) return null;
   const originalText = preprocessWorldsBeyondFuseText(source, triggerText(source, trigger, mode));
   if (!originalText) return null;
-  const conditional = player ? evaluateWorldsBeyondClassCondition(originalText, player, source.card) : { text: originalText, active: true };
+  const evaluationPlayer = prospectiveTargetPlayer(player, source, trigger);
+  const conditional = evaluationPlayer ? evaluateWorldsBeyondClassCondition(originalText, evaluationPlayer, source.card) : { text: originalText, active: true };
   if (!conditional.active || !conditional.text) return null;
   const spec = targetEffectSpec({ mode: { text: conditional.text }, instance: source });
   return spec ? { ...spec, text: conditional.text } : null;
@@ -108,6 +109,16 @@ export function destroyWorldsBeyondFollower(session, playerIndex, instanceId, op
     resolveWorldsBeyondTrigger(session, { trigger: "last-words", playerIndex, source: destroyed });
   }
   return destroyed;
+}
+
+function prospectiveTargetPlayer(player, source, trigger) {
+  if (!player || trigger !== "play" || !source?.instanceId) return player;
+  const sourceStillInHand = (player.hand ?? []).some(item => item?.instanceId === source.instanceId);
+  if (!sourceStillInHand) return player;
+  return {
+    ...player,
+    cardsPlayedThisTurn: Number(player.cardsPlayedThisTurn ?? 0) + 1
+  };
 }
 
 function triggerText(source, trigger, mode) {
