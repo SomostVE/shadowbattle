@@ -58,11 +58,23 @@ export function isWorldsBeyondAttackActionLegal(session, action) {
   if (!session || action?.type !== ATTACK_ACTION) return false;
   const playerIndex = action.player;
   if (playerIndex !== 0 && playerIndex !== 1) return false;
-  const unit = session.findBoardCard(playerIndex, action.attackerInstanceId);
+  if (session.phase !== "main" || session.activePlayer !== playerIndex || session.winner != null) return false;
+
+  const player = session.getPlayer(playerIndex);
+  const enemy = session.getPlayer(1 - playerIndex);
+  const unit = player.board.find(item => item.instanceId === action.attackerInstanceId);
   if (!unit || cardType(unit) !== "follower" || unit.permanentAttackLock) return false;
   if (Number(unit.attacksRemaining ?? 0) <= 0) return false;
 
+  const wards = enemy.board.filter(item => cardType(item) === "follower" && hasWorldsBeyondKeyword(item, "Ward"));
   const targetLeader = action.target === "leader" || !action.targetInstanceId;
+  if (targetLeader && wards.length) return false;
+  if (!targetLeader) {
+    const target = enemy.board.find(item => item.instanceId === action.targetInstanceId);
+    if (!target || cardType(target) !== "follower") return false;
+    if (wards.length && !hasWorldsBeyondKeyword(target, "Ward")) return false;
+  }
+
   const enteredThisTurn = Number(unit.playedTurn) === Number(session.turn);
   if (!enteredThisTurn) return targetLeader ? Boolean(unit.canAttackLeader) : Boolean(unit.canAttackFollowers);
 
@@ -72,23 +84,47 @@ export function isWorldsBeyondAttackActionLegal(session, action) {
   return Boolean(unit.canAttackFollowers) && (storm || rush || Boolean(unit.evolved));
 }
 
+export function grantWorldsBeyondKeyword(instance, keyword) {
+  if (!instance || !keyword) return false;
+  const wanted = normalize(keyword);
+  const granted = keywordValues(instance.grantedKeywords);
+  if (granted.some(value => normalize(keywordName(value)) === wanted)) return false;
+  instance.grantedKeywords = [...granted, String(keyword).trim()];
+  return true;
+}
+
 export function hasWorldsBeyondKeyword(instance, keyword) {
   const wanted = normalize(keyword);
+  if (!wanted) return false;
+
+  const granted = keywordValues(instance?.grantedKeywords);
+  if (granted.some(value => normalize(keywordName(value)) === wanted)) return true;
+
+  // Beyond Codex's `keywords` array is an index of every keyword mentioned by a
+  // card, including conditional text such as "Combo (3) - Give this follower
+  // Storm". It is therefore not authoritative for active combat abilities.
+  // Printed combat keywords are represented as standalone rules-text lines.
+  const text = cleanRulesText(instance?.card);
+  if (text.trim()) {
+    const escaped = escapeRegex(keyword);
+    return new RegExp(`(?:^|[\\r\\n])\\s*${escaped}\\s*\\.?\\s*(?=$|[\\r\\n])`, "im").test(text);
+  }
+
+  // Synthetic/test/generated definitions may omit rules text entirely. Only in
+  // that case is the keyword metadata safe as a fallback.
   const explicit = [
-    ...keywordValues(instance?.grantedKeywords),
     ...keywordValues(instance?.card?.keywords),
     ...keywordValues(instance?.card?.keyword)
   ];
-  if (explicit.some(value => normalize(keywordName(value)) === wanted)) return true;
+  return explicit.some(value => normalize(keywordName(value)) === wanted);
+}
 
-  // Some imported cards expose printed keywords only inside their rules text.
-  // Accept only a standalone keyword line, never a mention such as
-  // "Give another allied follower Storm".
-  const text = String(instance?.card?.text ?? "")
+function cleanRulesText(card) {
+  const text = String(card?.text ?? card?.rawSkillText ?? "");
+  return text
+    .replace(/<hr\s*\/?\s*>/gi, "\n")
     .replace(/<br\s*\/?\s*>/gi, "\n")
     .replace(/<[^>]+>/g, "");
-  const escaped = escapeRegex(keyword);
-  return new RegExp(`(?:^|[\\r\\n])\\s*${escaped}\\s*\\.?\\s*(?=$|[\\r\\n])`, "im").test(text);
 }
 
 function keywordValues(value) {

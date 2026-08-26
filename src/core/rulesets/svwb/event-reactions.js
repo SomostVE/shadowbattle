@@ -1,5 +1,8 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
+import { grantWorldsBeyondKeyword } from "./combat-readiness.js";
 import { crestView, getWorldsBeyondCrests } from "./crests.js";
+
+const COMBAT_KEYWORDS = new Set(["storm", "rush", "ward", "bane", "drain"]);
 
 export function resolveWorldsBeyondEventReaction(session, event) {
   if (!session || !event) return false;
@@ -11,7 +14,54 @@ export function resolveWorldsBeyondEventReaction(session, event) {
     resolveHealCrestReactions(session, event);
     return true;
   }
+  if (event.type === BATTLE_EVENT.ABILITY_TRIGGER) {
+    return resolveSelfCombatKeywordGrant(session, event);
+  }
   return false;
+}
+
+function resolveSelfCombatKeywordGrant(session, event) {
+  if (event.payload?.resolved !== true || event.payload?.conditionInactive) return false;
+  const playerIndex = Number(event.actor);
+  const instanceId = event.payload?.card?.instanceId;
+  if ((playerIndex !== 0 && playerIndex !== 1) || !instanceId) return false;
+  const source = session.findBoardCard(playerIndex, instanceId);
+  if (!source) return false;
+
+  const text = String(event.payload?.text ?? "");
+  const granted = [];
+  for (const match of text.matchAll(/\bgive this follower\s+(Storm|Rush|Ward|Bane|Drain)(?:\s+and\s+(Storm|Rush|Ward|Bane|Drain))?\b/gi)) {
+    for (const raw of [match[1], match[2]]) {
+      if (!raw || !COMBAT_KEYWORDS.has(normalize(raw))) continue;
+      if (!grantWorldsBeyondKeyword(source, raw)) continue;
+      granted.push(raw);
+      applyReadinessForGrantedKeyword(source, raw);
+    }
+  }
+
+  if (!granted.length) return false;
+  session.emit(BATTLE_EVENT.FOLLOWER_BUFF, {
+    actor: playerIndex,
+    payload: {
+      card: session.cardView(source),
+      attack: 0,
+      defense: 0,
+      keywords: granted,
+      reason: "ability-keyword"
+    }
+  });
+  return true;
+}
+
+function applyReadinessForGrantedKeyword(unit, keyword) {
+  if (unit.permanentAttackLock || Number(unit.attacksRemaining ?? 0) <= 0) return;
+  const name = normalize(keyword);
+  if (name === "storm") {
+    unit.canAttackFollowers = true;
+    unit.canAttackLeader = true;
+  } else if (name === "rush") {
+    unit.canAttackFollowers = true;
+  }
 }
 
 function restorePersistentAttackLocks(session, event) {

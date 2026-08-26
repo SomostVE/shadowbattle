@@ -1,9 +1,8 @@
 import { BATTLE_EVENT } from "../battle-events.js";
 import { GAME_IDS } from "../game-catalog.js";
 import { applyWorldsBeyondAction, listWorldsBeyondActions, prepareWorldsBeyondTurn } from "./svwb/action-resolver.js";
+import { applyWorldsBeyondCombatAction, listWorldsBeyondCombatActions } from "./svwb/combat-actions.js";
 import {
-  assertWorldsBeyondCombatAction,
-  filterWorldsBeyondCombatActions,
   normalizeWorldsBeyondCombatEvent,
   normalizeWorldsBeyondTurnCombatReadiness
 } from "./svwb/combat-readiness.js";
@@ -70,10 +69,11 @@ export const WORLDS_BEYOND_RULESET = Object.freeze({
     return resolveWorldsBeyondEffectCommand(session, command);
   },
   applyAction(session, action) {
-    assertWorldsBeyondCombatAction(session, action);
+    if (action?.type === "attack") return applyWorldsBeyondCombatAction(session, action);
     return applyWorldsBeyondAction(session, action);
   },
   listLegalActions(session, playerIndex) {
-    return filterWorldsBeyondCombatActions(session, listWorldsBeyondActions(session, playerIndex));
+    const nonCombat = listWorldsBeyondActions(session, playerIndex).filter(action => action.type !== "attack");
+    return [...nonCombat, ...listWorldsBeyondCombatActions(session, playerIndex)];
   }
 });

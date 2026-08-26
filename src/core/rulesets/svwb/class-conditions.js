@@ -6,7 +6,7 @@ export function evaluateWorldsBeyondClassCondition(textValue, player, card, { co
   const notes = [];
   let mechanic = null;
 
-  const necromancy = text.match(/\bnecromancy\s*\(?\s*(\d+)\s*\)?\s*:\s*(.*)$/i);
+  const necromancy = text.match(/\bnecromancy\s*\(?\s*(\d+)\s*\)?\s*(?::|[-–—])\s*(.*)$/i);
   if (necromancy) {
     mechanic = "necromancy";
     const need = Number(necromancy[1]);
@@ -21,7 +21,7 @@ export function evaluateWorldsBeyondClassCondition(textValue, player, card, { co
     notes.push(`Necromancy ${need}`);
   }
 
-  const combo = text.match(/\bcombo\s*\(?\s*(\d+)\s*\)?\s*:\s*(.*)$/i);
+  const combo = text.match(/\bcombo\s*\(?\s*(\d+)\s*\)?\s*(?::|[-–—])\s*(.*)$/i);
   if (combo) {
     mechanic = "combo";
     const need = Number(combo[1]);
@@ -31,12 +31,21 @@ export function evaluateWorldsBeyondClassCondition(textValue, player, card, { co
     notes.push(`Combo ${need}`);
   }
 
-  const overflow = text.match(/\boverflow\s*:\s*(.*)$/i);
+  const overflow = text.match(/\boverflow\s*(?::|[-–—])\s*(.*)$/i);
   if (overflow) {
     mechanic = "overflow";
     if (!canUseClassMechanic(player, mechanic, card)) return inactive("Overflow unavailable outside Dragoncraft", mechanic);
     if (maxPp(player) < 7) return inactive("Overflow inactive", mechanic);
     text = overflow[1];
+    notes.push("Overflow");
+  }
+
+  const overflowPrefix = text.match(/^if\s+(?:you(?:'re| are)|your leader is)\s+in\s+overflow\s*,\s*(.*)$/i);
+  if (overflowPrefix) {
+    mechanic = "overflow";
+    if (!canUseClassMechanic(player, mechanic, card)) return inactive("Overflow unavailable outside Dragoncraft", mechanic);
+    if (maxPp(player) < 7) return inactive("Overflow inactive", mechanic);
+    text = overflowPrefix[1];
     notes.push("Overflow");
   }
 
