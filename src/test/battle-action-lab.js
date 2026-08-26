@@ -42,6 +42,7 @@ let selectedAttacker = null;
 let selectedPlayCard = null;
 let selectedPlayModeKey = null;
 let selectedEngageAmulet = null;
+let selectedEvolution = null;
 let selectedFuseTarget = null;
 let selectedFuseMaterials = new Set();
 let cpuBusy = false;
@@ -97,7 +98,7 @@ function syncAvailability() {
   ui.start.disabled = !supported || !dataReady || cpuBusy;
   if (!supported) {
     setStatus("Ruleset migration pending", "planned");
-    ui.help.textContent = "This action lab is currently bound to Worlds Beyond V5. SV1 and Champion's Battle will reuse the same GameSession action API.";
+    ui.help.textContent = "This action lab is currently bound to Worlds Beyond V6 Alpha. SV1 and Champion's Battle will reuse the same GameSession action API.";
   } else if (!session && dataReady) {
     setStatus("SVWB action resolver ready", "ready");
     ui.help.textContent = "Start a match. Play modes, Fuse, Engage, targeting, combat, Evo and class resources are resolved action by action.";
@@ -276,6 +277,13 @@ async function resolveEnemyFollowerTarget(instanceId) {
     await resolveAction(action);
     return;
   }
+  if (selectedEvolution) {
+    const action = legalActions(0).find(item => item.type === selectedEvolution.type && item.followerInstanceId === selectedEvolution.followerInstanceId && item.targetInstanceId === instanceId);
+    if (!action) return;
+    clearSelections();
+    await resolveAction(action);
+    return;
+  }
   if (!selectedAttacker) return;
   const action = legalActions(0).find(item => item.type === "attack" && item.attackerInstanceId === selectedAttacker && item.targetInstanceId === instanceId);
   if (!action) return;
@@ -284,7 +292,7 @@ async function resolveEnemyFollowerTarget(instanceId) {
 }
 
 async function attackOpponentLeader() {
-  if (!isHumanTurn() || !selectedAttacker || selectedPlayCard || selectedEngageAmulet || selectedFuseTarget) return;
+  if (!isHumanTurn() || !selectedAttacker || selectedPlayCard || selectedEngageAmulet || selectedEvolution || selectedFuseTarget) return;
   const action = legalActions(0).find(item => item.type === "attack" && item.attackerInstanceId === selectedAttacker && item.target === "leader");
   if (!action) return;
   clearSelections();
@@ -294,10 +302,16 @@ async function attackOpponentLeader() {
 async function evolveFollower(instanceId, superEvolution) {
   if (!isHumanTurn()) return;
   const type = superEvolution ? "super-evolve" : "evolve";
-  const action = legalActions(0).find(item => item.type === type && item.followerInstanceId === instanceId);
-  if (!action) return;
+  const actions = legalActions(0).filter(item => item.type === type && item.followerInstanceId === instanceId);
+  if (!actions.length) return;
+  const targeted = actions.filter(action => action.targetInstanceId);
   clearSelections();
-  await resolveAction(action);
+  if (targeted.length) {
+    selectedEvolution = { type, followerInstanceId: instanceId };
+    render();
+    return;
+  }
+  await resolveAction(actions[0]);
 }
 
 async function resolveAction(action) {
@@ -376,7 +390,11 @@ function modePriority(action) {
 }
 
 function bestEvolution(actions, playerIndex) {
-  return [...actions].sort((a, b) => attackValue(playerIndex, b.followerInstanceId) - attackValue(playerIndex, a.followerInstanceId))[0] ?? null;
+  const enemyIndex = 1 - playerIndex;
+  return [...actions].sort((a, b) =>
+    attackValue(playerIndex, b.followerInstanceId) - attackValue(playerIndex, a.followerInstanceId)
+    || targetValue(enemyIndex, b.targetInstanceId) - targetValue(enemyIndex, a.targetInstanceId)
+  )[0] ?? null;
 }
 
 function shouldCpuUseBonusPp() {
@@ -419,7 +437,7 @@ function render() {
   renderBoard(ui.opponentBoard, cpu.board, 1);
 
   const humanActions = isHumanTurn() ? legalActions(0) : [];
-  const canHitLeader = selectedAttacker && !selectedPlayCard && !selectedEngageAmulet && !selectedFuseTarget && humanActions.some(action => action.type === "attack" && action.attackerInstanceId === selectedAttacker && action.target === "leader");
+  const canHitLeader = selectedAttacker && !selectedPlayCard && !selectedEngageAmulet && !selectedEvolution && !selectedFuseTarget && humanActions.some(action => action.type === "attack" && action.attackerInstanceId === selectedAttacker && action.target === "leader");
   ui.opponentLeader.classList.toggle("is-targetable", Boolean(canHitLeader));
 
   ui.mulligan.disabled = snapshot.phase !== GAME_PHASE.MULLIGAN || human.mulliganDone || cpuBusy;
@@ -455,6 +473,9 @@ function render() {
     } else if (selectedEngageAmulet) {
       ui.help.textContent = "Choose a highlighted enemy follower as the Engage target.";
       setStatus("Choose Engage target", "ready");
+    } else if (selectedEvolution) {
+      ui.help.textContent = `Choose a highlighted enemy follower as the ${selectedEvolution.type === "super-evolve" ? "Super Evo" : "Evo"} effect target.`;
+      setStatus("Choose evolution target", "ready");
     } else if (selectedAttacker) {
       ui.help.textContent = "Choose a highlighted enemy follower or the enemy leader as the attack target.";
       setStatus("Choose attack target", "ready");
@@ -572,7 +593,7 @@ function renderHand(root, player, human) {
 
   if (human && selectedFuseTarget) root.append(renderFuseSelectionMenu());
   else if (human && selectedPlayCard && selectedModeActions.length > 1 && selectedPlayModeKey == null) root.append(renderModeMenu(selectedModeActions));
-  else if (human && !selectedPlayCard && !selectedEngageAmulet && !selectedAttacker && fuseActions.length) root.append(renderFuseTargetMenu(fuseActions));
+  else if (human && !selectedPlayCard && !selectedEngageAmulet && !selectedEvolution && !selectedAttacker && fuseActions.length) root.append(renderFuseTargetMenu(fuseActions));
 }
 
 function renderFuseTargetMenu(actions) {
@@ -703,7 +724,7 @@ function renderBoard(root, board, owner) {
       const attackReady = actions.some(action => action.type === "attack" && action.attackerInstanceId === card.instanceId);
       hitbox.disabled = !attackReady;
       unit.classList.toggle("is-attacker-ready", attackReady);
-      unit.classList.toggle("is-attacker-selected", selectedAttacker === card.instanceId);
+      unit.classList.toggle("is-attacker-selected", selectedAttacker === card.instanceId || selectedEvolution?.followerInstanceId === card.instanceId);
       if (attackReady) hitbox.addEventListener("click", () => selectAttacker(card.instanceId));
 
       const evolve = actions.find(action => action.type === "evolve" && action.followerInstanceId === card.instanceId);
@@ -721,7 +742,8 @@ function renderBoard(root, board, owner) {
       const attackTarget = Boolean(selectedAttacker && actions.some(action => action.type === "attack" && action.attackerInstanceId === selectedAttacker && action.targetInstanceId === card.instanceId));
       const playTarget = Boolean(selectedPlayCard && selectedPlayModeKey && actions.some(action => action.type === "play-card" && action.cardInstanceId === selectedPlayCard && action.playModeKey === selectedPlayModeKey && action.targetInstanceId === card.instanceId));
       const engageTarget = Boolean(selectedEngageAmulet && actions.some(action => action.type === "engage" && action.amuletInstanceId === selectedEngageAmulet && action.targetInstanceId === card.instanceId));
-      const effectTarget = playTarget || engageTarget;
+      const evolutionTarget = Boolean(selectedEvolution && actions.some(action => action.type === selectedEvolution.type && action.followerInstanceId === selectedEvolution.followerInstanceId && action.targetInstanceId === card.instanceId));
+      const effectTarget = playTarget || engageTarget || evolutionTarget;
       const targetable = attackTarget || effectTarget;
       hitbox.disabled = !targetable;
       unit.classList.toggle("is-targetable", targetable);
@@ -827,7 +849,7 @@ function eventDetail(event) {
   if (event.type === "engage") return `${p.card?.name ?? "Amulet"} · ${p.cost ?? 0} PP${p.target?.name ? ` → ${p.target.name}` : ""}`;
   if (event.type === "countdown-tick") return `${p.card?.name ?? "Amulet"} · Countdown ${p.countdown ?? 0}`;
   if (event.type === "card-returned") return `${p.card?.name ?? "Card"} → ${p.destination ?? "hand"}${p.handFull ? " · hand full" : ""}`;
-  if (p.card?.name) return `${p.card.name}${p.cost != null ? ` · ${p.cost} PP` : ""}${p.mode && p.mode !== "base" ? ` · ${p.mode}` : ""}`;
+  if (p.card?.name) return `${p.card.name}${p.cost != null ? ` · ${p.cost} PP` : ""}${p.mode && p.mode !== "base" ? ` · ${p.mode}` : ""}${p.target?.name ? ` → ${p.target.name}` : ""}`;
   if (event.type === "leader-damage") return `${p.amount ?? 0} damage · ${p.hp ?? 0} defense remaining`;
   if (event.type === "follower-damage") return `${p.target?.name ?? "Follower"} takes ${p.amount ?? 0}${p.prevented ? ` · ${p.prevented} prevented` : ""}`;
   if (event.type === "attack-impact") return p.target === "leader" ? `${p.damage ?? 0} damage to leader` : `${p.attackerDamage ?? 0} / ${p.counterDamage ?? 0} combat damage`;
@@ -953,6 +975,7 @@ function fillSelect(select, source, selectedIndex) {
 function clearEngageAndAttack() {
   selectedAttacker = null;
   selectedEngageAmulet = null;
+  selectedEvolution = null;
 }
 
 function clearFuseSelectionState() {
@@ -965,6 +988,7 @@ function clearSelections() {
   selectedPlayCard = null;
   selectedPlayModeKey = null;
   selectedEngageAmulet = null;
+  selectedEvolution = null;
   clearFuseSelectionState();
 }
 
