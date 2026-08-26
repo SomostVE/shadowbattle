@@ -3,6 +3,7 @@ import { grantWorldsBeyondKeyword } from "./combat-readiness.js";
 import { crestView, getWorldsBeyondCrests } from "./crests.js";
 
 const COMBAT_KEYWORDS = new Set(["storm", "rush", "ward", "bane", "drain"]);
+const MARINE_ENTRY_WARD = /\bWhenever an allied Marine follower enters the field, give it Ward\.?/i;
 
 export function resolveWorldsBeyondEventReaction(session, event) {
   if (!session || !event) return false;
@@ -10,12 +11,41 @@ export function resolveWorldsBeyondEventReaction(session, event) {
     restorePersistentAttackLocks(session, event);
     return true;
   }
+  if (event.type === BATTLE_EVENT.FOLLOWER_ENTER) {
+    return resolveAlliedFollowerEntryReactions(session, event);
+  }
   if (event.type === BATTLE_EVENT.HEAL) {
     resolveHealCrestReactions(session, event);
     return true;
   }
   if (event.type === BATTLE_EVENT.ABILITY_TRIGGER) {
     return resolveSelfCombatKeywordGrant(session, event);
+  }
+  return false;
+}
+
+function resolveAlliedFollowerEntryReactions(session, event) {
+  const playerIndex = Number(event.actor);
+  const instanceId = event.payload?.card?.instanceId;
+  if ((playerIndex !== 0 && playerIndex !== 1) || !instanceId) return false;
+  const entered = session.findBoardCard(playerIndex, instanceId);
+  if (!entered || cardType(entered) !== "follower" || !hasTrait(entered.card, "Marine")) return false;
+
+  for (const source of session.getPlayer(playerIndex).board) {
+    if (cardType(source) !== "follower" || !MARINE_ENTRY_WARD.test(rulesText(source.card))) continue;
+    if (!grantWorldsBeyondKeyword(entered, "Ward")) continue;
+    session.emit(BATTLE_EVENT.FOLLOWER_BUFF, {
+      actor: playerIndex,
+      payload: {
+        card: session.cardView(entered),
+        attack: 0,
+        defense: 0,
+        keywords: ["Ward"],
+        reason: "allied-marine-entry",
+        source: session.cardView(source)
+      }
+    });
+    return true;
   }
   return false;
 }
@@ -104,6 +134,33 @@ function applyBurniteHealReaction(session, playerIndex, crests, name, turn, trig
   });
   session.damageLeader(playerIndex, 1, { actor: playerIndex, reason: "crest-heal-reaction" });
   return session.phase === "main";
+}
+
+function hasTrait(card, trait) {
+  const wanted = normalize(trait);
+  return traitValues(card?.traits ?? card?.trait).some(value => normalize(traitName(value)) === wanted);
+}
+
+function traitValues(value) {
+  if (Array.isArray(value)) return value;
+  if (typeof value === "string") return value.split(/[,|]/).map(item => item.trim()).filter(Boolean);
+  return value == null ? [] : [value];
+}
+
+function traitName(value) {
+  if (!value || typeof value !== "object") return value;
+  return value.name ?? value.trait ?? value.label ?? "";
+}
+
+function rulesText(card) {
+  return String(card?.text ?? card?.rawSkillText ?? "")
+    .replace(/<hr\s*\/?\s*>/gi, "\n")
+    .replace(/<br\s*\/?\s*>/gi, "\n")
+    .replace(/<[^>]+>/g, "");
+}
+
+function cardType(instance) {
+  return String(instance?.card?.type ?? instance?.type ?? "").trim().toLowerCase();
 }
 
 function normalize(value) {

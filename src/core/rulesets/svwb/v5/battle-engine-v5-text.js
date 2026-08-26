@@ -48,7 +48,8 @@ export function baseText(text) {
   const value = String(clean);
   const colonIndex = value.search(/\b(?:Last Words|Strike|Clash|Evolve|Super-Evolve|Enhance|Accelerate|Crystallize|Engage|On Spellboost|At the start of your turn|At the end of your turn)\s*\(?\s*\d*\s*\)?\s*:/i);
   const naturalIndex = value.search(/(?<!["“])\b(?:At the end of your turn|At the start of your turn|When this follower evolves),\s*/i);
-  const indexes = [colonIndex, naturalIndex].filter(index => index >= 0);
+  const reactiveIndex = reactiveParagraphIndex(value);
+  const indexes = [colonIndex, naturalIndex, reactiveIndex].filter(index => index >= 0);
   const index = indexes.length ? Math.min(...indexes) : -1;
   return index < 0 ? value : value.slice(0, index).trim();
 }
@@ -60,7 +61,7 @@ export function crystallizeText(textValue, cost) {
   if (!match) return "";
   const tail = text.slice(match.index + match[0].length);
   const next = tail.search(/\b(?:Fanfare|Evolve|Super-Evolve|Enhance\s*\(?\s*\d+\s*\)?|Accelerate\s*\(?\s*\d+\s*\)?|Engage|On Spellboost|At the start of your turn|At the end of your turn)\s*:/i);
-  return (next < 0 ? tail : tail.slice(0, next)).trim();
+  return truncateSectionTail(next < 0 ? tail : tail.slice(0, next));
 }
 
 export function section(textValue, label) {
@@ -74,7 +75,18 @@ export function section(textValue, label) {
   if (!hit) return "";
   const next = markers.find(marker => marker.start > hit.start);
   const tailEnd = next?.start ?? text.length;
-  const tail = text.slice(hit.end, tailEnd);
+  return truncateSectionTail(text.slice(hit.end, tailEnd));
+}
+
+function truncateSectionTail(value) {
+  const tail = String(value ?? "");
   const natural = tail.search(/(?<!["“])\b(?:at the end of your turn|at the start of your turn|when this follower evolves),\s*/i);
-  return (natural < 0 ? tail : tail.slice(0, natural)).trim();
+  const reactive = reactiveParagraphIndex(tail);
+  const indexes = [natural, reactive].filter(index => index >= 0);
+  const end = indexes.length ? Math.min(...indexes) : tail.length;
+  return tail.slice(0, end).trim();
+}
+
+function reactiveParagraphIndex(value) {
+  return String(value ?? "").search(/(?:^|\n+)\s*(?:Whenever\b|During your turn,\s*whenever\b|Once on each of your turns,\s*when\b|Activates in hand\.\s*Whenever\b)/i);
 }

@@ -73,6 +73,21 @@ export function evaluateWorldsBeyondClassCondition(textValue, player, card, { co
     }
   }
 
+  const overflowSummonInstead = parseOverflowSummonInstead(text);
+  if (overflowSummonInstead) {
+    mechanic = "overflow";
+    if (!canUseClassMechanic(player, mechanic, card)) {
+      text = overflowSummonInstead.prefix;
+      notes.push("Overflow unavailable outside Dragoncraft");
+    } else if (maxPp(player) < 7) {
+      text = overflowSummonInstead.prefix;
+      notes.push("Overflow inactive");
+    } else {
+      text = replaceLastSummonCount(overflowSummonInstead.prefix, overflowSummonInstead.count);
+      notes.push("Overflow");
+    }
+  }
+
   const overflowSuffix = parseOverflowSuffix(text);
   if (overflowSuffix) {
     mechanic = "overflow";
@@ -144,6 +159,15 @@ function parseOverflowDamageInstead(text) {
   return { prefix, amount: Number(match[2]) || 0 };
 }
 
+function parseOverflowSummonInstead(text) {
+  const match = String(text ?? "").match(/^(.*?)\s*if\s+(?:you(?:'re| are)|your leader is)\s+in\s+overflow\s*,\s*summon\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+instead\s*\.?\s*$/i);
+  if (!match) return null;
+  const prefix = normalizeResolvedText(match[1]);
+  const count = parseCount(match[2]);
+  if (count == null || !/\bsummon\s+(?:(?:a|an|one)\s+|(?:one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+copies of\s+)[^.]+/i.test(prefix)) return null;
+  return { prefix, count };
+}
+
 function parseOverflowSuffix(text) {
   const match = String(text ?? "").match(/^(.*?)\s*if\s+(?:you(?:'re| are)|your leader is)\s+in\s+overflow\s*,\s*(.+?)\s*$/i);
   if (!match) return null;
@@ -159,6 +183,19 @@ function replaceLastDamageAmount(prefix, amount) {
   const hit = matches.at(-1);
   if (!hit || hit.index == null) return normalizeResolvedText(value);
   const replacement = hit[0].replace(/\d+/, String(Math.max(0, Number(amount) || 0)));
+  return normalizeResolvedText(`${value.slice(0, hit.index)}${replacement}${value.slice(hit.index + hit[0].length)}`);
+}
+
+function replaceLastSummonCount(prefix, count) {
+  const value = String(prefix ?? "");
+  const pattern = /\bsummon\s+(?:(?:a|an|one)\s+([^.]+?)|(?:one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+copies of\s+([^.]+?))(?=\.|$)/gi;
+  const matches = [...value.matchAll(pattern)];
+  const hit = matches.at(-1);
+  if (!hit || hit.index == null) return normalizeResolvedText(value);
+  const name = String(hit[1] ?? hit[2] ?? "").trim();
+  if (!name) return normalizeResolvedText(value);
+  const times = Math.max(0, Number(count) || 0);
+  const replacement = times === 1 ? `Summon a ${name}` : `Summon ${times} copies of ${name}`;
   return normalizeResolvedText(`${value.slice(0, hit.index)}${replacement}${value.slice(hit.index + hit[0].length)}`);
 }
 
