@@ -54,6 +54,7 @@ export function applyWorldsBeyondCombatAction(session, action) {
 
   const targetLeader = action.target === "leader" || !action.targetInstanceId;
   const target = targetLeader ? null : enemy.board.find(unit => unit.instanceId === action.targetInstanceId) ?? null;
+  if (targetLeader) player.attackedLeaderThisTurn = true;
 
   attacker.attacksRemaining = Math.max(0, Number(attacker.attacksRemaining ?? 1) - 1);
   attacker.hasAttacked = true;
