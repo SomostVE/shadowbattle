@@ -263,11 +263,11 @@ function replicateFanfareIfRequested(fullText, triggerSection) {
 
 function resolveWorldsBeyondVariables(textValue, source) {
   const text = String(textValue ?? "");
-  if (!/X/.test(text)) return text;
-  const hasExplicitX = Number.isFinite(Number(source?.x)) || /X starts at\s+\d+/i.test(String(source?.card?.text ?? ""));
+  if (!/\bX\b/.test(text)) return text;
+  const hasExplicitX = Number.isFinite(Number(source?.x)) || /\bX starts at\s+\d+\b/i.test(String(source?.card?.text ?? ""));
   if (!hasExplicitX) return text;
   const x = Math.max(0, Number(worldsBeyondCardX(source)) || 0);
-  return text.replace(/X/g, String(x));
+  return text.replace(/\bX\b/g, String(x));
 }
 
 function naturalLifecycle(text, pattern) {
@@ -325,10 +325,10 @@ function unsupportedResidualText(text, { targetSpec = null, discardRequired = fa
     new RegExp(TRAILING_NAMED_DRAW.source, "g"),
     /\b(?:restore|recover)\s+(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+defense to your leader\b/gi,
     /\bdeal\s+(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+damage to (?:the )?enemy leader\b/gi,
-    new RegExp(`\\bdeal\\s+${DAMAGE_NUMBER}\\s+damage to (?:all|each) followers? with the highest defense\\b`, "gi"),
-    new RegExp(`\\bdeal\\s+${DAMAGE_NUMBER}\\s+damage to (?:all|each) leaders? with the highest defense\\b`, "gi"),
-    new RegExp(`\\bdeal\\s+${DAMAGE_NUMBER}\\s+damage to (?:all|each) enemy followers?\\b(?!\\s+with\\b)`, "gi"),
-    new RegExp(`\\bdeal\\s+${DAMAGE_NUMBER}\\s+damage to (?:all|each) followers?\\b(?!\\s+with\\b)`, "gi"),
+    new RegExp(`\bdeal\s+${DAMAGE_NUMBER}\s+damage to (?:all|each) followers? with the highest defense\b`, "gi"),
+    new RegExp(`\bdeal\s+${DAMAGE_NUMBER}\s+damage to (?:all|each) leaders? with the highest defense\b`, "gi"),
+    new RegExp(`\bdeal\s+${DAMAGE_NUMBER}\s+damage to (?:all|each) enemy followers?\b(?!\s+with\b)`, "gi"),
+    new RegExp(`\bdeal\s+${DAMAGE_NUMBER}\s+damage to (?:all|each) followers?\b(?!\s+with\b)`, "gi"),
     /\bdeal\s+(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+damage to (?:a random|random) enemy follower\b/gi,
     /\bdestroy (?:a random|random) enemy follower\b/gi,
     /\bgive this follower\s+(?:Storm|Rush|Ward|Bane|Drain)(?:\s+and\s+(?:Storm|Rush|Ward|Bane|Drain))?\b/gi,
@@ -438,7 +438,7 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
   ));
   applied = postApplied || applied;
 
-  for (const match of text.matchAll(new RegExp(`\\bdeal\\s+${DAMAGE_NUMBER}\\s+damage to (?:all|each) followers? with the highest defense\\b`, "gi"))) {
+  for (const match of text.matchAll(new RegExp(`\bdeal\s+${DAMAGE_NUMBER}\s+damage to (?:all|each) followers? with the highest defense\b`, "gi"))) {
     const amount = numberWord(match[1]);
     const allFollowers = session.players.flatMap((player, owner) => player.board
       .filter(unit => cardType(unit) === "follower")
@@ -450,7 +450,7 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
     applied = resolveFollowerAreaDamage(session, targets, amount, { actor: playerIndex, source }) || applied;
   }
 
-  for (const match of text.matchAll(new RegExp(`\\bdeal\\s+${DAMAGE_NUMBER}\\s+damage to (?:all|each) leaders? with the highest defense\\b`, "gi"))) {
+  for (const match of text.matchAll(new RegExp(`\bdeal\s+${DAMAGE_NUMBER}\s+damage to (?:all|each) leaders? with the highest defense\b`, "gi"))) {
     const amount = numberWord(match[1]);
     const highest = Math.max(...session.players.map(player => Number(player.hp ?? 0)));
     const targets = session.players
@@ -460,7 +460,7 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
     applied = resolveLeaderAreaDamage(session, targets, amount, { actor: playerIndex, source }) || applied;
   }
 
-  for (const match of text.matchAll(new RegExp(`\\bdeal\\s+${DAMAGE_NUMBER}\\s+damage to (?:all|each) enemy followers?\\b(?!\\s+with\\b)`, "gi"))) {
+  for (const match of text.matchAll(new RegExp(`\bdeal\s+${DAMAGE_NUMBER}\s+damage to (?:all|each) enemy followers?\b(?!\s+with\b)`, "gi"))) {
     const amount = numberWord(match[1]);
     const targets = session.players[enemyIndex].board
       .filter(unit => cardType(unit) === "follower")
@@ -468,7 +468,7 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
     applied = resolveFollowerAreaDamage(session, targets, amount, { actor: playerIndex, source }) || applied;
   }
 
-  for (const match of text.matchAll(new RegExp(`\\bdeal\\s+${DAMAGE_NUMBER}\\s+damage to (?:all|each) followers?\\b(?!\\s+with\\b)`, "gi"))) {
+  for (const match of text.matchAll(new RegExp(`\bdeal\s+${DAMAGE_NUMBER}\s+damage to (?:all|each) followers?\b(?!\s+with\b)`, "gi"))) {
     const amount = numberWord(match[1]);
     const targets = session.players.flatMap((player, owner) => player.board
       .filter(unit => cardType(unit) === "follower")
