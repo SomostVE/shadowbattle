@@ -48,10 +48,15 @@ export function createWorldsBeyondDrawCommand(playerIndex, amount, options = {})
   }, options.metadata);
 }
 
-export function createWorldsBeyondFilteredDrawCommand(playerIndex, { cardClass = null, cardType = null, cardName = null } = {}, options = {}) {
+export function createWorldsBeyondFilteredDrawCommand(playerIndex, {
+  amount = 1,
+  cardClass = null,
+  cardType = null,
+  cardName = null
+} = {}, options = {}) {
   return createWorldsBeyondEffectCommand(SVWB_EFFECT_COMMAND.DRAW_FILTERED, {
     playerIndex,
-    amount: 1,
+    amount: Math.max(0, Number(amount) || 0),
     cardClass,
     cardType,
     cardName,
@@ -63,6 +68,7 @@ export function createWorldsBeyondAddToHandCommand(playerIndex, cardName, option
   return createWorldsBeyondEffectCommand(SVWB_EFFECT_COMMAND.ADD_TO_HAND, {
     playerIndex,
     cardName: String(cardName ?? "").trim(),
+    count: Math.max(1, Number(options.count) || 1),
     reason: options.reason ?? "ability",
     sourceCardId: options.sourceCardId ?? null,
     sourceCardName: options.sourceCardName ?? null
@@ -93,6 +99,16 @@ export function compileWorldsBeyondPreTargetCommands(text, { playerIndex, source
   const indexed = [];
   const sourceOptions = cardSourceOptions(source, "pre-target");
   const value = String(text ?? "");
+
+  for (const match of value.matchAll(/\bAdd\s+(two|three|four|five|six|seven|eight|nine|ten|\d+)\s+copies of\s+(.+?)\s+to your hand\b/gi)) {
+    indexed.push({
+      index: match.index ?? 0,
+      command: createWorldsBeyondAddToHandCommand(playerIndex, match[2].trim(), {
+        ...sourceOptions,
+        count: numberWord(match[1])
+      })
+    });
+  }
 
   const addToHand = value.match(/^\s*Add\s+(?:a|an|one)\s+(.+?)\s+to your hand\s*\.?\s*$/i);
   if (addToHand) {
@@ -135,19 +151,29 @@ export function compileWorldsBeyondPostTargetCommands(text, { playerIndex, sourc
 
 export function compileWorldsBeyondTrailingFilteredDrawCommands(text, { playerIndex, source } = {}) {
   const value = String(text ?? "");
+  const sourceOptions = cardSourceOptions(source, "trailing");
+
+  const genericType = value.match(/\bdraw\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+(amulets?|spells?)\s*\.?\s*$/i);
+  if (genericType) {
+    return [createWorldsBeyondFilteredDrawCommand(playerIndex, {
+      amount: numberWord(genericType[1]),
+      cardType: singularType(genericType[2])
+    }, sourceOptions)];
+  }
+
   const typed = value.match(/\bdraw\s+(?:a|an|one)\s+([a-z]+craft)\s+(follower)\s*\.?\s*$/i);
   if (typed) {
     return [createWorldsBeyondFilteredDrawCommand(playerIndex, {
       cardClass: typed[1],
       cardType: typed[2]
-    }, cardSourceOptions(source, "trailing"))];
+    }, sourceOptions)];
   }
 
   const named = value.match(/\bdraw\s+(?:a|an|one)\s+([A-Z][A-Za-z0-9'’&,:\- ]+?)\s*\.?\s*$/);
   if (!named) return [];
   return [createWorldsBeyondFilteredDrawCommand(playerIndex, {
     cardName: named[1].trim()
-  }, cardSourceOptions(source, "trailing"))];
+  }, sourceOptions)];
 }
 
 export function resolveWorldsBeyondEffectCommand(session, command) {
@@ -218,53 +244,75 @@ export function resolveWorldsBeyondEffectCommand(session, command) {
 
 function resolveAddToHand(session, playerIndex, payload) {
   const definition = session.findCardDefinition({ name: payload.cardName });
-  if (!definition) return { applied: false, added: 0, burned: 0, missingCard: true, cardName: payload.cardName ?? null };
-  const result = addWorldsBeyondGeneratedCard(session, playerIndex, definition, { reason: payload.reason ?? "ability" });
+  const requested = Math.max(1, Number(payload.count) || 1);
+  if (!definition) return { applied: false, requested, added: 0, burned: 0, missingCard: true, cardName: payload.cardName ?? null };
+
+  let added = 0;
+  let burned = 0;
+  for (let index = 0; index < requested; index += 1) {
+    const result = addWorldsBeyondGeneratedCard(session, playerIndex, definition, { reason: payload.reason ?? "ability" });
+    if (result.added) added += 1;
+    if (result.burned) burned += 1;
+  }
   return {
-    applied: result.added || result.burned,
-    added: result.added ? 1 : 0,
-    burned: result.burned ? 1 : 0,
+    applied: added > 0 || burned > 0,
+    requested,
+    added,
+    burned,
     missingCard: false,
     cardName: definition.name ?? payload.cardName ?? null
   };
 }
 
 function resolveFilteredDraw(session, playerIndex, payload) {
+  const requested = positiveAmount(payload.amount);
+  if (!requested) return { applied: false, requested: 0, drawn: 0, burned: 0, matched: 0 };
+
   const player = session.getPlayer(playerIndex);
   const wantedClass = normalize(payload.cardClass);
   const wantedType = normalize(payload.cardType);
   const wantedName = normalize(payload.cardName);
-  const candidates = player.deck
-    .map((item, index) => ({ item, index }))
-    .filter(({ item }) => {
-      const card = item?.card ?? item;
-      return (!wantedClass || normalize(card?.class) === wantedClass)
-        && (!wantedType || normalize(card?.type) === wantedType)
-        && (!wantedName || normalize(card?.name) === wantedName);
-    });
-  if (!candidates.length) return { applied: false, requested: 1, drawn: 0, matched: 0 };
+  let drawn = 0;
+  let burned = 0;
+  let matched = 0;
 
-  const selected = candidates[Math.floor(session.rng() * candidates.length)] ?? candidates[0];
-  const [card] = player.deck.splice(selected.index, 1);
-  if (!card) return { applied: false, requested: 1, drawn: 0, matched: candidates.length };
+  for (let iteration = 0; iteration < requested; iteration += 1) {
+    const candidates = player.deck
+      .map((item, index) => ({ item, index }))
+      .filter(({ item }) => {
+        const card = item?.card ?? item;
+        return (!wantedClass || normalize(card?.class) === wantedClass)
+          && (!wantedType || normalize(card?.type) === wantedType)
+          && (!wantedName || normalize(card?.name) === wantedName);
+      });
+    matched = Math.max(matched, candidates.length);
+    if (!candidates.length) break;
 
-  if (player.hand.length >= session.ruleset.maxHandSize) {
-    player.cemetery.push(card);
-    session.emit(BATTLE_EVENT.CARD_BURNED, {
+    const selected = candidates[Math.floor(session.rng() * candidates.length)] ?? candidates[0];
+    const [card] = player.deck.splice(selected.index, 1);
+    if (!card) break;
+
+    if (player.hand.length >= session.ruleset.maxHandSize) {
+      player.cemetery.push(card);
+      burned += 1;
+      session.emit(BATTLE_EVENT.CARD_BURNED, {
+        actor: playerIndex,
+        visibility: BATTLE_VISIBILITY.OWNER,
+        payload: { card: session.cardView(card), reason: payload.reason ?? "ability" }
+      });
+      continue;
+    }
+
+    player.hand.push(card);
+    drawn += 1;
+    session.emit(BATTLE_EVENT.DRAW, {
       actor: playerIndex,
       visibility: BATTLE_VISIBILITY.OWNER,
-      payload: { card: session.cardView(card), reason: payload.reason ?? "ability" }
+      payload: { reason: payload.reason ?? "ability", count: 1, cards: [session.cardView(card)] }
     });
-    return { applied: true, requested: 1, drawn: 0, burned: 1, matched: candidates.length };
   }
 
-  player.hand.push(card);
-  session.emit(BATTLE_EVENT.DRAW, {
-    actor: playerIndex,
-    visibility: BATTLE_VISIBILITY.OWNER,
-    payload: { reason: payload.reason ?? "ability", count: 1, cards: [session.cardView(card)] }
-  });
-  return { applied: true, requested: 1, drawn: 1, burned: 0, matched: candidates.length };
+  return { applied: drawn > 0 || burned > 0, requested, drawn, burned, matched };
 }
 
 function resolveSummon(session, playerIndex, payload, source) {
@@ -357,6 +405,13 @@ function validPlayer(value) {
 
 function positiveAmount(value) {
   return Math.max(0, Number(value) || 0);
+}
+
+function singularType(value) {
+  const normalized = normalize(value);
+  if (normalized === "amulets") return "amulet";
+  if (normalized === "spells") return "spell";
+  return normalized;
 }
 
 function normalize(value) {
