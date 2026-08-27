@@ -14,6 +14,7 @@ export function normalizeWorldsBeyondCombatEvent(session, event) {
   if (unit.playedTurn == null) unit.playedTurn = session.turn;
   if (unit.attacksRemaining == null) unit.attacksRemaining = 1;
   if (unit.hasAttacked == null) unit.hasAttacked = false;
+  if (unit.barrierActive == null && hasWorldsBeyondKeyword(unit, "Barrier")) unit.barrierActive = true;
 
   if (unit.permanentAttackLock) {
     lockAttacks(unit);
@@ -113,7 +114,13 @@ export function grantWorldsBeyondKeyword(instance, keyword) {
   if (!instance || !keyword) return false;
   const wanted = normalize(keyword);
   const granted = keywordValues(instance.grantedKeywords);
-  if (granted.some(value => normalize(keywordName(value)) === wanted)) return false;
+  const alreadyGranted = granted.some(value => normalize(keywordName(value)) === wanted);
+  let reactivated = false;
+  if (wanted === "barrier" && !instance.barrierActive) {
+    instance.barrierActive = true;
+    reactivated = true;
+  }
+  if (alreadyGranted) return reactivated;
   instance.grantedKeywords = [...granted, String(keyword).trim()];
   return true;
 }
@@ -121,6 +128,9 @@ export function grantWorldsBeyondKeyword(instance, keyword) {
 export function hasWorldsBeyondKeyword(instance, keyword) {
   const wanted = normalize(keyword);
   if (!wanted) return false;
+  if (wanted === "barrier" && Object.prototype.hasOwnProperty.call(instance ?? {}, "barrierActive")) {
+    return Boolean(instance.barrierActive);
+  }
 
   const granted = keywordValues(instance?.grantedKeywords);
   if (granted.some(value => normalize(keywordName(value)) === wanted)) return true;
@@ -143,6 +153,13 @@ export function hasWorldsBeyondKeyword(instance, keyword) {
   // Synthetic/generated definitions may expose keyword metadata while omitting
   // that keyword from abbreviated rules text.
   return explicitlyIndexed;
+}
+
+export function modifyWorldsBeyondFollowerDamage(instance, amount) {
+  const damage = Math.max(0, Number(amount) || 0);
+  if (!damage || !instance?.barrierActive) return damage;
+  instance.barrierActive = false;
+  return 0;
 }
 
 function lockAttacks(unit) {
