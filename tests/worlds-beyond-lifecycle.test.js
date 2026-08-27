@@ -124,3 +124,49 @@ test("end-of-turn abilities resolve before TURN_END and before control changes",
   const turnEnd = events.findIndex((event, index) => index > damage && event.type === BATTLE_EVENT.TURN_END && event.actor === 0);
   assert.ok(trigger >= 0 && damage > trigger && turnEnd > damage);
 });
+
+test("Ghost banishes itself at the end of its controller's turn without creating a Shadow", () => {
+  const game = startedGame();
+  const ghostCard = card("ghost", {
+    name: "Ghost",
+    text: "Storm\nWhen this card leaves the field, banish it.\nAt the end of your turn, banish this card.",
+    keywords: ["Storm"]
+  });
+  const ghost = boardInstance(0, ghostCard);
+  game.players[0].board.push(ghost);
+  const shadowsBefore = Number(game.players[0].resources.shadows ?? 0);
+
+  game.endTurn(0);
+
+  assert.equal(game.findBoardCard(0, ghost.instanceId), null);
+  assert.ok(game.players[0].banished.some(item => item.instanceId === ghost.instanceId));
+  assert.ok(!game.players[0].cemetery.some(item => item.instanceId === ghost.instanceId));
+  assert.equal(Number(game.players[0].resources.shadows ?? 0), shadowsBefore);
+
+  const events = game.getEvents({ viewer: 0 });
+  const trigger = events.findIndex(event => event.type === BATTLE_EVENT.ABILITY_TRIGGER && event.payload.trigger === "turn-end" && event.payload.card?.instanceId === ghost.instanceId);
+  const banished = events.findIndex((event, index) => index > trigger && event.type === BATTLE_EVENT.CARD_BANISHED && event.payload.card?.instanceId === ghost.instanceId);
+  const turnEnd = events.findIndex((event, index) => index > banished && event.type === BATTLE_EVENT.TURN_END && event.actor === 0);
+  assert.ok(trigger >= 0 && banished > trigger && turnEnd > banished);
+});
+
+test("quoted granted lifecycle text is not parsed as Illamrita's own turn-end ability", () => {
+  const game = startedGame();
+  const illamritaCard = card("illamrita", {
+    name: "Illamrita, Designated Target",
+    text: "Follower Strike: Give this follower Barrier. Give the opposing follower \"Can't attack followers or leaders\" and \"At the end of your turn, banish this card.\"\nLast Words: Gain Crest: Illamrita, Designated Target."
+  });
+  const illamrita = boardInstance(0, illamritaCard);
+  game.players[0].board.push(illamrita);
+
+  game.endTurn(0);
+
+  assert.equal(game.findBoardCard(0, illamrita.instanceId)?.instanceId, illamrita.instanceId);
+  assert.ok(!game.players[0].banished.some(item => item.instanceId === illamrita.instanceId));
+  const falseTrigger = game.getEvents({ viewer: 0 }).find(event =>
+    event.type === BATTLE_EVENT.ABILITY_TRIGGER &&
+    event.payload.trigger === "turn-end" &&
+    event.payload.card?.instanceId === illamrita.instanceId
+  );
+  assert.equal(falseTrigger, undefined);
+});
