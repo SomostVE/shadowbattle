@@ -49,8 +49,15 @@ function stripSpellboostPreambleText(textValue) {
     .trim();
 }
 
+function stripAmuletSetupText(textValue) {
+  return String(textValue ?? "")
+    .replace(/^\s*Countdown\s*\(?\s*\d+\s*\)?\s*\.?\s*(?:\n+|$)/gim, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 export function baseText(text) {
-  const clean = stripSpellboostPreambleText(stripFuseAbilityText(text));
+  const clean = stripAmuletSetupText(stripSpellboostPreambleText(stripFuseAbilityText(text)));
   const fanfare = section(clean, "fanfare");
   if (fanfare) return fanfare;
   const value = String(clean);
