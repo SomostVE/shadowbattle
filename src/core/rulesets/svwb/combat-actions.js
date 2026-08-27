@@ -110,8 +110,12 @@ export function applyWorldsBeyondCombatAction(session, action) {
 
   if (dealtByAttacker > 0 && hasWorldsBeyondKeyword(liveAttacker, "Drain")) healFromDrain(session, playerIndex, dealtByAttacker, liveAttacker);
 
-  let targetDestroyed = Number(liveTarget.defense ?? 0) <= 0 || (dealtByAttacker > 0 && hasWorldsBeyondKeyword(liveAttacker, "Bane"));
-  const attackerDestroyed = Number(liveAttacker.defense ?? 0) <= 0 || (dealtByTarget > 0 && hasWorldsBeyondKeyword(liveTarget, "Bane"));
+  const attackerAbilityInvincible = Boolean(
+    liveAttacker.superEvolved && session.activePlayer === playerIndex && session.phase === "main"
+  );
+  let targetDestroyed = Number(liveTarget.defense ?? 0) <= 0 || hasWorldsBeyondKeyword(liveAttacker, "Bane");
+  const attackerDestroyed = Number(liveAttacker.defense ?? 0) <= 0
+    || (!attackerAbilityInvincible && hasWorldsBeyondKeyword(liveTarget, "Bane"));
 
   if (targetDestroyed) {
     targetDestroyed = Boolean(destroyWorldsBeyondFollower(session, enemyIndex, liveTarget.instanceId, {
