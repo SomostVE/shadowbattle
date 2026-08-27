@@ -1,6 +1,7 @@
 import { BATTLE_EVENT } from "../battle-events.js";
 import { GAME_IDS } from "../game-catalog.js";
 import { applyWorldsBeyondAction, listWorldsBeyondActions, prepareWorldsBeyondTurn } from "./svwb/action-resolver.js";
+import { evolveWorldsBeyondFollowerByAbility } from "./svwb/ability-evolution.js";
 import { applyWorldsBeyondCombatAction, listWorldsBeyondCombatActions } from "./svwb/combat-actions.js";
 import {
   modifyWorldsBeyondFollowerDamage,
@@ -63,6 +64,9 @@ export const WORLDS_BEYOND_RULESET = Object.freeze({
   },
   modifyFollowerDamage(session, { unit, amount }) {
     return modifyWorldsBeyondFollowerDamage(unit, amount);
+  },
+  evolveFollowerByAbility(session, playerIndex, source) {
+    return evolveWorldsBeyondFollowerByAbility(session, playerIndex, source);
   },
   afterEvent(session, event) {
     accountCemeteryOverflowShadow(session, event);
