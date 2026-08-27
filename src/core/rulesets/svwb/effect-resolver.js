@@ -1,6 +1,6 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
 import { resolveEffectCommands } from "../../effect-commands.js";
-import { banishBoardCard, returnBoardCardToHand } from "../../zone-actions.js";
+import { banishBoardCard, destroyBoardAmulet, restoreOriginalCardForm, returnBoardCardToHand } from "../../zone-actions.js";
 import { evaluateWorldsBeyondClassCondition } from "./class-conditions.js";
 import { spellboostWorldsBeyondHand, worldsBeyondCardX } from "./spellboost.js";
 import { getWorldsBeyondEngageInfo } from "./engage.js";
@@ -237,6 +237,18 @@ export function destroyWorldsBeyondFollower(session, playerIndex, instanceId, op
   return destroyed;
 }
 
+function destroyWorldsBeyondTargetCard(session, playerIndex, target, options = {}) {
+  if (cardType(target) === "follower") return destroyWorldsBeyondFollower(session, playerIndex, target.instanceId, options);
+  if (cardType(target) !== "amulet") return null;
+
+  const destroyed = destroyBoardAmulet(session, playerIndex, target.instanceId, options);
+  if (!destroyed) return null;
+  gainWorldsBeyondShadows(session, playerIndex, 1);
+  resolveWorldsBeyondTrigger(session, { trigger: "last-words", playerIndex, source: destroyed });
+  restoreOriginalCardForm(destroyed);
+  return destroyed;
+}
+
 function prospectiveTargetPlayer(player, source, trigger) {
   if (!player || trigger !== "play" || !source?.instanceId) return player;
   const sourceStillInHand = (player.hand ?? []).some(item => item?.instanceId === source.instanceId);
@@ -299,13 +311,20 @@ function naturalLifecycle(text, pattern) {
 }
 
 function worldsBeyondTargetEffectSpec(text, source) {
+  const value = String(text ?? "");
+  let match = value.match(/select an allied card on the field and destroy it/i);
+  if (match) return { kind: "destroy", selectedGrammar: true, targetSide: "allied", targetScope: "card" };
+
+  match = value.match(/select an enemy card on the field and banish it/i);
+  if (match) return { kind: "banish", selectedGrammar: true, targetSide: "enemy", targetScope: "card" };
+
   const legacy = targetEffectSpec({ mode: { text }, instance: source });
   if (legacy) return { ...legacy, targetSide: "enemy" };
 
-  let match = String(text ?? "").match(/select an allied follower(?: on the field)? and deal it\s+(\d+)\s+damage/i);
+  match = value.match(/select an allied follower(?: on the field)? and deal it\s+(\d+)\s+damage/i);
   if (match) return { kind: "damage", amount: Number(match[1]) || 0, selectedGrammar: true, targetSide: "allied" };
 
-  match = String(text ?? "").match(/select an enemy follower(?: on the field)? and give it\s+-(\d+)\s*\/\s*-(\d+)/i);
+  match = value.match(/select an enemy follower(?: on the field)? and give it\s+-(\d+)\s*\/\s*-(\d+)/i);
   if (match) {
     return {
       kind: "stat-debuff",
@@ -316,15 +335,19 @@ function worldsBeyondTargetEffectSpec(text, source) {
     };
   }
 
-  match = String(text ?? "").match(/select an enemy follower(?: on the field)? and set its defense to\s+(\d+)/i);
+  match = value.match(/select an enemy follower(?: on the field)? and set its defense to\s+(\d+)/i);
   if (match) return { kind: "set-defense", amount: Number(match[1]) || 0, selectedGrammar: true, targetSide: "enemy" };
 
-  match = String(text ?? "").match(/set (?:an|a|the) enemy follower(?:'s|’s) defense to\s+(\d+)/i);
+  match = value.match(/set (?:an|a|the) enemy follower(?:'s|’s) defense to\s+(\d+)/i);
   if (match) return { kind: "set-defense", amount: Number(match[1]) || 0, targetSide: "enemy" };
   return null;
 }
 
 function targetOptionsForSpec(session, playerIndex, targetSpec) {
+  if (targetSpec?.targetScope === "card") {
+    const board = session.getPlayer(targetSpec.targetSide === "allied" ? playerIndex : 1 - playerIndex).board;
+    return targetSpec.targetSide === "allied" ? [...board] : targetableEnemyCards(board);
+  }
   if (targetSpec?.targetSide === "allied") {
     return session.getPlayer(playerIndex).board.filter(unit => cardType(unit) === "follower");
   }
@@ -383,6 +406,8 @@ function unsupportedResidualText(text, { targetSpec = null, discardRequired = fa
 function stripSupportedTargetText(text) {
   let inspect = String(text ?? "");
   const patterns = [
+    /\bselect an allied card on the field and destroy it\b/gi,
+    /\bselect an enemy card on the field and banish it\b/gi,
     /\bselect an allied follower(?: on the field)? and deal it \d+ damage\b/gi,
     /\bselect an enemy follower(?: on the field)? and deal it \d+ damage\b/gi,
     /\bselect an enemy follower(?: on the field)? and destroy it\b/gi,
@@ -437,7 +462,9 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
       if (Number(target.defense ?? 0) <= 0) destroyWorldsBeyondFollower(session, targetPlayer, target.instanceId, { actor: playerIndex, source, reason: "ability", byAbility: true });
       applied = damage > 0 || applied;
     } else if (targetSpec.kind === "destroy") {
-      const destroyed = Boolean(destroyWorldsBeyondFollower(session, targetPlayer, target.instanceId, { actor: playerIndex, source, reason: "ability", byAbility: true }));
+      const destroyed = targetSpec.targetScope === "card"
+        ? Boolean(destroyWorldsBeyondTargetCard(session, targetPlayer, target, { actor: playerIndex, source, reason: "ability", byAbility: true }))
+        : Boolean(destroyWorldsBeyondFollower(session, targetPlayer, target.instanceId, { actor: playerIndex, source, reason: "ability", byAbility: true }));
       applied = destroyed || applied;
     } else if (targetSpec.kind === "banish") {
       const banished = Boolean(banishBoardCard(session, targetPlayer, target.instanceId, { actor: playerIndex, source, reason: "ability" }));
@@ -671,6 +698,10 @@ function maxValue(items, select) {
 
 function commandsApplied(results) {
   return results.some(result => Boolean(result?.applied));
+}
+
+function targetableEnemyCards(board) {
+  return board.filter(unit => cardType(unit) === "amulet" || (cardType(unit) === "follower" && !unit.aura && !unit.ambush));
 }
 
 function targetableEnemyFollowers(board) {
