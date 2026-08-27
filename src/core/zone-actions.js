@@ -20,6 +20,27 @@ export function banishBoardCard(session, playerIndex, instanceId, { actor = null
   return card;
 }
 
+export function destroyBoardAmulet(session, playerIndex, instanceId, { actor = null, source = null, reason = "destroy" } = {}) {
+  const player = session.getPlayer(playerIndex);
+  const index = player.board.findIndex(card => card.instanceId === instanceId);
+  if (index < 0) return null;
+  const card = player.board[index];
+  const type = String(card?.typeOverride ?? card?.card?.type ?? card?.type ?? "").trim().toLowerCase();
+  if (type !== "amulet") return null;
+  player.board.splice(index, 1);
+  player.cemetery.push(card);
+  session.emit(BATTLE_EVENT.AMULET_DESTROYED, {
+    actor,
+    payload: {
+      owner: playerIndex,
+      card: session.cardView(card),
+      source: source ? session.cardView(source) : null,
+      reason
+    }
+  });
+  return card;
+}
+
 export function returnBoardCardToHand(session, playerIndex, instanceId, { actor = null, source = null, reason = "return" } = {}) {
   const player = session.getPlayer(playerIndex);
   const index = player.board.findIndex(card => card.instanceId === instanceId);
