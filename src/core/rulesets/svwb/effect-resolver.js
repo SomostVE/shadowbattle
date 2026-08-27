@@ -17,7 +17,7 @@ import {
   compileWorldsBeyondTrailingFilteredDrawCommands
 } from "./v6/effect-commands.js";
 
-const SUPPORTED_TARGET_KINDS = new Set(["damage", "destroy", "banish", "return", "set-defense"]);
+const SUPPORTED_TARGET_KINDS = new Set(["damage", "destroy", "banish", "return", "set-defense", "stat-debuff"]);
 const HAND_DISCARD_SELECTION = /\bselect (?:a|an|one) (?:[a-z]+craft )?card in your hand and discard it\b/i;
 const DAMAGE_NUMBER = "(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\\d+)";
 const TRAILING_TYPED_DRAW = /\bdraw\s+(?:a|an|one)\s+[a-z]+craft\s+follower\s*\.?\s*$/i;
@@ -289,6 +289,17 @@ function worldsBeyondTargetEffectSpec(text, source) {
   let match = String(text ?? "").match(/select an allied follower(?: on the field)? and deal it\s+(\d+)\s+damage/i);
   if (match) return { kind: "damage", amount: Number(match[1]) || 0, selectedGrammar: true, targetSide: "allied" };
 
+  match = String(text ?? "").match(/select an enemy follower(?: on the field)? and give it\s+-(\d+)\s*\/\s*-(\d+)/i);
+  if (match) {
+    return {
+      kind: "stat-debuff",
+      attack: Number(match[1]) || 0,
+      defense: Number(match[2]) || 0,
+      selectedGrammar: true,
+      targetSide: "enemy"
+    };
+  }
+
   match = String(text ?? "").match(/select an enemy follower(?: on the field)? and set its defense to\s+(\d+)/i);
   if (match) return { kind: "set-defense", amount: Number(match[1]) || 0, selectedGrammar: true, targetSide: "enemy" };
 
@@ -334,6 +345,7 @@ function unsupportedResidualText(text, { targetSpec = null, discardRequired = fa
     new RegExp(`\\bdeal\\s+${DAMAGE_NUMBER}\\s+damage to (?:all|each) enemy followers?\\b(?!\\s+with\\b)`, "gi"),
     new RegExp(`\\bdeal\\s+${DAMAGE_NUMBER}\\s+damage to (?:all|each) followers?\\b(?!\\s+with\\b)`, "gi"),
     /\bdeal\s+(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+damage to (?:a random|random) enemy follower\b/gi,
+    /\bdestroy (?:a random|random) enemy follower with the highest attack\b/gi,
     /\bdestroy (?:a random|random) enemy follower\b/gi,
     /\bgive this follower\s+(?:Storm|Rush|Ward|Bane|Drain)(?:\s+and\s+(?:Storm|Rush|Ward|Bane|Drain))?\b/gi,
     /\bgive this follower\s+\+\d+\s*\/\s*\+\d+\b/gi,
@@ -360,6 +372,7 @@ function stripSupportedTargetText(text) {
     /\bselect an enemy follower(?: on the field)? and destroy it\b/gi,
     /\bselect an enemy follower(?: on the field)? and banish it\b/gi,
     /\bselect an enemy follower(?: on the field)? and return it to (?:its owner'?s|their) hand\b/gi,
+    /\bselect an enemy follower(?: on the field)? and give it\s+-\d+\s*\/\s*-\d+\b/gi,
     /\bselect an enemy follower(?: on the field)? and set its defense to \d+\b/gi,
     /\bdeal\s+\d+\s+damage to (?:an|a|the) enemy follower\b/gi,
     /\bdestroy (?:an|a|the) enemy follower\b/gi,
@@ -434,6 +447,29 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
       });
       if (amount <= 0) destroyWorldsBeyondFollower(session, targetPlayer, target.instanceId, { actor: playerIndex, source, reason: "ability", byAbility: true });
       applied = true;
+    } else if (targetSpec.kind === "stat-debuff") {
+      const beforeAttack = Number(target.attack ?? target.card?.attack ?? 0);
+      const beforeDefense = Number(target.defense ?? target.card?.defense ?? 0);
+      const beforeMaxDefense = Number(target.maxDefense ?? target.card?.defense ?? beforeDefense);
+      const attack = Math.max(0, Number(targetSpec.attack) || 0);
+      const defense = Math.max(0, Number(targetSpec.defense) || 0);
+      target.attack = Math.max(0, beforeAttack - attack);
+      target.defense = Math.max(0, beforeDefense - defense);
+      target.maxDefense = Math.max(0, beforeMaxDefense - defense);
+      session.emit(BATTLE_EVENT.FOLLOWER_BUFF, {
+        actor: playerIndex,
+        payload: {
+          card: session.cardView(target),
+          attack: target.attack - beforeAttack,
+          defense: target.defense - beforeDefense,
+          reason: "ability",
+          source: session.cardView(source)
+        }
+      });
+      if (target.defense <= 0) {
+        destroyWorldsBeyondFollower(session, targetPlayer, target.instanceId, { actor: playerIndex, source, reason: "ability", byAbility: true });
+      }
+      applied = true;
     }
   }
 
@@ -442,6 +478,21 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
     compileWorldsBeyondPostTargetCommands(text, { playerIndex, source })
   ));
   applied = postApplied || applied;
+
+  for (const match of text.matchAll(/\bdestroy (?:a random|random) enemy follower with the highest attack\b/gi)) {
+    const followers = session.players[enemyIndex].board.filter(unit => cardType(unit) === "follower");
+    const highest = maxValue(followers, unit => Number(unit.attack ?? unit.card?.attack ?? 0));
+    const candidates = highest == null
+      ? []
+      : followers.filter(unit => Number(unit.attack ?? unit.card?.attack ?? 0) === highest);
+    const targetUnit = candidates.length
+      ? candidates[Math.floor(session.rng() * candidates.length)] ?? candidates[0]
+      : null;
+    if (targetUnit) {
+      destroyWorldsBeyondFollower(session, enemyIndex, targetUnit.instanceId, { actor: playerIndex, source, reason: "ability", byAbility: true });
+      applied = true;
+    }
+  }
 
   for (const match of text.matchAll(new RegExp(`\\bdeal\\s+${DAMAGE_NUMBER}\\s+damage to (?:all|each) followers? with the highest defense\\b`, "gi"))) {
     const amount = numberWord(match[1]);
@@ -490,7 +541,7 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
     }
   }
 
-  if (/\bdestroy (?:a random|random) enemy follower\b/i.test(text)) {
+  if (/\bdestroy (?:a random|random) enemy follower\b(?!\s+with the highest attack)/i.test(text)) {
     const unit = randomEnemyFollower(session, enemyIndex);
     if (unit) {
       destroyWorldsBeyondFollower(session, enemyIndex, unit.instanceId, { actor: playerIndex, source, reason: "ability", byAbility: true });
