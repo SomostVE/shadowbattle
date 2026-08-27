@@ -110,5 +110,5 @@ function reactiveParagraphIndex(value) {
 }
 
 function passiveKeywordParagraphIndex(value) {
-  return String(value ?? "").search(/(?:^|\n+)\s*(?:(?:Storm|Rush|Ward|Bane|Drain|Aura|Ambush|Intimidate|Barrier|Earth Sigil)\s*\.?|Can attack\s+\d+\s+times per turn\s*\.?|Can['’]?t be destroyed by abilities\s*\.?)\s*(?=\n+|$)/i);
+  return String(value ?? "").search(/(?:^|\n+)\s*(?:(?:Storm|Rush|Ward|Bane|Drain|Aura|Ambush|Intimidate|Barrier|Earth Sigil)\s*\.?|Can attack\s+\d+\s+times per turn\s*\.?|Can['’]?t be destroyed by abilities\s*\.?|Can['’]?t be played\s*\.?)\s*(?=\n+|$)/i);
 }
