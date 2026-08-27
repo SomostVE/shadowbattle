@@ -229,6 +229,8 @@ export function gainWorldsBeyondEarthSigils(session, playerIndex, amount = 1) {
 }
 
 export function destroyWorldsBeyondFollower(session, playerIndex, instanceId, options = {}) {
+  const target = session.findBoardCard(playerIndex, instanceId);
+  if (options.abilityDestroy && hasWorldsBeyondAbilityDestructionImmunity(target)) return null;
   const destroyed = session.destroyFollower(playerIndex, instanceId, options);
   if (destroyed) {
     gainWorldsBeyondShadows(session, playerIndex, 1);
@@ -238,6 +240,7 @@ export function destroyWorldsBeyondFollower(session, playerIndex, instanceId, op
 }
 
 function destroyWorldsBeyondTargetCard(session, playerIndex, target, options = {}) {
+  if (options.abilityDestroy && hasWorldsBeyondAbilityDestructionImmunity(target)) return null;
   if (cardType(target) === "follower") return destroyWorldsBeyondFollower(session, playerIndex, target.instanceId, options);
   if (cardType(target) !== "amulet") return null;
 
@@ -247,6 +250,10 @@ function destroyWorldsBeyondTargetCard(session, playerIndex, target, options = {
   resolveWorldsBeyondTrigger(session, { trigger: "last-words", playerIndex, source: destroyed });
   restoreOriginalCardForm(destroyed);
   return destroyed;
+}
+
+function hasWorldsBeyondAbilityDestructionImmunity(target) {
+  return /\bcan['’]?t be destroyed by abilities\b/i.test(String(target?.card?.text ?? target?.text ?? ""));
 }
 
 function prospectiveTargetPlayer(player, source, trigger) {
@@ -463,8 +470,8 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
       applied = damage > 0 || applied;
     } else if (targetSpec.kind === "destroy") {
       const destroyed = targetSpec.targetScope === "card"
-        ? Boolean(destroyWorldsBeyondTargetCard(session, targetPlayer, target, { actor: playerIndex, source, reason: "ability", byAbility: true }))
-        : Boolean(destroyWorldsBeyondFollower(session, targetPlayer, target.instanceId, { actor: playerIndex, source, reason: "ability", byAbility: true }));
+        ? Boolean(destroyWorldsBeyondTargetCard(session, targetPlayer, target, { actor: playerIndex, source, reason: "ability", byAbility: true, abilityDestroy: true }))
+        : Boolean(destroyWorldsBeyondFollower(session, targetPlayer, target.instanceId, { actor: playerIndex, source, reason: "ability", byAbility: true, abilityDestroy: true }));
       applied = destroyed || applied;
     } else if (targetSpec.kind === "banish") {
       const banished = Boolean(banishBoardCard(session, targetPlayer, target.instanceId, { actor: playerIndex, source, reason: "ability" }));
@@ -532,7 +539,7 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
       ? candidates[Math.floor(session.rng() * candidates.length)] ?? candidates[0]
       : null;
     if (targetUnit) {
-      destroyWorldsBeyondFollower(session, enemyIndex, targetUnit.instanceId, { actor: playerIndex, source, reason: "ability", byAbility: true });
+      destroyWorldsBeyondFollower(session, enemyIndex, targetUnit.instanceId, { actor: playerIndex, source, reason: "ability", byAbility: true, abilityDestroy: true });
       applied = true;
     }
   }
@@ -587,7 +594,7 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
   if (/\bdestroy (?:a random|random) enemy follower\b(?!\s+with the highest attack)/i.test(text)) {
     const unit = randomEnemyFollower(session, enemyIndex);
     if (unit) {
-      destroyWorldsBeyondFollower(session, enemyIndex, unit.instanceId, { actor: playerIndex, source, reason: "ability", byAbility: true });
+      destroyWorldsBeyondFollower(session, enemyIndex, unit.instanceId, { actor: playerIndex, source, reason: "ability", byAbility: true, abilityDestroy: true });
       applied = true;
     }
   }
