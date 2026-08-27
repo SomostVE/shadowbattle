@@ -175,7 +175,7 @@ export function hasWorldsBeyondKeyword(instance, keyword) {
 
 export function modifyWorldsBeyondFollowerDamage(instance, amount) {
   const damage = Math.max(0, Number(amount) || 0);
-  if (!damage || !instance?.barrierActive) return damage;
+  if (!instance?.barrierActive) return damage;
   instance.barrierActive = false;
   return 0;
 }
