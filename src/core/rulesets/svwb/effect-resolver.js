@@ -266,12 +266,28 @@ function replicateFanfareIfRequested(fullText, triggerSection) {
 }
 
 function resolveWorldsBeyondVariables(textValue, source) {
-  const text = String(textValue ?? "");
+  let text = String(textValue ?? "");
   if (!/\bX\b/.test(text)) return text;
+
+  if (/\bX is this follower'?s attack\b/i.test(text)) {
+    const x = currentSourceAttack(source);
+    text = text.replace(/\s*X is this follower'?s attack\s*\.?/gi, " ");
+    return text
+      .replace(/\bX\b/g, String(x))
+      .replace(/\s+/g, " ")
+      .replace(/\s+([.,;:!?])/g, "$1")
+      .trim();
+  }
+
   const hasExplicitX = Number.isFinite(Number(source?.x)) || /\bX starts at\s+\d+\b/i.test(String(source?.card?.text ?? ""));
   if (!hasExplicitX) return text;
   const x = Math.max(0, Number(worldsBeyondCardX(source)) || 0);
   return text.replace(/\bX\b/g, String(x));
+}
+
+function currentSourceAttack(source) {
+  if (Number.isFinite(Number(source?.attack))) return Math.max(0, Number(source.attack));
+  return Math.max(0, Number(source?.card?.attack ?? 0) + Number(source?.attackBonus ?? 0));
 }
 
 function naturalLifecycle(text, pattern) {
