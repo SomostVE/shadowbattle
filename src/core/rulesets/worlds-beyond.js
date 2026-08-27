@@ -3,6 +3,7 @@ import { GAME_IDS } from "../game-catalog.js";
 import { applyWorldsBeyondAction, listWorldsBeyondActions, prepareWorldsBeyondTurn } from "./svwb/action-resolver.js";
 import { applyWorldsBeyondCombatAction, listWorldsBeyondCombatActions } from "./svwb/combat-actions.js";
 import {
+  modifyWorldsBeyondFollowerDamage,
   normalizeWorldsBeyondCombatEvent,
   normalizeWorldsBeyondTurnCombatReadiness
 } from "./svwb/combat-readiness.js";
@@ -59,6 +60,9 @@ export const WORLDS_BEYOND_RULESET = Object.freeze({
     if (!player.goingFirst && player.personalTurn === 6 && player.resources.bonusPpUses < 2) player.resources.bonusPpAvailable = true;
     prepareWorldsBeyondTurn(player);
     normalizeWorldsBeyondTurnCombatReadiness(player);
+  },
+  modifyFollowerDamage(session, { unit, amount }) {
+    return modifyWorldsBeyondFollowerDamage(unit, amount);
   },
   afterEvent(session, event) {
     accountCemeteryOverflowShadow(session, event);
