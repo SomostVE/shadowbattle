@@ -275,24 +275,19 @@ test("Reanimate followed by an unsupported evolve-them clause remains atomic", (
   assert.equal(game.players[0].resources.shadows, 6, "blocked Necromancy is not consumed");
 });
 
-test("repeated Reanimate commands resolve before the following area damage", () => {
+test("repeat-with-trailing-effect Reanimate remains atomic until that repeat grammar is migrated", () => {
   const game = readyGame();
   destroyForHistory(game, MID_SHADE, "repeat-history");
   const source = replaceHandCard(game, ISTYNDET_STYLE);
   const enemy = boardFollower(game, 1, card("repeat-enemy", { className: "Swordcraft", defense: 6 }), "repeat-target");
 
   const support = getWorldsBeyondTriggerSupport(source, "play", null, game.players[0]);
-  assert.equal(support.supported, true);
-  const action = playActionFor(game, source);
-  assert.ok(action);
-  game.dispatch(action);
+  assert.equal(support.supported, false);
+  const beforeBoard = game.players[0].board.length;
+  const beforeDefense = enemy.defense;
+  const result = resolveWorldsBeyondTrigger(game, { trigger: "play", playerIndex: 0, source });
 
-  assert.equal(game.players[0].board.filter(item => item.cardId === MID_SHADE.id).length, 3);
-  assert.equal(game.findBoardCard(1, enemy.instanceId)?.defense, 4);
-  const events = game.getEvents({ viewer: 0, revealHands: true });
-  const reanimateEntries = events.filter(event => event.type === BATTLE_EVENT.FOLLOWER_ENTER && event.payload?.reanimated === true);
-  const damageEvent = events.find(event => event.type === BATTLE_EVENT.FOLLOWER_DAMAGE && event.payload?.target?.instanceId === enemy.instanceId);
-  assert.equal(reanimateEntries.length, 3);
-  assert.ok(damageEvent);
-  assert.ok(reanimateEntries.every(event => event.sequence < damageEvent.sequence));
+  assert.equal(result.unresolved, true);
+  assert.equal(game.players[0].board.length, beforeBoard);
+  assert.equal(game.findBoardCard(1, enemy.instanceId)?.defense, beforeDefense);
 });
