@@ -1,5 +1,6 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
 import { restoreOriginalCardForm } from "../../zone-actions.js";
+import { advanceWorldsBeyondAmuletCountdown, destroyWorldsBeyondAmulet } from "./amulets.js";
 import { applyWorldsBeyondCombatAction } from "./combat-actions.js";
 import { hasWorldsBeyondKeyword } from "./combat-readiness.js";
 import {
@@ -12,7 +13,7 @@ import {
   requiresWorldsBeyondHandDiscard,
   resolveWorldsBeyondTrigger
 } from "./effect-resolver.js";
-import { getWorldsBeyondEngageInfo } from "./engage.js";
+import { getWorldsBeyondEngageAdvanceAmount, getWorldsBeyondEngageInfo } from "./engage.js";
 import {
   getWorldsBeyondFuseActions,
   hasWorldsBeyondTrait,
@@ -299,6 +300,17 @@ function engage(session, action) {
       discardSkipped: discardCanSkip && !action.discardInstanceId
     }
   });
+
+  const advanceAmount = getWorldsBeyondEngageAdvanceAmount(info, player);
+  if (info.advanceCountdown && session.findBoardCard(playerIndex, amulet.instanceId)) {
+    advanceWorldsBeyondAmuletCountdown(session, playerIndex, amulet.instanceId, advanceAmount, {
+      actor: playerIndex,
+      source: amulet,
+      reason: "engage"
+    });
+    if (session.phase === "ended") return session.getSnapshot(playerIndex);
+  }
+
   resolveWorldsBeyondTrigger(session, {
     trigger: "engage",
     playerIndex,
@@ -306,6 +318,14 @@ function engage(session, action) {
     targetInstanceId: action.targetInstanceId ?? null,
     discardInstanceId: action.discardInstanceId ?? null
   });
+
+  if (info.destroySource && session.findBoardCard(playerIndex, amulet.instanceId)) {
+    destroyWorldsBeyondAmulet(session, playerIndex, amulet.instanceId, {
+      actor: playerIndex,
+      source: amulet,
+      reason: "engage"
+    });
+  }
   return session.getSnapshot(playerIndex);
 }
 
