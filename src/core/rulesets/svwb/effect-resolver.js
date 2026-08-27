@@ -5,6 +5,10 @@ import { evaluateWorldsBeyondClassCondition } from "./class-conditions.js";
 import { spellboostWorldsBeyondHand, worldsBeyondCardX } from "./spellboost.js";
 import { getWorldsBeyondEngageInfo } from "./engage.js";
 import { preprocessWorldsBeyondFuseText } from "./fuse.js";
+import {
+  resolveWorldsBeyondGenericEffects,
+  stripWorldsBeyondGenericEffectText
+} from "./generic-effects.js";
 import { baseText, section } from "./v5/battle-engine-v5-text.js";
 import { targetEffectSpec } from "./v5/battle-engine-v5-targeting.js";
 import {
@@ -339,6 +343,7 @@ function unsupportedResidualText(text, { targetSpec = null, discardRequired = fa
   ];
   if (!targetSpec) patterns.push(new RegExp(SUMMON_COPIES.source, "gi"), new RegExp(SUMMON_SINGLE.source, "gi"));
   for (const pattern of patterns) inspect = inspect.replace(pattern, " ");
+  inspect = stripWorldsBeyondGenericEffectText(inspect);
 
   return inspect
     .replace(/[.;,:!?()[\]{}"“”]/g, " ")
@@ -525,6 +530,14 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
     player.resources.combo = player.cardsPlayedThisTurn;
     applied = true;
   }
+
+  applied = resolveWorldsBeyondGenericEffects(session, {
+    text,
+    playerIndex,
+    source,
+    destroyFollower: destroyWorldsBeyondFollower,
+    gainShadows: gainWorldsBeyondShadows
+  }) || applied;
 
   const trailingApplied = commandsApplied(resolveEffectCommands(
     session,
