@@ -2,6 +2,7 @@ import { BATTLE_EVENT } from "../../battle-events.js";
 import { resolveEffectCommands } from "../../effect-commands.js";
 import { banishBoardCard, returnBoardCardToHand } from "../../zone-actions.js";
 import { evaluateWorldsBeyondClassCondition } from "./class-conditions.js";
+import { spellboostWorldsBeyondHand, worldsBeyondCardX } from "./spellboost.js";
 import { getWorldsBeyondEngageInfo } from "./engage.js";
 import { preprocessWorldsBeyondFuseText } from "./fuse.js";
 import { baseText, section } from "./v5/battle-engine-v5-text.js";
@@ -28,8 +29,9 @@ export function getWorldsBeyondTargetRequirement(source, trigger = "play", mode 
   const evaluationPlayer = prospectiveTargetPlayer(player, source, trigger);
   const conditional = evaluationPlayer ? evaluateWorldsBeyondClassCondition(originalText, evaluationPlayer, source.card) : { text: originalText, active: true };
   if (!conditional.active || !conditional.text) return null;
-  const spec = worldsBeyondTargetEffectSpec(conditional.text, source);
-  return spec ? { ...spec, text: conditional.text } : null;
+  const resolvedText = resolveWorldsBeyondVariables(conditional.text, source);
+  const spec = worldsBeyondTargetEffectSpec(resolvedText, source);
+  return spec ? { ...spec, text: resolvedText } : null;
 }
 
 export function requiresWorldsBeyondHandDiscard(source, trigger = "play", mode = null, player = null) {
@@ -79,7 +81,7 @@ export function getWorldsBeyondTriggerSupport(source, trigger = "play", mode = n
     };
   }
 
-  const text = conditional.text;
+  const text = resolveWorldsBeyondVariables(conditional.text, source);
   const targetSpec = worldsBeyondTargetEffectSpec(text, source);
   const discardRequired = HAND_DISCARD_SELECTION.test(text);
   const unsupportedTarget = Boolean(targetSpec && !SUPPORTED_TARGET_KINDS.has(targetSpec.kind));
@@ -129,7 +131,7 @@ export function resolveWorldsBeyondTrigger(session, { trigger, playerIndex, sour
     return { applied: false, unresolved: false, text: originalText, conditionInactive: true, notes: preview.notes };
   }
 
-  const text = preview.text;
+  const text = resolveWorldsBeyondVariables(preview.text, source);
   const targetSpec = worldsBeyondTargetEffectSpec(text, source);
   const targetOptions = targetSpec ? targetOptionsForSpec(session, playerIndex, targetSpec) : [];
   const targetPlayer = targetSpec ? targetPlayerForSpec(playerIndex, targetSpec) : null;
@@ -163,7 +165,7 @@ export function resolveWorldsBeyondTrigger(session, { trigger, playerIndex, sour
   const conditional = unresolved
     ? preview
     : evaluateWorldsBeyondClassCondition(originalText, player, source.card, { consume: true });
-  const resolvedText = conditional.text || text;
+  const resolvedText = resolveWorldsBeyondVariables(conditional.text || text, source);
 
   session.emit(BATTLE_EVENT.ABILITY_TRIGGER, {
     actor: playerIndex,
@@ -214,6 +216,14 @@ export function gainWorldsBeyondShadows(session, playerIndex, amount = 1) {
   return player.resources.shadows;
 }
 
+export function gainWorldsBeyondEarthSigils(session, playerIndex, amount = 1) {
+  const player = session.getPlayer(playerIndex);
+  const value = Math.max(0, Number(amount) || 0);
+  if (!value) return Number(player.resources?.earthSigils ?? 0);
+  player.resources.earthSigils = Math.max(0, Number(player.resources?.earthSigils ?? 0)) + value;
+  return player.resources.earthSigils;
+}
+
 export function destroyWorldsBeyondFollower(session, playerIndex, instanceId, options = {}) {
   const destroyed = session.destroyFollower(playerIndex, instanceId, options);
   if (destroyed) {
@@ -238,12 +248,26 @@ function triggerText(source, trigger, mode) {
   if (trigger === "play") return baseText(mode?.text ?? text);
   if (trigger === "engage") return getWorldsBeyondEngageInfo(source)?.text ?? "";
   if (trigger === "strike") return section(text, "strike");
-  if (trigger === "evolve") return section(text, "evolve") || naturalLifecycle(text, /when this follower evolves,\s*/i);
-  if (trigger === "super-evolve") return section(text, "super-evolve");
+  if (trigger === "evolve") return replicateFanfareIfRequested(text, section(text, "evolve") || naturalLifecycle(text, /when this follower evolves,\s*/i));
+  if (trigger === "super-evolve") return replicateFanfareIfRequested(text, section(text, "super-evolve"));
   if (trigger === "last-words") return section(text, "last words");
   if (trigger === "turn-start") return section(text, "at the start of your turn") || naturalLifecycle(text, /at the start of your turn,\s*/i);
   if (trigger === "turn-end") return section(text, "at the end of your turn") || naturalLifecycle(text, /at the end of your turn,\s*/i);
   return "";
+}
+
+function replicateFanfareIfRequested(fullText, triggerSection) {
+  if (!/replicate the effects? of this card'?s fanfare ability/i.test(String(triggerSection ?? ""))) return triggerSection;
+  return baseText(fullText);
+}
+
+function resolveWorldsBeyondVariables(textValue, source) {
+  const text = String(textValue ?? "");
+  if (!/\bX\b/.test(text)) return text;
+  const hasExplicitX = Number.isFinite(Number(source?.x)) || /\bX starts at\s+\d+\b/i.test(String(source?.card?.text ?? ""));
+  if (!hasExplicitX) return text;
+  const x = Math.max(0, Number(worldsBeyondCardX(source)) || 0);
+  return text.replace(/\bX\b/g, String(x));
 }
 
 function naturalLifecycle(text, pattern) {
@@ -283,16 +307,7 @@ function targetPlayerForSpec(playerIndex, targetSpec) {
 function hasUnsupportedChoiceOrCondition(text, { targetSpec = null, discardRequired = false } = {}) {
   let inspect = String(text ?? "");
   if (discardRequired) inspect = inspect.replace(/\bselect (?:a|an|one) (?:[a-z]+craft )?card in your hand and discard it\.?/gi, "");
-  if (targetSpec) {
-    inspect = inspect
-      .replace(/\bselect (?:an )?(?:enemy|allied) follower(?: on the field)? and\s*/gi, "")
-      .replace(/\bdeal(?: it)?\s+\d+\s+damage(?: to (?:an|a|the) enemy follower)?\b/gi, "")
-      .replace(/\bdestroy (?:an|a|the) enemy follower\b/gi, "")
-      .replace(/\bbanish (?:an|a|the) enemy follower\b/gi, "")
-      .replace(/\breturn (?:an|a|the) enemy follower to (?:its owner'?s|their) hand\b/gi, "")
-      .replace(/\bset (?:an|a|the) enemy follower(?:'s|’s) defense to\s+\d+\b/gi, "")
-      .replace(/\bset its defense to\s+\d+\b/gi, "");
-  }
+  if (targetSpec) inspect = stripSupportedTargetText(inspect);
   inspect = inspect.replace(/\bGain Crest\s*:\s*[^.;\n]+[.;]?/gi, "");
   return /\b(?:select|choose)\b|\bif\b|\bunless\b|\bfor each\b|\bwhenever\b|\bwhen(?:ever)?\b|\brandomly select\b|\bX\b|\b(?:Earth Rite|Engage|Fuse|Transmute|Crest|Faith|Reanimate)\b/i.test(inspect);
 }
@@ -317,7 +332,10 @@ function unsupportedResidualText(text, { targetSpec = null, discardRequired = fa
     /\bdeal\s+(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+damage to (?:a random|random) enemy follower\b/gi,
     /\bdestroy (?:a random|random) enemy follower\b/gi,
     /\bgive this follower\s+(?:Storm|Rush|Ward|Bane|Drain)(?:\s+and\s+(?:Storm|Rush|Ward|Bane|Drain))?\b/gi,
-    /\bgive this follower\s+\+\d+\s*\/\s*\+\d+\b/gi
+    /\bgive this follower\s+\+\d+\s*\/\s*\+\d+\b/gi,
+    /\bgain\s+(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+earth sigils?\b/gi,
+    /\bspellboost your hand(?:\s+(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+times?)?\b/gi,
+    /\bincrease your combo by\s+(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\b/gi
   ];
   if (!targetSpec) patterns.push(new RegExp(SUMMON_COPIES.source, "gi"), new RegExp(SUMMON_SINGLE.source, "gi"));
   for (const pattern of patterns) inspect = inspect.replace(pattern, " ");
@@ -486,6 +504,25 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
       actor: playerIndex,
       payload: { card: session.cardView(source), attack, defense, reason: "ability" }
     });
+    applied = true;
+  }
+
+  for (const match of text.matchAll(/\bgain\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+earth sigils?\b/gi)) {
+    gainWorldsBeyondEarthSigils(session, playerIndex, numberWord(match[1]));
+    applied = true;
+  }
+
+  for (const match of text.matchAll(/\bspellboost your hand(?:\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+times?)?\b/gi)) {
+    const amount = match[1] ? numberWord(match[1]) : 1;
+    spellboostWorldsBeyondHand(session, playerIndex, amount, { source, reason: "ability" });
+    applied = true;
+  }
+
+  for (const match of text.matchAll(/\bincrease your combo by\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\b/gi)) {
+    const amount = numberWord(match[1]);
+    const player = session.getPlayer(playerIndex);
+    player.cardsPlayedThisTurn = Math.max(0, Number(player.cardsPlayedThisTurn ?? 0)) + amount;
+    player.resources.combo = player.cardsPlayedThisTurn;
     applied = true;
   }
 

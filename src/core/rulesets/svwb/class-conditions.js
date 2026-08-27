@@ -33,10 +33,7 @@ export function evaluateWorldsBeyondClassCondition(textValue, player, card, { co
       text = resolveConditionalSegments(necromancy.prefix, necromancy.match[2], false);
       notes.push(`Necromancy ${need} unavailable`);
     } else {
-      if (consume) {
-        if (player?.resources) player.resources.shadows = Math.max(0, shadows - need);
-        else player.shadows = Math.max(0, shadows - need);
-      }
+      if (consume) setResource(player, "shadows", shadows - need);
       text = resolveConditionalSegments(necromancy.prefix, necromancy.match[2], true);
       notes.push(`Necromancy ${need}`);
     }
@@ -49,12 +46,47 @@ export function evaluateWorldsBeyondClassCondition(textValue, player, card, { co
     if (!canUseClassMechanic(player, mechanic, card)) {
       text = resolveConditionalSegments(combo.prefix, combo.match[2], false);
       notes.push("Combo unavailable outside Forestcraft");
-    } else if (Number(player?.cardsPlayedThisTurn ?? 0) < need) {
+    } else if (Number(player?.cardsPlayedThisTurn ?? player?.resources?.combo ?? 0) < need) {
       text = resolveConditionalSegments(combo.prefix, combo.match[2], false);
       notes.push(`Combo ${need} unavailable`);
     } else {
       text = resolveConditionalSegments(combo.prefix, combo.match[2], true);
       notes.push(`Combo ${need}`);
+    }
+  }
+
+  const rally = findThresholdMechanic(text, /\brally\s*\(?\s*(\d+)\s*\)?\s*(?::|[-–—])\s*(.*)$/i);
+  if (rally) {
+    mechanic = "rally";
+    const need = Number(rally.match[1]);
+    const value = Number(player?.resources?.rally ?? player?.rally ?? 0);
+    if (!canUseClassMechanic(player, mechanic, card)) {
+      text = resolveConditionalSegments(rally.prefix, rally.match[2], false);
+      notes.push("Rally unavailable outside Swordcraft");
+    } else if (value < need) {
+      text = resolveConditionalSegments(rally.prefix, rally.match[2], false);
+      notes.push(`Rally ${need} unavailable`);
+    } else {
+      text = resolveConditionalSegments(rally.prefix, rally.match[2], true);
+      notes.push(`Rally ${need}`);
+    }
+  }
+
+  const earthRite = findThresholdMechanic(text, /\bearth\s+rite\s*\(?\s*(\d+)\s*\)?\s*(?::|[-–—])\s*(.*)$/i);
+  if (earthRite) {
+    mechanic = "earthRite";
+    const need = Number(earthRite.match[1]);
+    const sigils = Number(player?.resources?.earthSigils ?? player?.earthSigils ?? 0);
+    if (!canUseClassMechanic(player, mechanic, card)) {
+      text = resolveConditionalSegments(earthRite.prefix, earthRite.match[2], false);
+      notes.push("Earth Rite unavailable outside Runecraft");
+    } else if (sigils < need) {
+      text = resolveConditionalSegments(earthRite.prefix, earthRite.match[2], false);
+      notes.push(`Earth Rite ${need} unavailable`);
+    } else {
+      if (consume) setResource(player, "earthSigils", sigils - need);
+      text = resolveConditionalSegments(earthRite.prefix, earthRite.match[2], true);
+      notes.push(`Earth Rite ${need}`);
     }
   }
 
@@ -143,6 +175,12 @@ export function evaluateWorldsBeyondClassCondition(textValue, player, card, { co
 
   text = normalizeResolvedText(text);
   return { text, active: Boolean(text), notes, mechanic };
+}
+
+function setResource(player, key, value) {
+  const next = Math.max(0, Number(value) || 0);
+  if (player?.resources) player.resources[key] = next;
+  else if (player) player[key] = next;
 }
 
 function findThresholdMechanic(text, pattern) {

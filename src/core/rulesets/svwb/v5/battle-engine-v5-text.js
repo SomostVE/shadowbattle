@@ -41,8 +41,16 @@ function stripFuseAbilityText(textValue) {
     .trim();
 }
 
+function stripSpellboostPreambleText(textValue) {
+  return String(textValue ?? "")
+    .replace(/^\s*X starts at\s+\d+\s*\.?\s*(?:\n+|$)/gim, "")
+    .replace(/^\s*On Spellboost\s*:[^\n]*(?:\n+|$)/gim, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 export function baseText(text) {
-  const clean = stripFuseAbilityText(text);
+  const clean = stripSpellboostPreambleText(stripFuseAbilityText(text));
   const fanfare = section(clean, "fanfare");
   if (fanfare) return fanfare;
   const value = String(clean);
@@ -57,7 +65,7 @@ export function baseText(text) {
 
 export function crystallizeText(textValue, cost) {
   const text = String(textValue ?? "");
-  const regex = new RegExp(`Crystallize\\s*\\(?\\s*${cost}\\s*\\)?\\s*:`, "i");
+  const regex = new RegExp(`Crystallize\\s*\\(?\\s*${cost}\\s*\\)?\\s*:?`, "i");
   const match = regex.exec(text);
   if (!match) return "";
   const tail = text.slice(match.index + match[0].length);
@@ -94,5 +102,5 @@ function reactiveParagraphIndex(value) {
 }
 
 function passiveKeywordParagraphIndex(value) {
-  return String(value ?? "").search(/(?:^|\n+)\s*(?:Storm|Rush|Ward|Bane|Drain|Aura|Ambush|Intimidate)\s*\.?\s*(?=\n+|$)/i);
+  return String(value ?? "").search(/(?:^|\n+)\s*(?:Storm|Rush|Ward|Bane|Drain|Aura|Ambush|Intimidate|Barrier)\s*\.?\s*(?=\n+|$)/i);
 }
