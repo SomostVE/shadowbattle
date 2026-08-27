@@ -175,6 +175,7 @@ test("highest-attack random selection is restricted to followers tied for the ma
 
 test("Fate of the World draws before destroying the current highest-attack follower", () => {
   const game = readyGame({ playerClass: "Neutral" });
+  game.players[0].resources.pp = 9;
   const source = replaceHandCard(game, {
     id: "fate-of-world",
     name: "Fate of the World",
