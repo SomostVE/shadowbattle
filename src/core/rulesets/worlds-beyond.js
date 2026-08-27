@@ -54,6 +54,8 @@ export const WORLDS_BEYOND_RULESET = Object.freeze({
     };
   },
   beginTurn(player) {
+    player.attackedLeaderLastTurn = Boolean(player.attackedLeaderThisTurn);
+    player.attackedLeaderThisTurn = false;
     player.resources.maxPp = Math.min(this.maxPp, player.resources.maxPp + 1);
     player.resources.pp = player.resources.maxPp;
     player.resources.evolutionAvailable = player.personalTurn >= (player.goingFirst ? this.evolutionUnlockTurn.first : this.evolutionUnlockTurn.second);
