@@ -4,7 +4,8 @@ import {
   assertWorldsBeyondCombatAction,
   getWorldsBeyondAttackCapabilities,
   getWorldsBeyondWardFollowers,
-  hasWorldsBeyondKeyword
+  hasWorldsBeyondKeyword,
+  refreshWorldsBeyondAttackReadiness
 } from "./combat-readiness.js";
 
 const ATTACK_ACTION = "attack";
@@ -56,8 +57,7 @@ export function applyWorldsBeyondCombatAction(session, action) {
 
   attacker.attacksRemaining = Math.max(0, Number(attacker.attacksRemaining ?? 1) - 1);
   attacker.hasAttacked = true;
-  attacker.canAttackLeader = false;
-  attacker.canAttackFollowers = false;
+  refreshWorldsBeyondAttackReadiness(session, playerIndex, attacker);
   session.emit(BATTLE_EVENT.ATTACK_START, {
     actor: playerIndex,
     payload: {
