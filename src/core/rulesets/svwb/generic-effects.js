@@ -9,7 +9,9 @@ const GENERIC_EFFECT_PATTERNS = Object.freeze([
   /\bgive all other allied followers(?: on the field)?\s+\+\d+\s*\/\s*\+\d+\b/gi,
   /\bgive all allied followers(?: on the field)?\s+Barrier\b/gi,
   /\bgive all enemy followers(?: on the field)?\s+-\d+\s*\/\s*-\d+\b/gi,
-  new RegExp(`\\bgain\\s+${NUMBER}\\s+shadows?\\b`, "gi")
+  new RegExp(`\\bgain\\s+${NUMBER}\\s+shadows?\\b`, "gi"),
+  /\bevolve this follower\b/gi,
+  /\bgive (?:this follower|it)\s+Barrier\b/gi
 ]);
 
 export function stripWorldsBeyondGenericEffectText(text) {
@@ -57,6 +59,12 @@ export function resolveWorldsBeyondGenericEffects(session, {
     kind: "gain-shadows",
     amount: numberWord(match[1])
   }), effects);
+  collect(value, /\bevolve this follower\b/gi, () => ({
+    kind: "ability-evolve"
+  }), effects);
+  collect(value, /\bgive (?:this follower|it)\s+Barrier\b/gi, () => ({
+    kind: "self-barrier"
+  }), effects);
 
   effects.sort((left, right) => left.index - right.index);
   let applied = false;
@@ -87,6 +95,14 @@ export function resolveWorldsBeyondGenericEffects(session, {
         gainShadows?.(session, playerIndex, effect.amount);
         applied = true;
       }
+      continue;
+    }
+    if (effect.kind === "ability-evolve") {
+      applied = Boolean(session.ruleset?.evolveFollowerByAbility?.(session, playerIndex, source)) || applied;
+      continue;
+    }
+    if (effect.kind === "self-barrier") {
+      applied = grantSelfBarrier(session, playerIndex, source) || applied;
     }
   }
   return applied;
@@ -127,6 +143,25 @@ function grantAlliedBarrier(session, playerIndex) {
     applied = grantWorldsBeyondKeyword(unit, "Barrier") || applied;
   }
   return applied;
+}
+
+function grantSelfBarrier(session, playerIndex, source) {
+  const follower = source?.instanceId ? session.findBoardCard(playerIndex, source.instanceId) : null;
+  if (!follower || cardType(follower) !== "follower") return false;
+  const granted = grantWorldsBeyondKeyword(follower, "Barrier");
+  if (!granted) return false;
+  session.emit(BATTLE_EVENT.FOLLOWER_BUFF, {
+    actor: playerIndex,
+    payload: {
+      card: session.cardView(follower),
+      attack: 0,
+      defense: 0,
+      keywords: ["Barrier"],
+      reason: "ability-keyword",
+      source: session.cardView(source)
+    }
+  });
+  return true;
 }
 
 function debuffEnemyFollowers(session, playerIndex, source, effect, destroyFollower) {
