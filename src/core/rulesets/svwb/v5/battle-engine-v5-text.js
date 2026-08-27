@@ -52,6 +52,7 @@ function stripSpellboostPreambleText(textValue) {
 function stripAmuletSetupText(textValue) {
   return String(textValue ?? "")
     .replace(/^\s*Countdown\s*\(?\s*\d+\s*\)?\s*\.?\s*(?:\n+|$)/gim, "")
+    .replace(/^\s*Earth Sigil\s*\.?\s*(?:\n+|$)/gim, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
@@ -109,5 +110,5 @@ function reactiveParagraphIndex(value) {
 }
 
 function passiveKeywordParagraphIndex(value) {
-  return String(value ?? "").search(/(?:^|\n+)\s*(?:Storm|Rush|Ward|Bane|Drain|Aura|Ambush|Intimidate|Barrier)\s*\.?\s*(?=\n+|$)/i);
+  return String(value ?? "").search(/(?:^|\n+)\s*(?:(?:Storm|Rush|Ward|Bane|Drain|Aura|Ambush|Intimidate|Barrier|Earth Sigil)\s*\.?|Can attack\s+\d+\s+times per turn\s*\.?)\s*(?=\n+|$)/i);
 }
