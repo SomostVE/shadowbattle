@@ -1,12 +1,12 @@
-import { BATTLE_EVENT } from "../../battle-events.js";
-import { banishBoardCard, restoreOriginalCardForm } from "../../zone-actions.js";
+import { banishBoardCard } from "../../zone-actions.js";
+import { advanceWorldsBeyondAmuletCountdown } from "./amulets.js";
 import {
   resolveWorldsBeyondCrestLastWords,
   resolveWorldsBeyondCrestTurnEnd,
   resolveWorldsBeyondCrestTurnStart
 } from "./crest-effects.js";
 import { getWorldsBeyondCrests, runWorldsBeyondCrestTurnStart } from "./crests.js";
-import { gainWorldsBeyondShadows, resolveWorldsBeyondTrigger } from "./effect-resolver.js";
+import { resolveWorldsBeyondTrigger } from "./effect-resolver.js";
 import {
   resolveWorldsBeyondForestCrestTurnEnd,
   resolveWorldsBeyondForestCrestTurnStart
@@ -78,31 +78,12 @@ function tickCountdownAmulets(session, playerIndex) {
   const player = session.getPlayer(playerIndex);
   for (const amulet of [...player.board]) {
     if (cardType(amulet) !== "amulet" || amulet.countdown == null || !Number.isFinite(Number(amulet.countdown))) continue;
-    amulet.countdown = Math.max(0, Number(amulet.countdown) - 1);
-    session.emit(BATTLE_EVENT.COUNTDOWN_TICK, {
+    advanceWorldsBeyondAmuletCountdown(session, playerIndex, amulet.instanceId, 1, {
       actor: playerIndex,
-      payload: { card: session.cardView(amulet), countdown: amulet.countdown }
+      reason: "turn-start"
     });
-    if (amulet.countdown > 0) continue;
-    destroyCountdownAmulet(session, playerIndex, amulet);
     if (session.phase !== "main") break;
   }
-}
-
-function destroyCountdownAmulet(session, playerIndex, amulet) {
-  const player = session.getPlayer(playerIndex);
-  const index = player.board.findIndex(item => item.instanceId === amulet.instanceId);
-  if (index < 0) return null;
-  player.board.splice(index, 1);
-  player.cemetery.push(amulet);
-  gainWorldsBeyondShadows(session, playerIndex, 1);
-  session.emit(BATTLE_EVENT.AMULET_DESTROYED, {
-    actor: playerIndex,
-    payload: { owner: playerIndex, card: session.cardView(amulet), reason: "countdown" }
-  });
-  resolveWorldsBeyondTrigger(session, { trigger: "last-words", playerIndex, source: amulet });
-  restoreOriginalCardForm(amulet);
-  return amulet;
 }
 
 function cardType(instance) {
