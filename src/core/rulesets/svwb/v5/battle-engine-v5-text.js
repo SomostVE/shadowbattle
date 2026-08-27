@@ -60,7 +60,7 @@ function stripAmuletSetupText(textValue) {
 function stripHandActivationPreambleText(textValue) {
   const text = String(textValue ?? "");
   if (!/^\s*Activates in hand\./i.test(text)) return text;
-  const paragraphEnd = text.search(/\n{2,}/);
+  const paragraphEnd = text.search(/(?:\r?\n){2,}/);
   return (paragraphEnd < 0 ? "" : text.slice(paragraphEnd)).trim();
 }
 
