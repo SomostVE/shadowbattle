@@ -66,6 +66,22 @@ export function evaluateWorldsBeyondClassCondition(textValue, player, card, { co
     notes.push(active ? "Super Evolution unlocked" : "Super Evolution not unlocked");
   }
 
+  const noDuplicates = findThresholdMechanic(text, /\bif there are no duplicates in your deck\s*,?\s*(.*)$/i);
+  if (noDuplicates) {
+    const active = deckHasNoDuplicates(player);
+    text = resolveConditionalSegments(noDuplicates.prefix, noDuplicates.match[1], active);
+    mechanic = mechanic ?? "noDeckDuplicates";
+    notes.push(active ? "No duplicates in deck" : "Deck contains duplicates");
+  }
+
+  const attackedLeaderLastTurn = findThresholdMechanic(text, /\bif an allied follower attacked a leader on your last turn\s*,?\s*(.*)$/i);
+  if (attackedLeaderLastTurn) {
+    const active = Boolean(player?.attackedLeaderLastTurn);
+    text = resolveConditionalSegments(attackedLeaderLastTurn.prefix, attackedLeaderLastTurn.match[1], active);
+    mechanic = mechanic ?? "attackedLeaderLastTurn";
+    notes.push(active ? "Allied follower attacked a leader last turn" : "No allied follower attacked a leader last turn");
+  }
+
   const necromancy = findThresholdMechanic(text, /\bnecromancy\s*\(?\s*(\d+)\s*\)?\s*(?::|[-–—])\s*(.*)$/i);
   if (necromancy) {
     mechanic = "necromancy";
@@ -234,6 +250,19 @@ function resolveComboVariable(text, player) {
 
 function countAlliedAmulets(player) {
   return (player?.board ?? []).filter(item => cardType(item) === "amulet").length;
+}
+
+function deckHasNoDuplicates(player) {
+  const seen = new Set();
+  for (const instance of player?.deck ?? []) {
+    const card = instance?.card ?? instance;
+    const identity = instance?.cardId ?? card?.id ?? card?.cardId ?? card?.name;
+    const key = String(identity ?? "").trim().toLowerCase();
+    if (!key) continue;
+    if (seen.has(key)) return false;
+    seen.add(key);
+  }
+  return true;
 }
 
 function cardType(instance) {
