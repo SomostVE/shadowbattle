@@ -15,6 +15,10 @@ import { runWorldsBeyondTurnEnd, runWorldsBeyondTurnStart } from "./svwb/lifecyc
 import { spellboostWorldsBeyondHand } from "./svwb/spellboost.js";
 import { resolveWorldsBeyondEffectCommand } from "./svwb/v6/effect-commands.js";
 import { SHADOWBATTLE_V6_ENGINE_PROFILE } from "./svwb/v6/engine-profile.js";
+import {
+  isWorldsBeyondReanimateCommand,
+  resolveWorldsBeyondReanimateCommand
+} from "./svwb/v6/reanimate-command.js";
 
 const EVOLUTION_ACTIONS = new Set(["evolve", "super-evolve"]);
 
@@ -91,6 +95,7 @@ export const WORLDS_BEYOND_RULESET = Object.freeze({
     runWorldsBeyondTurnEnd(session, player.index);
   },
   resolveEffectCommand(session, command) {
+    if (isWorldsBeyondReanimateCommand(command)) return resolveWorldsBeyondReanimateCommand(session, command);
     return resolveWorldsBeyondEffectCommand(session, command);
   },
   applyAction(session, action) {

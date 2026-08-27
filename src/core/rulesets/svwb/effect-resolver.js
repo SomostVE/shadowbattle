@@ -16,6 +16,7 @@ import {
   compileWorldsBeyondPreTargetCommands,
   compileWorldsBeyondTrailingFilteredDrawCommands
 } from "./v6/effect-commands.js";
+import { compileWorldsBeyondReanimateCommands } from "./v6/reanimate-command.js";
 
 const SUPPORTED_TARGET_KINDS = new Set(["damage", "destroy", "banish", "return", "set-defense", "stat-debuff"]);
 const HAND_DISCARD_SELECTION = /\bselect (?:a|an|one) (?:[a-z]+craft )?card in your hand and discard it\b/i;
@@ -370,7 +371,7 @@ function hasUnsupportedChoiceOrCondition(text, { targetSpec = null, discardRequi
   if (discardRequired) inspect = inspect.replace(/\bselect (?:a|an|one) (?:[a-z]+craft )?card in your hand and discard it\.?/gi, "");
   if (targetSpec) inspect = stripSupportedTargetText(inspect);
   inspect = inspect.replace(/\bGain Crest\s*:\s*[^.;\n]+[.;]?/gi, "");
-  return /\b(?:select|choose)\b|\bif\b|\bunless\b|\bfor each\b|\bwhenever\b|\bwhen(?:ever)?\b|\brandomly select\b|\bX\b|\b(?:Earth Rite|Engage|Fuse|Transmute|Crest|Faith|Reanimate)\b/i.test(inspect);
+  return /\b(?:select|choose)\b|\bif\b|\bunless\b|\bfor each\b|\bwhenever\b|\bwhen(?:ever)?\b|\brandomly select\b|\bX\b|\b(?:Earth Rite|Engage|Fuse|Transmute|Crest|Faith)\b/i.test(inspect);
 }
 
 function unsupportedResidualText(text, { targetSpec = null, discardRequired = false } = {}) {
@@ -394,6 +395,7 @@ function unsupportedResidualText(text, { targetSpec = null, discardRequired = fa
     /\bdestroy (?:a random|random) enemy follower with the highest attack\b/gi,
     /\bdestroy (?:a random|random) enemy follower\b/gi,
     /\bbanish this card\b/gi,
+    /\bReanimate\s*\(\s*\d+\s*\)/gi,
     /\bgive this follower\s+(?:Storm|Rush|Ward|Bane|Drain)(?:\s+and\s+(?:Storm|Rush|Ward|Bane|Drain))?\b/gi,
     /\bgive this follower\s+\+\d+\s*\/\s*\+\d+\b/gi,
     /\bgain\s+(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+earth sigils?\b/gi,
@@ -523,6 +525,12 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
       applied = true;
     }
   }
+
+  const reanimateApplied = commandsApplied(resolveEffectCommands(
+    session,
+    compileWorldsBeyondReanimateCommands(text, { playerIndex, source })
+  ));
+  applied = reanimateApplied || applied;
 
   const postApplied = commandsApplied(resolveEffectCommands(
     session,
