@@ -26,3 +26,8 @@ Fanfare: Add a Fairy to your hand.`;
 test("a standalone hand activation paragraph contributes no play text", () => {
   assert.equal(baseText("Activates in hand. Whenever an allied follower evolves, reduce the cost of this card by 1."), "");
 });
+
+test("CRLF paragraph separators preserve the playable body", () => {
+  const text = "Activates in hand. Whenever an allied follower evolves, reduce the cost of this card by 1.\r\n\r\nDraw 2 cards.";
+  assert.equal(baseText(text), "Draw 2 cards.");
+});
