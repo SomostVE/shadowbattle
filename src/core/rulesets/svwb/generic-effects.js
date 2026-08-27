@@ -11,9 +11,9 @@ const GENERIC_EFFECT_PATTERNS = Object.freeze([
   /\bgive all enemy followers(?: on the field)?\s+-\d+\s*\/\s*-\d+\b/gi,
   new RegExp(`\\bgain\\s+${NUMBER}\\s+shadows?\\b`, "gi"),
   new RegExp(`\\bgain\\s+${NUMBER}\\s+max play points?\\b`, "gi"),
-  new RegExp(`\\badd\\s+${NUMBER}\\s+copies of\\s+[^.]+?\\s+to your hand\\b`, "gi"),
-  new RegExp(`\\bdraw\\s+${NUMBER}\\s+amulets?\\b`, "gi"),
-  new RegExp(`\\bdraw\\s+${NUMBER}\\s+spells?\\b`, "gi"),
+  new RegExp(`\\badd\\s+${NUMBER}\\s+copies of\\s+[^.]+?\\s+to your hand\\s*\\.?\\s*$`, "gi"),
+  new RegExp(`\\bdraw\\s+${NUMBER}\\s+amulets?\\s*\\.?\\s*$`, "gi"),
+  new RegExp(`\\bdraw\\s+${NUMBER}\\s+spells?\\s*\\.?\\s*$`, "gi"),
   /\bevolve this follower\b/gi,
   /\bgive (?:this follower|it)\s+Barrier\b/gi
 ]);
