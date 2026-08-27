@@ -271,11 +271,11 @@ function triggerText(source, trigger, mode) {
   if (trigger === "play") return baseText(mode?.text ?? text);
   if (trigger === "engage") return getWorldsBeyondEngageInfo(source)?.text ?? "";
   if (trigger === "strike") return section(text, "strike");
-  if (trigger === "evolve") return replicateFanfareIfRequested(text, section(text, "evolve") || naturalLifecycle(text, /when this follower evolves,\s*/i));
+  if (trigger === "evolve") return replicateFanfareIfRequested(text, section(text, "evolve") || naturalLifecycle(text, /(?<!["“])when this follower evolves,\s*/i));
   if (trigger === "super-evolve") return replicateFanfareIfRequested(text, section(text, "super-evolve"));
   if (trigger === "last-words") return section(text, "last words");
-  if (trigger === "turn-start") return section(text, "at the start of your turn") || naturalLifecycle(text, /at the start of your turn,\s*/i);
-  if (trigger === "turn-end") return section(text, "at the end of your turn") || naturalLifecycle(text, /at the end of your turn,\s*/i);
+  if (trigger === "turn-start") return section(text, "at the start of your turn") || naturalLifecycle(text, /(?<!["“])at the start of your turn,\s*/i);
+  if (trigger === "turn-end") return section(text, "at the end of your turn") || naturalLifecycle(text, /(?<!["“])at the end of your turn,\s*/i);
   return "";
 }
 
@@ -393,6 +393,7 @@ function unsupportedResidualText(text, { targetSpec = null, discardRequired = fa
     /\bdeal\s+(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+damage to (?:a random|random) enemy follower\b/gi,
     /\bdestroy (?:a random|random) enemy follower with the highest attack\b/gi,
     /\bdestroy (?:a random|random) enemy follower\b/gi,
+    /\bbanish this card\b/gi,
     /\bgive this follower\s+(?:Storm|Rush|Ward|Bane|Drain)(?:\s+and\s+(?:Storm|Rush|Ward|Bane|Drain))?\b/gi,
     /\bgive this follower\s+\+\d+\s*\/\s*\+\d+\b/gi,
     /\bgain\s+(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+earth sigils?\b/gi,
@@ -630,6 +631,14 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
     player.cardsPlayedThisTurn = Math.max(0, Number(player.cardsPlayedThisTurn ?? 0)) + amount;
     player.resources.combo = player.cardsPlayedThisTurn;
     applied = true;
+  }
+
+  if (/\bbanish this card\b/i.test(text)) {
+    applied = Boolean(banishBoardCard(session, playerIndex, source.instanceId, {
+      actor: playerIndex,
+      source,
+      reason: "ability"
+    })) || applied;
   }
 
   applied = resolveWorldsBeyondGenericEffects(session, {
