@@ -58,6 +58,14 @@ export function evaluateWorldsBeyondClassCondition(textValue, player, card, { co
     notes.push(active ? `Leader defense ${value} <= ${limit}` : `Leader defense ${value} > ${limit}`);
   }
 
+  const superEvolutionUnlocked = findThresholdMechanic(text, /\bif you(?:'ve| have) unlocked super[- ]evolution\s*,?\s*(.*)$/i);
+  if (superEvolutionUnlocked) {
+    const active = Boolean(player?.resources?.superEvolutionAvailable);
+    text = resolveConditionalSegments(superEvolutionUnlocked.prefix, superEvolutionUnlocked.match[1], active);
+    mechanic = mechanic ?? "superEvolutionUnlocked";
+    notes.push(active ? "Super Evolution unlocked" : "Super Evolution not unlocked");
+  }
+
   const necromancy = findThresholdMechanic(text, /\bnecromancy\s*\(?\s*(\d+)\s*\)?\s*(?::|[-–—])\s*(.*)$/i);
   if (necromancy) {
     mechanic = "necromancy";

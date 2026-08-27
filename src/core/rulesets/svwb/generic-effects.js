@@ -10,6 +10,10 @@ const GENERIC_EFFECT_PATTERNS = Object.freeze([
   /\bgive all allied followers(?: on the field)?\s+Barrier\b/gi,
   /\bgive all enemy followers(?: on the field)?\s+-\d+\s*\/\s*-\d+\b/gi,
   new RegExp(`\\bgain\\s+${NUMBER}\\s+shadows?\\b`, "gi"),
+  new RegExp(`\\bgain\\s+${NUMBER}\\s+max play points?\\b`, "gi"),
+  new RegExp(`\\badd\\s+${NUMBER}\\s+copies of\\s+[^.]+?\\s+to your hand\\s*\\.?\\s*$`, "gi"),
+  new RegExp(`\\bdraw\\s+${NUMBER}\\s+amulets?\\s*\\.?\\s*$`, "gi"),
+  new RegExp(`\\bdraw\\s+${NUMBER}\\s+spells?\\s*\\.?\\s*$`, "gi"),
   /\bevolve this follower\b/gi,
   /\bgive (?:this follower|it)\s+Barrier\b/gi
 ]);
@@ -59,6 +63,10 @@ export function resolveWorldsBeyondGenericEffects(session, {
     kind: "gain-shadows",
     amount: numberWord(match[1])
   }), effects);
+  collect(value, new RegExp(`\\bgain\\s+${NUMBER}\\s+max play points?\\b`, "gi"), match => ({
+    kind: "gain-max-pp",
+    amount: numberWord(match[1])
+  }), effects);
   collect(value, /\bevolve this follower\b/gi, () => ({
     kind: "ability-evolve"
   }), effects);
@@ -95,6 +103,10 @@ export function resolveWorldsBeyondGenericEffects(session, {
         gainShadows?.(session, playerIndex, effect.amount);
         applied = true;
       }
+      continue;
+    }
+    if (effect.kind === "gain-max-pp") {
+      applied = gainMaximumPlayPoints(session, playerIndex, effect.amount) || applied;
       continue;
     }
     if (effect.kind === "ability-evolve") {
@@ -161,6 +173,18 @@ function grantSelfBarrier(session, playerIndex, source) {
       source: session.cardView(source)
     }
   });
+  return true;
+}
+
+function gainMaximumPlayPoints(session, playerIndex, amount) {
+  const value = Math.max(0, Number(amount) || 0);
+  if (!value) return false;
+  const player = session.getPlayer(playerIndex);
+  const before = Math.max(0, Number(player.resources?.maxPp ?? 0));
+  const cap = Math.max(before, Number(session.ruleset?.maxPp ?? 10) || 10);
+  const after = Math.min(cap, before + value);
+  if (after === before) return false;
+  player.resources.maxPp = after;
   return true;
 }
 
