@@ -21,6 +21,43 @@ export function evaluateWorldsBeyondClassCondition(textValue, player, card, { co
   const notes = [];
   let mechanic = null;
 
+  const comboVariable = resolveComboVariable(text, player);
+  if (comboVariable) {
+    text = comboVariable.text;
+    mechanic = "combo";
+    notes.push(`X = Combo ${comboVariable.value}`);
+  }
+
+  const alliedAmulets = findThresholdMechanic(text, /\bif there are at least\s+(\d+)\s+allied amulets on the field\s*,?\s*(.*)$/i);
+  if (alliedAmulets) {
+    const need = Number(alliedAmulets.match[1]);
+    const value = countAlliedAmulets(player);
+    const active = value >= need;
+    text = resolveConditionalSegments(alliedAmulets.prefix, alliedAmulets.match[2], active);
+    mechanic = mechanic ?? "alliedAmulets";
+    notes.push(active ? `Allied amulets ${value}/${need}` : `Allied amulets ${value}/${need} unavailable`);
+  }
+
+  const maxPlayPoints = findThresholdMechanic(text, /\bif you have\s+(\d+)\s+max play points?\s*,?\s*(.*)$/i);
+  if (maxPlayPoints) {
+    const need = Number(maxPlayPoints.match[1]);
+    const value = maxPp(player);
+    const active = value >= need;
+    text = resolveConditionalSegments(maxPlayPoints.prefix, maxPlayPoints.match[2], active);
+    mechanic = mechanic ?? "maxPlayPoints";
+    notes.push(active ? `Max PP ${value}/${need}` : `Max PP ${value}/${need} unavailable`);
+  }
+
+  const leaderDefense = findThresholdMechanic(text, /\bif your leader'?s defense is\s+(\d+)\s+or less\s*,?\s*(.*)$/i);
+  if (leaderDefense) {
+    const limit = Number(leaderDefense.match[1]);
+    const value = Number(player?.hp ?? player?.defense ?? 0);
+    const active = value <= limit;
+    text = resolveConditionalSegments(leaderDefense.prefix, leaderDefense.match[2], active);
+    mechanic = mechanic ?? "leaderDefense";
+    notes.push(active ? `Leader defense ${value} <= ${limit}` : `Leader defense ${value} > ${limit}`);
+  }
+
   const necromancy = findThresholdMechanic(text, /\bnecromancy\s*\(?\s*(\d+)\s*\)?\s*(?::|[-–—])\s*(.*)$/i);
   if (necromancy) {
     mechanic = "necromancy";
@@ -175,6 +212,24 @@ export function evaluateWorldsBeyondClassCondition(textValue, player, card, { co
 
   text = normalizeResolvedText(text);
   return { text, active: Boolean(text), notes, mechanic };
+}
+
+function resolveComboVariable(text, player) {
+  if (!/\bX is your Combo\b/i.test(text)) return null;
+  const value = Math.max(0, Number(player?.cardsPlayedThisTurn ?? player?.resources?.combo ?? 0) || 0);
+  const withoutDefinition = String(text).replace(/\s*X is your Combo\s*\.?/gi, " ");
+  return {
+    value,
+    text: normalizeResolvedText(withoutDefinition.replace(/\bX\b/g, String(value)))
+  };
+}
+
+function countAlliedAmulets(player) {
+  return (player?.board ?? []).filter(item => cardType(item) === "amulet").length;
+}
+
+function cardType(instance) {
+  return String(instance?.typeOverride ?? instance?.card?.type ?? instance?.type ?? "").trim().toLowerCase();
 }
 
 function setResource(player, key, value) {
