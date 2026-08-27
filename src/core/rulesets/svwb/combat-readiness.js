@@ -12,12 +12,38 @@ export function normalizeWorldsBeyondCombatEvent(session, event) {
   if (!unit || cardType(unit) !== "follower") return null;
 
   if (unit.playedTurn == null) unit.playedTurn = session.turn;
-  if (unit.attacksRemaining == null) unit.attacksRemaining = 1;
+  unit.attackLimit = getWorldsBeyondAttackLimit(unit);
+  unit.attacksRemaining = unit.attackLimit;
   if (unit.hasAttacked == null) unit.hasAttacked = false;
   if (unit.barrierActive == null && hasWorldsBeyondKeyword(unit, "Barrier")) unit.barrierActive = true;
+  return refreshWorldsBeyondAttackReadiness(session, owner, unit);
+}
 
-  if (unit.permanentAttackLock) {
+export function normalizeWorldsBeyondTurnCombatReadiness(player) {
+  for (const unit of player?.board ?? []) {
+    if (cardType(unit) !== "follower") continue;
+    unit.attackLimit = getWorldsBeyondAttackLimit(unit);
+    unit.attacksRemaining = unit.attackLimit;
+    unit.hasAttacked = false;
+    if (unit.permanentAttackLock) {
+      lockAttacks(unit);
+      continue;
+    }
+    unit.canAttackFollowers = true;
+    unit.canAttackLeader = true;
+  }
+}
+
+export function refreshWorldsBeyondAttackReadiness(session, playerIndex, unit) {
+  if (!unit || cardType(unit) !== "follower") return unit ?? null;
+  if (unit.permanentAttackLock || Number(unit.attacksRemaining ?? 0) <= 0) {
     lockAttacks(unit);
+    return unit;
+  }
+
+  if (Number(unit.playedTurn) !== Number(session?.turn)) {
+    unit.canAttackFollowers = true;
+    unit.canAttackLeader = true;
     return unit;
   }
 
@@ -27,18 +53,10 @@ export function normalizeWorldsBeyondCombatEvent(session, event) {
   return unit;
 }
 
-export function normalizeWorldsBeyondTurnCombatReadiness(player) {
-  for (const unit of player?.board ?? []) {
-    if (cardType(unit) !== "follower") continue;
-    if (unit.permanentAttackLock) {
-      lockAttacks(unit);
-      continue;
-    }
-    unit.attacksRemaining = Math.max(1, Number(unit.attacksRemaining ?? 1));
-    unit.hasAttacked = false;
-    unit.canAttackFollowers = true;
-    unit.canAttackLeader = true;
-  }
+export function getWorldsBeyondAttackLimit(instance) {
+  const match = cleanRulesText(instance?.card).match(/\bCan attack\s+(\d+)\s+times per turn\b/i);
+  const amount = Number(match?.[1] ?? 1) || 1;
+  return Math.max(1, Math.min(10, amount));
 }
 
 export function getWorldsBeyondWardFollowers(player) {
@@ -157,7 +175,7 @@ export function hasWorldsBeyondKeyword(instance, keyword) {
 
 export function modifyWorldsBeyondFollowerDamage(instance, amount) {
   const damage = Math.max(0, Number(amount) || 0);
-  if (!damage || !instance?.barrierActive) return damage;
+  if (!instance?.barrierActive) return damage;
   instance.barrierActive = false;
   return 0;
 }

@@ -4,7 +4,8 @@ import {
   assertWorldsBeyondCombatAction,
   getWorldsBeyondAttackCapabilities,
   getWorldsBeyondWardFollowers,
-  hasWorldsBeyondKeyword
+  hasWorldsBeyondKeyword,
+  refreshWorldsBeyondAttackReadiness
 } from "./combat-readiness.js";
 
 const ATTACK_ACTION = "attack";
@@ -56,8 +57,7 @@ export function applyWorldsBeyondCombatAction(session, action) {
 
   attacker.attacksRemaining = Math.max(0, Number(attacker.attacksRemaining ?? 1) - 1);
   attacker.hasAttacked = true;
-  attacker.canAttackLeader = false;
-  attacker.canAttackFollowers = false;
+  refreshWorldsBeyondAttackReadiness(session, playerIndex, attacker);
   session.emit(BATTLE_EVENT.ATTACK_START, {
     actor: playerIndex,
     payload: {
@@ -110,8 +110,12 @@ export function applyWorldsBeyondCombatAction(session, action) {
 
   if (dealtByAttacker > 0 && hasWorldsBeyondKeyword(liveAttacker, "Drain")) healFromDrain(session, playerIndex, dealtByAttacker, liveAttacker);
 
-  let targetDestroyed = Number(liveTarget.defense ?? 0) <= 0 || (dealtByAttacker > 0 && hasWorldsBeyondKeyword(liveAttacker, "Bane"));
-  const attackerDestroyed = Number(liveAttacker.defense ?? 0) <= 0 || (dealtByTarget > 0 && hasWorldsBeyondKeyword(liveTarget, "Bane"));
+  const attackerAbilityInvincible = Boolean(
+    liveAttacker.superEvolved && session.activePlayer === playerIndex && session.phase === "main"
+  );
+  let targetDestroyed = Number(liveTarget.defense ?? 0) <= 0 || hasWorldsBeyondKeyword(liveAttacker, "Bane");
+  const attackerDestroyed = Number(liveAttacker.defense ?? 0) <= 0
+    || (!attackerAbilityInvincible && hasWorldsBeyondKeyword(liveTarget, "Bane"));
 
   if (targetDestroyed) {
     targetDestroyed = Boolean(destroyWorldsBeyondFollower(session, enemyIndex, liveTarget.instanceId, {

@@ -232,7 +232,7 @@ export class GameSession {
     const requested = Math.max(0, Number(amount) || 0);
     const invincible = Boolean(unit.superEvolved && this.activePlayer === playerIndex && this.phase === PHASE.MAIN);
     let damage = invincible ? 0 : requested;
-    if (damage > 0 && typeof this.ruleset.modifyFollowerDamage === "function") {
+    if (!invincible && typeof this.ruleset.modifyFollowerDamage === "function") {
       const modified = Number(this.ruleset.modifyFollowerDamage(this, {
         playerIndex,
         unit,
