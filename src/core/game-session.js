@@ -231,7 +231,18 @@ export class GameSession {
     if (!unit) throw new Error("Follower damage target is not on the board");
     const requested = Math.max(0, Number(amount) || 0);
     const invincible = Boolean(unit.superEvolved && this.activePlayer === playerIndex && this.phase === PHASE.MAIN);
-    const damage = invincible ? 0 : requested;
+    let damage = invincible ? 0 : requested;
+    if (damage > 0 && typeof this.ruleset.modifyFollowerDamage === "function") {
+      const modified = Number(this.ruleset.modifyFollowerDamage(this, {
+        playerIndex,
+        unit,
+        amount: damage,
+        actor,
+        source,
+        reason
+      }));
+      if (Number.isFinite(modified)) damage = Math.max(0, modified);
+    }
     if (damage) unit.defense = Number(unit.defense ?? unit.card?.defense ?? 0) - damage;
     this.emit(BATTLE_EVENT.FOLLOWER_DAMAGE, {
       actor,
