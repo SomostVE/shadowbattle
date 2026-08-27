@@ -1,5 +1,6 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
 import { grantWorldsBeyondKeyword } from "./combat-readiness.js";
+import { addWorldsBeyondGeneratedCard } from "./generated-cards.js";
 
 const NUMBER = "(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\\d+)";
 
@@ -12,6 +13,7 @@ const GENERIC_EFFECT_PATTERNS = Object.freeze([
   new RegExp(`\\bgain\\s+${NUMBER}\\s+shadows?\\b`, "gi"),
   new RegExp(`\\bgain\\s+${NUMBER}\\s+max play points?\\b`, "gi"),
   new RegExp(`\\badd\\s+${NUMBER}\\s+copies of\\s+[^.]+?\\s+to your hand\\s*\\.?\\s*$`, "gi"),
+  /\badd\s+(?:a|an|one)\s+[^.]+?\s+to your hand\s*\.?\s*$/gi,
   new RegExp(`\\bdraw\\s+${NUMBER}\\s+amulets?\\s*\\.?\\s*$`, "gi"),
   new RegExp(`\\bdraw\\s+${NUMBER}\\s+spells?\\s*\\.?\\s*$`, "gi"),
   /\bevolve this follower\b/gi,
@@ -67,6 +69,10 @@ export function resolveWorldsBeyondGenericEffects(session, {
     kind: "gain-max-pp",
     amount: numberWord(match[1])
   }), effects);
+  collect(value, /\badd\s+(?:a|an|one)\s+(.+?)\s+to your hand\s*\.?\s*$/gi, match => ({
+    kind: "add-to-hand",
+    cardName: match[1].trim()
+  }), effects);
   collect(value, /\bevolve this follower\b/gi, () => ({
     kind: "ability-evolve"
   }), effects);
@@ -107,6 +113,10 @@ export function resolveWorldsBeyondGenericEffects(session, {
     }
     if (effect.kind === "gain-max-pp") {
       applied = gainMaximumPlayPoints(session, playerIndex, effect.amount) || applied;
+      continue;
+    }
+    if (effect.kind === "add-to-hand") {
+      applied = addGeneratedCardToHand(session, playerIndex, effect.cardName) || applied;
       continue;
     }
     if (effect.kind === "ability-evolve") {
@@ -186,6 +196,13 @@ function gainMaximumPlayPoints(session, playerIndex, amount) {
   if (after === before) return false;
   player.resources.maxPp = after;
   return true;
+}
+
+function addGeneratedCardToHand(session, playerIndex, cardName) {
+  const definition = session.findCardDefinition({ name: cardName });
+  if (!definition) return false;
+  const result = addWorldsBeyondGeneratedCard(session, playerIndex, definition, { reason: "ability" });
+  return Boolean(result.added || result.burned);
 }
 
 function debuffEnemyFollowers(session, playerIndex, source, effect, destroyFollower) {
