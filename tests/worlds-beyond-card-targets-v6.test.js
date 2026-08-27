@@ -160,7 +160,7 @@ test("Melodious Monody destroys an allied amulet through WB Last Words before it
   const destroyedIndex = events.findIndex(event => event.type === BATTLE_EVENT.AMULET_DESTROYED && event.payload.card?.instanceId === amulet.instanceId);
   const lastWordsIndex = events.findIndex((event, index) => index > destroyedIndex && event.type === BATTLE_EVENT.ABILITY_TRIGGER && event.payload.trigger === "last-words" && event.payload.card?.instanceId === amulet.instanceId);
   const drawIndex = events.findIndex((event, index) => index > lastWordsIndex && event.type === BATTLE_EVENT.DRAW && event.payload?.reason === "ability");
-  const damageIndex = events.findIndex((event, index) => index > lastWordsIndex && event.type === BATTLE_EVENT.FOLLOWER_DAMAGE && event.payload.card?.instanceId === enemy.instanceId);
+  const damageIndex = events.findIndex((event, index) => index > lastWordsIndex && event.type === BATTLE_EVENT.FOLLOWER_DAMAGE && event.payload.target?.instanceId === enemy.instanceId);
   assert.ok(destroyedIndex >= 0 && lastWordsIndex > destroyedIndex && drawIndex > lastWordsIndex && damageIndex > drawIndex);
 });
 
@@ -177,7 +177,7 @@ test("target plus Summon stays atomically unsupported until post-target summon o
 
   const support = getWorldsBeyondTriggerSupport(soprano, "play", null, game.players[0]);
   assert.equal(support.supported, false);
-  assert.match(support.residual, /Summon a White Psalm, New Revelation/i);
+  assert.match(support.residual, /Summon a White Psalm New Revelation/i);
   assert.equal(playActionsFor(game, soprano).length, 0);
   assert.ok(game.findBoardCard(0, amulet.instanceId));
 });
