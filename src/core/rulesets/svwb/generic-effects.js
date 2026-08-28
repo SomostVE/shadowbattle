@@ -3,6 +3,7 @@ import { grantWorldsBeyondKeyword } from "./combat-readiness.js";
 import { addWorldsBeyondGeneratedCard } from "./generated-cards.js";
 
 const NUMBER = "(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\\d+)";
+const CARD_NAME = "([A-Z][A-Za-z0-9'’&,:\\- ]+?)";
 
 const GENERIC_EFFECT_PATTERNS = Object.freeze([
   new RegExp(`\\bdeal\\s+${NUMBER}\\s+damage to your leader\\b`, "gi"),
@@ -13,7 +14,8 @@ const GENERIC_EFFECT_PATTERNS = Object.freeze([
   new RegExp(`\\bgain\\s+${NUMBER}\\s+shadows?\\b`, "gi"),
   new RegExp(`\\bgain\\s+${NUMBER}\\s+max play points?\\b`, "gi"),
   new RegExp(`\\badd\\s+${NUMBER}\\s+copies of\\s+[^.]+?\\s+to your hand\\s*\\.?\\s*$`, "gi"),
-  /[.!?]\s+add\s+(?:a|an|one)\s+Gear of Remembrance\s+to your hand\s*\.?\s*$/gi,
+  new RegExp(`^\\s*add\\s+(?:a|an|one)\\s+${CARD_NAME}\\s+to your hand\\s*\\.?`, "gi"),
+  new RegExp(`[.!?]\\s+add\\s+(?:a|an|one)\\s+${CARD_NAME}\\s+to your hand\\s*\\.?\\s*$`, "gi"),
   new RegExp(`\\bdraw\\s+${NUMBER}\\s+amulets?\\s*\\.?\\s*$`, "gi"),
   new RegExp(`\\bdraw\\s+${NUMBER}\\s+spells?\\s*\\.?\\s*$`, "gi"),
   /\bevolve this follower\b/gi,
@@ -69,7 +71,7 @@ export function resolveWorldsBeyondGenericEffects(session, {
     kind: "gain-max-pp",
     amount: numberWord(match[1])
   }), effects);
-  collect(value, /[.!?]\s+add\s+(?:a|an|one)\s+(Gear of Remembrance)\s+to your hand\s*\.?\s*$/gi, match => ({
+  collect(value, new RegExp(`[.!?]\\s+add\\s+(?:a|an|one)\\s+${CARD_NAME}\\s+to your hand\\s*\\.?\\s*$`, "gi"), match => ({
     kind: "add-to-hand",
     cardName: match[1].trim()
   }), effects);
