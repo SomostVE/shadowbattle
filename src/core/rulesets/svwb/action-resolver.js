@@ -1,6 +1,12 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
 import { restoreOriginalCardForm } from "../../zone-actions.js";
 import { advanceWorldsBeyondAmuletCountdown, destroyWorldsBeyondAmulet } from "./amulets.js";
+import {
+  getWorldsBeyondArtifactHandCopySelections,
+  getWorldsBeyondArtifactHandCopySpec,
+  resolveWorldsBeyondArtifactHandCopySelection,
+  validateWorldsBeyondArtifactHandCopySelection
+} from "./artifact-hand-copy.js";
 import { applyWorldsBeyondCombatAction } from "./combat-actions.js";
 import { hasWorldsBeyondKeyword } from "./combat-readiness.js";
 import {
@@ -86,9 +92,20 @@ export function listWorldsBeyondActions(session, playerIndex) {
       const discardRequired = requiresWorldsBeyondHandDiscard(card, "play", mode, player);
       const discardOptions = discardRequired ? handDiscardOptions(player, card) : [null];
       if (discardRequired && !discardOptions.length) continue;
+      const handCopySpec = getWorldsBeyondArtifactHandCopySpec(card, mode?.text || card.card?.text);
+      const handCopySelections = handCopySpec ? getWorldsBeyondArtifactHandCopySelections(player, card, handCopySpec) : [null];
+      if (handCopySpec && !handCopySelections.length) continue;
 
       if (!targetRequirement) {
-        for (const discard of discardOptions) actions.push(withDiscardSelection(baseAction, discard, discardRequired));
+        for (const discard of discardOptions) {
+          for (const handCopySelection of handCopySelections) {
+            actions.push(withArtifactHandCopySelection(
+              withDiscardSelection(baseAction, discard, discardRequired),
+              handCopySelection,
+              handCopySpec
+            ));
+          }
+        }
         continue;
       }
 
@@ -96,16 +113,26 @@ export function listWorldsBeyondActions(session, playerIndex) {
       if (targets.length) {
         for (const target of targets) {
           for (const discard of discardOptions) {
-            actions.push(withDiscardSelection({
-              ...baseAction,
-              targetInstanceId: target.instanceId,
-              targetKind: targetRequirement.kind,
-              targetAmount: targetRequirement.amount ?? 0
-            }, discard, discardRequired));
+            for (const handCopySelection of handCopySelections) {
+              actions.push(withArtifactHandCopySelection(withDiscardSelection({
+                ...baseAction,
+                targetInstanceId: target.instanceId,
+                targetKind: targetRequirement.kind,
+                targetAmount: targetRequirement.amount ?? 0
+              }, discard, discardRequired), handCopySelection, handCopySpec));
+            }
           }
         }
       } else if (type !== "spell") {
-        for (const discard of discardOptions) actions.push(withDiscardSelection(baseAction, discard, discardRequired));
+        for (const discard of discardOptions) {
+          for (const handCopySelection of handCopySelections) {
+            actions.push(withArtifactHandCopySelection(
+              withDiscardSelection(baseAction, discard, discardRequired),
+              handCopySelection,
+              handCopySpec
+            ));
+          }
+        }
       }
     }
   }
@@ -180,6 +207,8 @@ function playCard(session, action) {
   const targets = requirement ? getWorldsBeyondTargetOptions(session, { trigger: "play", playerIndex, source: instance, mode }) : [];
   const discardRequired = requiresWorldsBeyondHandDiscard(instance, "play", mode, player);
   validateDiscardSelection(player, instance, discardRequired, action.discardInstanceId);
+  const handCopySpec = getWorldsBeyondArtifactHandCopySpec(instance, mode?.text || instance.card?.text);
+  validateWorldsBeyondArtifactHandCopySelection(player, instance, handCopySpec, action.handCopyInstanceIds ?? []);
   if (targets.length && !action.targetInstanceId) throw new Error("This card requires an effect target");
   if (action.targetInstanceId && !targets.some(target => target.instanceId === action.targetInstanceId)) throw new Error("Selected effect target is not legal");
   if (requirement && type === "spell" && !targets.length) throw new Error("This spell has no legal target");
@@ -221,14 +250,23 @@ function playCard(session, action) {
     session.emit(BATTLE_EVENT.SPELL_CAST, { actor: playerIndex, payload: { card: session.cardView(instance), mode: mode.kind } });
   }
 
-  resolveWorldsBeyondTrigger(session, {
-    trigger: "play",
-    playerIndex,
-    source: instance,
-    targetInstanceId: action.targetInstanceId ?? null,
-    discardInstanceId: action.discardInstanceId ?? null,
-    mode
-  });
+  if (handCopySpec) {
+    resolveWorldsBeyondArtifactHandCopySelection(session, {
+      playerIndex,
+      source: instance,
+      spec: handCopySpec,
+      selectedInstanceIds: action.handCopyInstanceIds ?? []
+    });
+  } else {
+    resolveWorldsBeyondTrigger(session, {
+      trigger: "play",
+      playerIndex,
+      source: instance,
+      targetInstanceId: action.targetInstanceId ?? null,
+      discardInstanceId: action.discardInstanceId ?? null,
+      mode
+    });
+  }
   if (type === "spell") gainWorldsBeyondShadows(session, playerIndex, 1);
   if (mode.accelerated || mode.kind === "accelerate") restoreOriginalCardForm(instance);
   return session.getSnapshot(playerIndex);
@@ -365,6 +403,19 @@ function withDiscardSelection(action, discard, required) {
     ...action,
     discardInstanceId: discard.instanceId,
     discardCardId: discard.cardId ?? discard.card?.id ?? null
+  };
+}
+
+function withArtifactHandCopySelection(action, selection, spec) {
+  if (!spec) return action;
+  const selected = selection ?? [];
+  return {
+    ...action,
+    handCopySelectionKind: spec.kind,
+    handCopyInstanceIds: selected.map(item => item.instanceId),
+    handCopyCardIds: selected.map(item => item.cardId ?? item.card?.id ?? null),
+    handCopySelectionCount: selected.length,
+    handCopySelectionMax: spec.count
   };
 }
 

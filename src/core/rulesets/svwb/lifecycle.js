@@ -6,7 +6,7 @@ import {
   resolveWorldsBeyondCrestTurnStart
 } from "./crest-effects.js";
 import { getWorldsBeyondCrests, runWorldsBeyondCrestTurnStart } from "./crests.js";
-import { resolveWorldsBeyondTrigger } from "./effect-resolver.js";
+import { destroyWorldsBeyondFollower, resolveWorldsBeyondTrigger } from "./effect-resolver.js";
 import {
   resolveWorldsBeyondForestCrestTurnEnd,
   resolveWorldsBeyondForestCrestTurnStart
@@ -63,6 +63,12 @@ export function runWorldsBeyondTurnEnd(session, playerIndex) {
   // Himeka's delayed banish resolves after the marked follower's own turn-end
   // abilities and Crests, matching the V5 marked-end-turn cleanup ordering.
   banishHimekaMarkedFollowers(session, playerIndex);
+  if (session.phase !== "main") return;
+
+  // Granted "At the end of your opponent's turn" destruction belongs to the
+  // inactive player's followers, so it resolves after the active player's own
+  // turn-end work has completed.
+  destroyOpponentTurnEndFollowers(session, playerIndex);
 }
 
 function banishHimekaMarkedFollowers(session, playerIndex) {
@@ -71,6 +77,21 @@ function banishHimekaMarkedFollowers(session, playerIndex) {
     if (!unit.himekaBanishAtOwnTurnEnd) continue;
     const actor = unit.himekaBanishActor === 0 || unit.himekaBanishActor === 1 ? unit.himekaBanishActor : null;
     banishBoardCard(session, playerIndex, unit.instanceId, { actor, reason: "himeka-crest" });
+  }
+}
+
+function destroyOpponentTurnEndFollowers(session, activePlayerIndex) {
+  const ownerIndex = 1 - activePlayerIndex;
+  const owner = session.getPlayer(ownerIndex);
+  for (const unit of [...owner.board]) {
+    if (!unit.destroyAtOpponentTurnEnd) continue;
+    destroyWorldsBeyondFollower(session, ownerIndex, unit.instanceId, {
+      actor: ownerIndex,
+      source: unit,
+      reason: "granted-opponent-turn-end",
+      byAbility: true
+    });
+    if (session.phase !== "main") break;
   }
 }
 
