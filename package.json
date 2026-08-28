@@ -1,6 +1,6 @@
 {
   "name": "shadowbattle",
-  "version": "0.4.99",
+  "version": "0.5.00",
   "private": true,
   "type": "module",
   "scripts": {
