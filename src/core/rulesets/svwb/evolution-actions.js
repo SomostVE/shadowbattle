@@ -1,5 +1,7 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
+import { destroyWorldsBeyondAmulet } from "./amulets.js";
 import {
+  destroyWorldsBeyondFollower,
   getWorldsBeyondTargetOptions,
   getWorldsBeyondTargetRequirement,
   getWorldsBeyondTriggerSupport,
@@ -9,6 +11,12 @@ import {
   getSimpleWorldsBeyondModeChoices,
   worldsBeyondModeChoiceKey
 } from "./mode-selection.js";
+import {
+  getWorldsBeyondOptionalAlliedCardOptions,
+  getWorldsBeyondOptionalAlliedCardSpec,
+  resolveWorldsBeyondOptionalAlliedCardSelection,
+  validateWorldsBeyondOptionalAlliedCardSelection
+} from "./optional-allied-card.js";
 import { baseText, section } from "./v5/battle-engine-v5-text.js";
 
 const EVOLVE = "evolve";
@@ -56,10 +64,12 @@ export function applyWorldsBeyondEvolutionAction(session, action) {
     throw new Error("This evolution mode is not fully supported by the Worlds Beyond resolver");
   }
 
-  const requirement = getWorldsBeyondTargetRequirement(effectSource, trigger, null, player);
+  const optionalAlliedSpec = getWorldsBeyondOptionalAlliedCardSpec(follower, optionalEvolutionEffectText(follower, trigger));
+  validateWorldsBeyondOptionalAlliedCardSelection(player, follower, optionalAlliedSpec, action.optionalAlliedCardInstanceId ?? null);
+  const requirement = optionalAlliedSpec ? null : getWorldsBeyondTargetRequirement(effectSource, trigger, null, player);
   const targets = requirement ? getWorldsBeyondTargetOptions(session, { trigger, playerIndex, source: effectSource }) : [];
   if (targets.length && !action.targetInstanceId) throw new Error("This evolution ability requires an effect target");
-  if (action.targetInstanceId && !targets.some(target => target.instanceId === action.targetInstanceId)) {
+  if (!optionalAlliedSpec && action.targetInstanceId && !targets.some(target => target.instanceId === action.targetInstanceId)) {
     throw new Error("Selected evolution target is not legal");
   }
 
@@ -74,7 +84,9 @@ export function applyWorldsBeyondEvolutionAction(session, action) {
   player.resources[pointsKey] -= 1;
   player.evolutionActionUsed = true;
 
-  const target = action.targetInstanceId ? session.findBoardCard(1 - playerIndex, action.targetInstanceId) : null;
+  const targetOwner = optionalAlliedSpec ? playerIndex : 1 - playerIndex;
+  const targetId = optionalAlliedSpec ? action.optionalAlliedCardInstanceId : action.targetInstanceId;
+  const target = targetId ? session.findBoardCard(targetOwner, targetId) : null;
   session.emit(superEvolution ? BATTLE_EVENT.SUPER_EVOLVE : BATTLE_EVENT.EVOLVE, {
     actor: playerIndex,
     payload: {
@@ -82,9 +94,23 @@ export function applyWorldsBeyondEvolutionAction(session, action) {
       pointsRemaining: player.resources[pointsKey],
       statBonus: bonus,
       target: target ? session.cardView(target) : null,
+      targetOptional: Boolean(optionalAlliedSpec),
       mode: selectedMode ? modeView(selectedMode) : null
     }
   });
+
+  if (optionalAlliedSpec) {
+    resolveWorldsBeyondOptionalAlliedCardSelection(session, {
+      trigger,
+      playerIndex,
+      source: follower,
+      spec: optionalAlliedSpec,
+      targetInstanceId: action.optionalAlliedCardInstanceId ?? null,
+      destroyFollower: destroyWorldsBeyondFollower,
+      destroyAmulet: destroyWorldsBeyondAmulet
+    });
+    return session.getSnapshot(playerIndex);
+  }
 
   const previousActiveText = follower.activeText;
   if (selectedMode) follower.activeText = evolutionModeText(trigger, selectedMode.text);
@@ -121,6 +147,21 @@ function appendEvolutionBranches(actions, session, playerIndex, follower, superE
         evolutionMode: modeView(mode)
       } : {})
     };
+    const optionalAlliedSpec = getWorldsBeyondOptionalAlliedCardSpec(follower, optionalEvolutionEffectText(follower, type));
+    if (optionalAlliedSpec) {
+      for (const target of getWorldsBeyondOptionalAlliedCardOptions(player, follower, optionalAlliedSpec)) {
+        actions.push({
+          ...base,
+          targetOptional: true,
+          targetSide: "allied",
+          targetKind: optionalAlliedSpec.kind,
+          optionalAlliedCardInstanceId: target?.instanceId ?? null,
+          ...(target ? { targetInstanceId: target.instanceId } : {})
+        });
+      }
+      continue;
+    }
+
     const requirement = getWorldsBeyondTargetRequirement(effectSource, type, null, player);
     const targets = requirement ? getWorldsBeyondTargetOptions(session, { trigger: type, playerIndex, source: effectSource }) : [];
     if (!targets.length) {
@@ -147,6 +188,13 @@ function evolutionEffectText(follower, trigger) {
   const triggerSection = section(text, trigger);
   if (!/replicate the effects? of this card'?s fanfare ability/i.test(triggerSection)) return triggerSection;
   return baseText(text);
+}
+
+function optionalEvolutionEffectText(follower, trigger) {
+  const text = String(follower?.card?.text ?? "");
+  const triggerSection = section(text, trigger);
+  if (!/replicate the effects? of this card'?s fanfare ability/i.test(triggerSection)) return triggerSection;
+  return section(text, "fanfare");
 }
 
 function evolutionModeSource(follower, trigger, mode) {
