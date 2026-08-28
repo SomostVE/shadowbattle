@@ -198,7 +198,7 @@ export function resolveWorldsBeyondTrigger(session, { trigger, playerIndex, sour
       text: resolvedText,
       originalText,
       resolved: !unresolved,
-      target: target ? session.cardView(target) : null,
+      target: target ? worldsBeyondTargetView(session, target) : null,
       targetKind: targetSpec?.kind ?? null,
       targetSide: targetSpec?.targetSide ?? "enemy",
       targetPlayer,
@@ -357,6 +357,17 @@ function worldsBeyondTargetEffectSpec(text, source) {
   match = value.match(/select an enemy card on the field and banish it/i);
   if (match) return { kind: "banish", selectedGrammar: true, targetSide: "enemy", targetScope: "card" };
 
+  match = value.match(/select an enemy follower(?: on the field)? or the enemy leader and deal it\s+(\d+)\s+damage/i);
+  if (match) {
+    return {
+      kind: "damage",
+      amount: Number(match[1]) || 0,
+      selectedGrammar: true,
+      targetSide: "enemy",
+      targetScope: "follower-or-leader"
+    };
+  }
+
   const legacy = targetEffectSpec({ mode: { text }, instance: source });
   if (legacy) return { ...legacy, targetSide: "enemy" };
 
@@ -386,6 +397,13 @@ function targetOptionsForSpec(session, playerIndex, targetSpec) {
   if (targetSpec?.targetScope === "card") {
     const board = session.getPlayer(targetSpec.targetSide === "allied" ? playerIndex : 1 - playerIndex).board;
     return targetSpec.targetSide === "allied" ? [...board] : targetableEnemyCards(board);
+  }
+  if (targetSpec?.targetScope === "follower-or-leader") {
+    const enemyIndex = 1 - playerIndex;
+    return [
+      ...targetableEnemyFollowers(session.getPlayer(enemyIndex).board),
+      worldsBeyondLeaderTarget(enemyIndex)
+    ];
   }
   if (targetSpec?.targetSide === "allied") {
     return session.getPlayer(playerIndex).board.filter(unit => cardType(unit) === "follower");
@@ -452,6 +470,7 @@ function stripSupportedTargetText(text) {
     /\bselect an allied card on the field and destroy it\b/gi,
     /\bselect an enemy card on the field and banish it\b/gi,
     /\bselect an allied follower(?: on the field)? and deal it \d+ damage\b/gi,
+    /\bselect an enemy follower(?: on the field)? or the enemy leader and deal it \d+ damage\b/gi,
     /\bselect an enemy follower(?: on the field)? and deal it \d+ damage\b/gi,
     /\bselect an enemy follower(?: on the field)? and destroy it\b/gi,
     /\bselect an enemy follower(?: on the field)? and banish it\b/gi,
@@ -508,9 +527,14 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
 
   if (targetSpec && target) {
     if (targetSpec.kind === "damage") {
-      const damage = session.damageFollower(targetPlayer, target.instanceId, targetSpec.amount, { actor: playerIndex, source, reason: "ability", resolveDeath: false });
-      if (Number(target.defense ?? 0) <= 0) destroyWorldsBeyondFollower(session, targetPlayer, target.instanceId, { actor: playerIndex, source, reason: "ability", byAbility: true });
-      applied = damage > 0 || applied;
+      if (target.target === "leader") {
+        const damage = session.damageLeader(targetPlayer, targetSpec.amount, { actor: playerIndex, source, reason: "ability" });
+        applied = damage > 0 || applied;
+      } else {
+        const damage = session.damageFollower(targetPlayer, target.instanceId, targetSpec.amount, { actor: playerIndex, source, reason: "ability", resolveDeath: false });
+        if (Number(target.defense ?? 0) <= 0) destroyWorldsBeyondFollower(session, targetPlayer, target.instanceId, { actor: playerIndex, source, reason: "ability", byAbility: true });
+        applied = damage > 0 || applied;
+      }
     } else if (targetSpec.kind === "destroy") {
       const destroyed = targetSpec.targetScope === "card"
         ? Boolean(destroyWorldsBeyondTargetCard(session, targetPlayer, target, { actor: playerIndex, source, reason: "ability", byAbility: true, abilityDestroy: true }))
@@ -762,6 +786,25 @@ function maxValue(items, select) {
 
 function commandsApplied(results) {
   return results.some(result => Boolean(result?.applied));
+}
+
+function worldsBeyondLeaderTarget(playerIndex) {
+  return {
+    instanceId: `leader:${playerIndex}`,
+    target: "leader",
+    playerIndex
+  };
+}
+
+function worldsBeyondTargetView(session, target) {
+  if (target?.target === "leader") {
+    return {
+      instanceId: target.instanceId,
+      type: "leader",
+      playerIndex: target.playerIndex
+    };
+  }
+  return session.cardView(target);
 }
 
 function targetableEnemyCards(board) {
