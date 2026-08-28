@@ -16,6 +16,7 @@ import {
   resolveWorldsBeyondSplitEnemyFollowerDamage
 } from "./svwb/generic-effects.js";
 import { runWorldsBeyondTurnEnd, runWorldsBeyondTurnStart } from "./svwb/lifecycle.js";
+import { accountWorldsBeyondFollowerEntryHistory } from "./svwb/match-history.js";
 import { spellboostWorldsBeyondHand } from "./svwb/spellboost.js";
 import { resolveWorldsBeyondEffectCommand } from "./svwb/v6/effect-commands.js";
 import { SHADOWBATTLE_V6_ENGINE_PROFILE } from "./svwb/v6/engine-profile.js";
@@ -58,7 +59,8 @@ export const WORLDS_BEYOND_RULESET = Object.freeze({
       shadows: 0,
       rally: 0,
       earthSigils: 0,
-      crests: []
+      crests: [],
+      artifactFollowerNamesEntered: []
     };
   },
   beginTurn(player) {
@@ -99,6 +101,7 @@ export const WORLDS_BEYOND_RULESET = Object.freeze({
     accountCemeteryOverflowShadow(session, event);
     if (event.type === BATTLE_EVENT.FOLLOWER_ENTER) {
       accountFollowerEnterRally(session, event);
+      accountWorldsBeyondFollowerEntryHistory(session, event);
       normalizeWorldsBeyondCombatEvent(session, event);
     }
     if (event.type === BATTLE_EVENT.SPELL_CAST) {
