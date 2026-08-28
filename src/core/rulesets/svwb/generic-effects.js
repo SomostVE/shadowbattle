@@ -6,6 +6,7 @@ const NUMBER = "(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\\d+)";
 const CARD_NAME = "([A-Z][A-Za-z0-9'’&,:\\- ]+?)";
 
 const GENERIC_EFFECT_PATTERNS = Object.freeze([
+  new RegExp(`\\bdeal\\s+${NUMBER}\\s+damage split between all enemy followers\\b`, "gi"),
   new RegExp(`\\bdeal\\s+${NUMBER}\\s+damage to your leader\\b`, "gi"),
   new RegExp(`\\bdeal\\s+${NUMBER}\\s+damage to both leaders\\b`, "gi"),
   /\bgive all other allied followers(?: on the field)?\s+\+\d+\s*\/\s*\+\d+\b/gi,
@@ -151,6 +152,46 @@ export function resolveWorldsBeyondGenericEffects(session, {
 
 function collect(text, pattern, factory, effects) {
   for (const match of text.matchAll(pattern)) effects.push({ index: match.index ?? 0, ...factory(match) });
+}
+
+export function resolveWorldsBeyondSplitEnemyFollowerDamage(session, {
+  playerIndex,
+  source,
+  amount,
+  destroyFollower
+} = {}) {
+  let remaining = Math.max(0, Number(amount) || 0);
+  if (!remaining) return false;
+  const enemyIndex = 1 - playerIndex;
+  const targetIds = session.getPlayer(enemyIndex).board
+    .filter(unit => cardType(unit) === "follower")
+    .map(unit => unit.instanceId);
+  let applied = false;
+
+  for (const instanceId of targetIds) {
+    if (remaining <= 0 || session.phase === "ended") break;
+    const live = session.findBoardCard(enemyIndex, instanceId);
+    if (!live) continue;
+    const allocation = Math.min(remaining, Math.max(0, currentDefense(live)));
+    if (!allocation) continue;
+    remaining -= allocation;
+    session.damageFollower(enemyIndex, live.instanceId, allocation, {
+      actor: playerIndex,
+      source,
+      reason: "ability",
+      resolveDeath: false
+    });
+    applied = true;
+    const damaged = session.findBoardCard(enemyIndex, instanceId);
+    if (!damaged || currentDefense(damaged) > 0) continue;
+    destroyFollower?.(session, enemyIndex, damaged.instanceId, {
+      actor: playerIndex,
+      source,
+      reason: "ability",
+      byAbility: true
+    });
+  }
+  return applied;
 }
 
 function buffAlliedFollowers(session, playerIndex, source, effect) {
