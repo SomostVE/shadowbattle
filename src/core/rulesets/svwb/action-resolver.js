@@ -301,26 +301,22 @@ function playCard(session, action) {
       destroyAmulet: destroyWorldsBeyondAmulet
     });
   } else {
-    const originalActiveText = instance.activeText;
-    const hadActiveText = Object.prototype.hasOwnProperty.call(instance, "activeText");
-    if (hasWorldsBeyondSelectedCardCostX(selectedCostSourceText)) {
-      instance.activeText = resolveWorldsBeyondSelectedCardCostX(selectedCostSourceText, selectedDiscard, {
-        omitSelectionWhenMissing: discardCanSkip && !selectedDiscard
-      });
-    }
-    try {
-      resolveWorldsBeyondTrigger(session, {
-        trigger: "play",
-        playerIndex,
-        source: instance,
-        targetInstanceId: action.targetInstanceId ?? null,
-        discardInstanceId: action.discardInstanceId ?? null,
-        mode
-      });
-    } finally {
-      if (hadActiveText) instance.activeText = originalActiveText;
-      else delete instance.activeText;
-    }
+    const resolvedMode = hasWorldsBeyondSelectedCardCostX(selectedCostSourceText)
+      ? {
+          ...mode,
+          text: resolveWorldsBeyondSelectedCardCostX(selectedCostSourceText, selectedDiscard, {
+            omitSelectionWhenMissing: discardCanSkip && !selectedDiscard
+          })
+        }
+      : mode;
+    resolveWorldsBeyondTrigger(session, {
+      trigger: "play",
+      playerIndex,
+      source: instance,
+      targetInstanceId: action.targetInstanceId ?? null,
+      discardInstanceId: action.discardInstanceId ?? null,
+      mode: resolvedMode
+    });
   }
   if (type === "follower") gainWorldsBeyondRally(player, 1);
   if (type === "spell") gainWorldsBeyondShadows(session, playerIndex, 1);
