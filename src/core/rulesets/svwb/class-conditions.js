@@ -1,4 +1,5 @@
 import { hasWorldsBeyondKeyword } from "./combat-readiness.js";
+import { countWorldsBeyondDifferentlyNamedArtifactEntries } from "./match-history.js";
 import { canUseClassMechanic } from "./v5/battle-class-mechanics.js";
 
 const COUNT_WORDS = Object.freeze({
@@ -268,6 +269,12 @@ function resolveStateCountVariable(text, player) {
       count: () => Math.max(0, Number(player?.resources?.earthSigils ?? player?.earthSigils ?? 0) || 0)
     },
     {
+      label: "differently named allied Artifact followers entered",
+      pattern: /\bX is the number of differently named allied Artifact followers that have entered the field this match\s*\.?/i,
+      blocked: prefixMutatesFollowerEntryHistory,
+      count: () => countWorldsBeyondDifferentlyNamedArtifactEntries(player)
+    },
+    {
       label: "allied Ward followers",
       pattern: /\bX is the number of allied followers on the field with Ward\s*\.?/i,
       blocked: prefixMutatesWardFollowerCount,
@@ -323,6 +330,10 @@ function prefixMutatesHand(prefix) {
 function prefixMutatesAlliedFollowers(prefix) {
   const value = String(prefix ?? "");
   return /\bsummon\b|\b(?:destroy|banish|return|transform)\b[^.]*\ballied followers?\b|\bevolve\b[^.]*\ballied followers?\b/i.test(value);
+}
+
+function prefixMutatesFollowerEntryHistory(prefix) {
+  return /\b(?:summon|reanimate)\b/i.test(String(prefix ?? ""));
 }
 
 function prefixMutatesWardFollowerCount(prefix) {
