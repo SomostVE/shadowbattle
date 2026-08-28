@@ -7,6 +7,7 @@ const CARD_NAME = "([A-Z][A-Za-z0-9'’&,:\\- ]+?)";
 
 const GENERIC_EFFECT_PATTERNS = Object.freeze([
   new RegExp(`\\bdeal\\s+${NUMBER}\\s+damage split between all enemy followers\\b`, "gi"),
+  new RegExp(`\\bdeal\\s+${NUMBER}\\s+damage split between all enemies\\b`, "gi"),
   new RegExp(`\\bdeal\\s+${NUMBER}\\s+damage to your leader\\b`, "gi"),
   new RegExp(`\\bdeal\\s+${NUMBER}\\s+damage to both leaders\\b`, "gi"),
   /\bgive all other allied followers(?: on the field)?\s+\+\d+\s*\/\s*\+\d+\b/gi,
@@ -190,6 +191,48 @@ export function resolveWorldsBeyondSplitEnemyFollowerDamage(session, {
       reason: "ability",
       byAbility: true
     });
+  }
+  return applied;
+}
+
+export function resolveWorldsBeyondSplitAllEnemiesDamage(session, {
+  playerIndex,
+  source = null,
+  amount,
+  destroyFollower,
+  reason = "ability"
+} = {}) {
+  let remaining = Math.max(0, Number(amount) || 0);
+  if (!remaining || session.phase === "ended") return false;
+  const enemyIndex = 1 - playerIndex;
+  let applied = false;
+
+  while (remaining > 0 && session.phase !== "ended") {
+    const followers = session.getPlayer(enemyIndex).board.filter(unit => cardType(unit) === "follower");
+    const pick = Math.floor(session.rng() * (followers.length + 1));
+    if (pick >= followers.length) {
+      session.damageLeader(enemyIndex, 1, { actor: playerIndex, source, reason });
+      applied = true;
+    } else {
+      const target = followers[pick];
+      session.damageFollower(enemyIndex, target.instanceId, 1, {
+        actor: playerIndex,
+        source,
+        reason,
+        resolveDeath: false
+      });
+      applied = true;
+      const damaged = session.findBoardCard(enemyIndex, target.instanceId);
+      if (damaged && currentDefense(damaged) <= 0) {
+        destroyFollower?.(session, enemyIndex, damaged.instanceId, {
+          actor: playerIndex,
+          source,
+          reason,
+          byAbility: true
+        });
+      }
+    }
+    remaining -= 1;
   }
   return applied;
 }

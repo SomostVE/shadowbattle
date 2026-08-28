@@ -11,7 +11,10 @@ import {
 import { resolveWorldsBeyondEventReaction } from "./svwb/event-reactions.js";
 import { destroyWorldsBeyondFollower, gainWorldsBeyondShadows } from "./svwb/effect-resolver.js";
 import { applyWorldsBeyondEvolutionAction, listWorldsBeyondEvolutionActions } from "./svwb/evolution-actions.js";
-import { resolveWorldsBeyondSplitEnemyFollowerDamage } from "./svwb/generic-effects.js";
+import {
+  resolveWorldsBeyondSplitAllEnemiesDamage,
+  resolveWorldsBeyondSplitEnemyFollowerDamage
+} from "./svwb/generic-effects.js";
 import { runWorldsBeyondTurnEnd, runWorldsBeyondTurnStart } from "./svwb/lifecycle.js";
 import { spellboostWorldsBeyondHand } from "./svwb/spellboost.js";
 import { resolveWorldsBeyondEffectCommand } from "./svwb/v6/effect-commands.js";
@@ -80,6 +83,15 @@ export const WORLDS_BEYOND_RULESET = Object.freeze({
       playerIndex,
       source,
       amount,
+      destroyFollower: destroyWorldsBeyondFollower
+    });
+  },
+  resolveSplitAllEnemiesDamage(session, { playerIndex, source, amount, reason = "ability" }) {
+    return resolveWorldsBeyondSplitAllEnemiesDamage(session, {
+      playerIndex,
+      source,
+      amount,
+      reason,
       destroyFollower: destroyWorldsBeyondFollower
     });
   },

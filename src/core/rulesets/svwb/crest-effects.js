@@ -6,6 +6,7 @@ import {
 } from "./combat-readiness.js";
 import { crestView, getWorldsBeyondCrests } from "./crests.js";
 import { destroyWorldsBeyondFollower } from "./effect-resolver.js";
+import { resolveWorldsBeyondSplitAllEnemiesDamage } from "./generic-effects.js";
 import {
   createWorldsBeyondLeaderDamageCommand,
   createWorldsBeyondLeaderHealCommand
@@ -75,7 +76,12 @@ export function resolveWorldsBeyondCrestTurnEnd(session, playerIndex, crest) {
 
   if (name === "marwynn, despair manifest" && !followersAttackedThisTurn) {
     const amount = getWorldsBeyondCrests(player).length;
-    splitDamageBetweenAllEnemies(session, playerIndex, amount);
+    resolveWorldsBeyondSplitAllEnemiesDamage(session, {
+      playerIndex,
+      amount,
+      reason: "crest",
+      destroyFollower: destroyWorldsBeyondFollower
+    });
     triggered = amount > 0;
     detail = { splitDamage: amount };
   }
@@ -236,23 +242,6 @@ function didFollowerAttackThisTurn(session, playerIndex) {
     if (event.type === BATTLE_EVENT.ATTACK_START && event.actor === playerIndex) return true;
   }
   return false;
-}
-
-function splitDamageBetweenAllEnemies(session, playerIndex, amount) {
-  const enemyIndex = 1 - playerIndex;
-  let remaining = Math.max(0, Number(amount) || 0);
-  while (remaining > 0 && session.phase === "main") {
-    const followers = session.getPlayer(enemyIndex).board.filter(unit => cardType(unit) === "follower");
-    const pick = Math.floor(session.rng() * (followers.length + 1));
-    if (pick >= followers.length) {
-      session.damageLeader(enemyIndex, 1, { actor: playerIndex, reason: "crest" });
-    } else {
-      const target = followers[pick];
-      session.damageFollower(enemyIndex, target.instanceId, 1, { actor: playerIndex, reason: "crest", resolveDeath: false });
-      if (Number(target.defense ?? 0) <= 0) destroyWorldsBeyondFollower(session, enemyIndex, target.instanceId, { actor: playerIndex, reason: "crest", byAbility: true });
-    }
-    remaining -= 1;
-  }
 }
 
 function resolveCrestLeaderHeal(session, playerIndex, amount, crest) {

@@ -11,7 +11,8 @@ export const SVWB_EFFECT_COMMAND = Object.freeze({
   SUMMON: "svwb:summon",
   HEAL_LEADER: "heal-leader",
   DAMAGE_LEADER: "damage-leader",
-  SPLIT_DAMAGE_ENEMY_FOLLOWERS: "svwb:split-damage-enemy-followers"
+  SPLIT_DAMAGE_ENEMY_FOLLOWERS: "svwb:split-damage-enemy-followers",
+  SPLIT_DAMAGE_ALL_ENEMIES: "svwb:split-damage-all-enemies"
 });
 
 export function createWorldsBeyondEffectCommand(type, payload = {}, metadata = {}) {
@@ -32,6 +33,16 @@ export function createWorldsBeyondLeaderDamageCommand(playerIndex, targetPlayerI
 
 export function createWorldsBeyondSplitEnemyFollowerDamageCommand(playerIndex, amount, options = {}) {
   return createWorldsBeyondEffectCommand(SVWB_EFFECT_COMMAND.SPLIT_DAMAGE_ENEMY_FOLLOWERS, {
+    playerIndex,
+    amount,
+    reason: options.reason ?? "ability",
+    sourceCardId: options.sourceCardId ?? null,
+    sourceCardName: options.sourceCardName ?? null
+  }, options.metadata);
+}
+
+export function createWorldsBeyondSplitAllEnemiesDamageCommand(playerIndex, amount, options = {}) {
+  return createWorldsBeyondEffectCommand(SVWB_EFFECT_COMMAND.SPLIT_DAMAGE_ALL_ENEMIES, {
     playerIndex,
     amount,
     reason: options.reason ?? "ability",
@@ -163,6 +174,11 @@ export function compileWorldsBeyondPostTargetCommands(text, { playerIndex, sourc
     if (amount > 0) indexed.push({ index: match.index ?? 0, command: createWorldsBeyondSplitEnemyFollowerDamageCommand(playerIndex, amount, sourceOptions) });
   }
 
+  for (const match of value.matchAll(/\bdeal\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+damage split between all enemies\b/gi)) {
+    const amount = numberWord(match[1]);
+    if (amount > 0) indexed.push({ index: match.index ?? 0, command: createWorldsBeyondSplitAllEnemiesDamageCommand(playerIndex, amount, sourceOptions) });
+  }
+
   return indexed.sort((left, right) => left.index - right.index).map(item => item.command);
 }
 
@@ -264,6 +280,18 @@ export function resolveWorldsBeyondEffectCommand(session, command) {
       playerIndex,
       source,
       amount: requested
+    }));
+    return { applied, requested };
+  }
+
+  if (command.type === SVWB_EFFECT_COMMAND.SPLIT_DAMAGE_ALL_ENEMIES) {
+    const requested = positiveAmount(payload.amount);
+    if (!requested) return { applied: false, requested: 0 };
+    const applied = Boolean(session.ruleset?.resolveSplitAllEnemiesDamage?.(session, {
+      playerIndex,
+      source,
+      amount: requested,
+      reason: payload.reason ?? "ability"
     }));
     return { applied, requested };
   }
