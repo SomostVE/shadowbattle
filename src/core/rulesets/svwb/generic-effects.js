@@ -11,6 +11,7 @@ const GENERIC_EFFECT_PATTERNS = Object.freeze([
   /\bgive all other allied followers(?: on the field)?\s+\+\d+\s*\/\s*\+\d+\b/gi,
   /\bgive all allied followers(?: on the field)?\s+Barrier\b/gi,
   /\bgive all enemy followers(?: on the field)?\s+-\d+\s*\/\s*-\d+\b/gi,
+  /\bdestroy all damaged enemy followers\b/gi,
   new RegExp(`\\bgain\\s+${NUMBER}\\s+shadows?\\b`, "gi"),
   new RegExp(`\\bgain\\s+${NUMBER}\\s+max play points?\\b`, "gi"),
   new RegExp(`\\badd\\s+${NUMBER}\\s+copies of\\s+[^.]+?\\s+to your hand\\s*\\.?\\s*$`, "gi"),
@@ -63,6 +64,9 @@ export function resolveWorldsBeyondGenericEffects(session, {
     attack: Number(match[1]) || 0,
     defense: Number(match[2]) || 0
   }), effects);
+  collect(value, /\bdestroy all damaged enemy followers\b/gi, () => ({
+    kind: "destroy-damaged-enemies"
+  }), effects);
   collect(value, new RegExp(`\\bgain\\s+${NUMBER}\\s+shadows?\\b`, "gi"), match => ({
     kind: "gain-shadows",
     amount: numberWord(match[1])
@@ -104,6 +108,10 @@ export function resolveWorldsBeyondGenericEffects(session, {
     }
     if (effect.kind === "enemy-debuff") {
       applied = debuffEnemyFollowers(session, playerIndex, source, effect, destroyFollower) || applied;
+      continue;
+    }
+    if (effect.kind === "destroy-damaged-enemies") {
+      applied = destroyDamagedEnemyFollowers(session, playerIndex, source, destroyFollower) || applied;
       continue;
     }
     if (effect.kind === "gain-shadows") {
@@ -205,6 +213,27 @@ function addGeneratedCardToHand(session, playerIndex, cardName) {
   if (!definition) return false;
   const result = addWorldsBeyondGeneratedCard(session, playerIndex, definition, { reason: "ability" });
   return Boolean(result.added || result.burned);
+}
+
+function destroyDamagedEnemyFollowers(session, playerIndex, source, destroyFollower) {
+  const enemyIndex = 1 - playerIndex;
+  const targetIds = session.getPlayer(enemyIndex).board
+    .filter(unit => cardType(unit) === "follower" && currentDefense(unit) < currentMaxDefense(unit))
+    .map(unit => unit.instanceId);
+  let applied = false;
+  for (const instanceId of targetIds) {
+    const live = session.findBoardCard(enemyIndex, instanceId);
+    if (!live) continue;
+    const destroyed = destroyFollower?.(session, enemyIndex, instanceId, {
+      actor: playerIndex,
+      source,
+      reason: "ability",
+      byAbility: true,
+      abilityDestroy: true
+    });
+    applied = Boolean(destroyed) || applied;
+  }
+  return applied;
 }
 
 function debuffEnemyFollowers(session, playerIndex, source, effect, destroyFollower) {
