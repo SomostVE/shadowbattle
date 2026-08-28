@@ -424,6 +424,11 @@ function replaceLastSummonCount(prefix, count) {
 }
 
 function resolveConditionalSegments(prefix, conditionalEffect, branchActive) {
+  if (branchActive) {
+    const replacement = replaceConditionalInstead(prefix, conditionalEffect);
+    if (replacement) return replacement;
+  }
+
   const repeat = parseRepeatedAction(prefix);
   if (repeat) {
     const overrideCount = branchActive ? parseRepeatOverride(conditionalEffect) : null;
@@ -432,6 +437,20 @@ function resolveConditionalSegments(prefix, conditionalEffect, branchActive) {
     }
   }
   return branchActive ? joinResolvedSegments(prefix, conditionalEffect) : keepUnconditionalPrefix(prefix);
+}
+
+function replaceConditionalInstead(prefix, conditionalEffect) {
+  const effect = normalizeResolvedText(conditionalEffect);
+  if (!/^deal damage to all enemy followers instead\.?$/i.test(effect)) return null;
+
+  const value = String(prefix ?? "");
+  const matches = [...value.matchAll(/\bselect an enemy follower(?: on the field)? and deal it\s+(\d+)\s+damage\s*\.?/gi)];
+  const hit = matches.at(-1);
+  if (!hit || hit.index == null) return null;
+
+  const amount = Math.max(0, Number(hit[1]) || 0);
+  const replacement = `Deal ${amount} damage to all enemy followers.`;
+  return normalizeResolvedText(`${value.slice(0, hit.index)}${replacement}${value.slice(hit.index + hit[0].length)}`);
 }
 
 function parseRepeatedAction(prefix) {
