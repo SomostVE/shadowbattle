@@ -92,13 +92,13 @@ function resolveSummonReaction(session, playerIndex, source, spec) {
   });
   if (!definition) return false;
 
-  const [result] = resolveEffectCommands(session, [createWorldsBeyondSummonCommand(playerIndex, spec.cardName, 1, {
+  resolveEffectCommands(session, [createWorldsBeyondSummonCommand(playerIndex, spec.cardName, 1, {
     reason: "discard-reaction",
     sourceCardId: source.cardId ?? source.card?.id ?? null,
     sourceCardName: source.card?.name ?? null,
     metadata: { source: "discard-reaction", sourceInstanceId: source.instanceId }
   })]);
-  return Boolean(result?.applied);
+  return canSummon;
 }
 
 function resolveDamageHealReaction(session, playerIndex, source, spec) {
@@ -112,8 +112,8 @@ function resolveDamageHealReaction(session, playerIndex, source, spec) {
   };
   if (spec.damage > 0) commands.push(createWorldsBeyondLeaderDamageCommand(playerIndex, 1 - playerIndex, spec.damage, options));
   if (spec.heal > 0) commands.push(createWorldsBeyondLeaderHealCommand(playerIndex, spec.heal, options));
-  const results = resolveEffectCommands(session, commands);
-  return results.some(result => result?.applied);
+  resolveEffectCommands(session, commands);
+  return commands.length > 0;
 }
 
 function resolveRandomBuffReaction(session, playerIndex, source, spec) {
