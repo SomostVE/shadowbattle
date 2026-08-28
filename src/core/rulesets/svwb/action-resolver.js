@@ -226,7 +226,7 @@ function playCard(session, action) {
   const optionalAlliedSpec = getWorldsBeyondOptionalAlliedCardSpec(instance, mode?.text || instance.card?.text);
   validateWorldsBeyondOptionalAlliedCardSelection(player, instance, optionalAlliedSpec, action.optionalAlliedCardInstanceId ?? null);
   if (targets.length && !action.targetInstanceId) throw new Error("This card requires an effect target");
-  if (action.targetInstanceId && !targets.some(target => target.instanceId === action.targetInstanceId)) throw new Error("Selected effect target is not legal");
+  if (!optionalAlliedSpec && action.targetInstanceId && !targets.some(target => target.instanceId === action.targetInstanceId)) throw new Error("Selected effect target is not legal");
   if (requirement && type === "spell" && !targets.length) throw new Error("This spell has no legal target");
 
   player.resources.pp -= cost;
@@ -451,7 +451,10 @@ function withOptionalAlliedCardSelection(action, target, spec) {
     ...action,
     targetOptional: true,
     targetSide: "allied",
-    targetKind: spec.kind,
+    targetKind: "destroy",
+    optionalSelectionKind: spec.kind,
+    optionalFollowUpKind: spec.followUpKind,
+    optionalFollowUpAmount: spec.amount,
     optionalAlliedCardInstanceId: target?.instanceId ?? null,
     ...(target ? { targetInstanceId: target.instanceId } : {})
   };
