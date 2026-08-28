@@ -9,6 +9,12 @@ import {
   resolveWorldsBeyondGenericEffects,
   stripWorldsBeyondGenericEffectText
 } from "./generic-effects.js";
+import {
+  getWorldsBeyondHandReturnOptions,
+  hasWorldsBeyondHandReturnSelection,
+  returnWorldsBeyondHandCardToDeck,
+  stripWorldsBeyondHandReturnSelection
+} from "./hand-return.js";
 import { baseText, section } from "./v5/battle-engine-v5-text.js";
 import { targetEffectSpec } from "./v5/battle-engine-v5-targeting.js";
 import {
@@ -21,7 +27,7 @@ import { compileWorldsBeyondReanimateCommands } from "./v6/reanimate-command.js"
 const SUPPORTED_TARGET_KINDS = new Set(["damage", "destroy", "banish", "return", "set-defense", "stat-debuff"]);
 const HAND_DISCARD_SELECTION = /\bselect (?:a|an|one) (?:[a-z]+craft )?card in your hand and discard it\b/i;
 const DAMAGE_NUMBER = "(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\\d+)";
-const TRAILING_TYPED_DRAW = /\bdraw\s+(?:a|an|one)\s+[a-z]+craft\s+follower\s*\.?\s*$/i;
+const TRAILING_TYPED_DRAW = /\bdraw\s+(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+[a-z]+craft\s+followers?\s*\.?\s*$/i;
 const TRAILING_NAMED_DRAW = /\bdraw\s+(?:a|an|one)\s+[A-Z][A-Za-z0-9'’&,:\- ]+?\s*\.?\s*$/;
 const ADD_TO_HAND_SINGLE = /^\s*Add\s+(?:a|an|one)\s+.+?\s+to your hand\s*\.?\s*$/i;
 const SUMMON_COPIES = /\bSummon\s+(?:one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+copies of\s+[^.]+/gi;
@@ -45,7 +51,11 @@ export function requiresWorldsBeyondHandDiscard(source, trigger = "play", mode =
   if (!originalText) return false;
   const evaluationPlayer = prospectiveTargetPlayer(player, source, trigger);
   const conditional = evaluationPlayer ? evaluateWorldsBeyondClassCondition(originalText, evaluationPlayer, source.card) : { text: originalText, active: true };
-  return Boolean(conditional.active && HAND_DISCARD_SELECTION.test(conditional.text));
+  if (!conditional.active || !conditional.text) return false;
+  if (HAND_DISCARD_SELECTION.test(conditional.text)) return true;
+  if (!hasWorldsBeyondHandReturnSelection(conditional.text)) return false;
+  if (!player) return true;
+  return getWorldsBeyondHandReturnOptions(player, source).length > 0;
 }
 
 export function canSkipWorldsBeyondHandDiscard(source, trigger = "play", mode = null, player = null) {
@@ -61,7 +71,7 @@ export function canSkipWorldsBeyondHandDiscard(source, trigger = "play", mode = 
   const prefix = conditional.text.slice(0, match.index).trim();
   if (!prefix) return false;
   const prefixTarget = worldsBeyondTargetEffectSpec(prefix, source);
-  return !unsupportedResidualText(prefix, { targetSpec: prefixTarget, discardRequired: false });
+  return !unsupportedResidualText(prefix, { targetSpec: prefixTarget, discardRequired: false, handReturnSelection: false });
 }
 
 export function getWorldsBeyondTriggerSupport(source, trigger = "play", mode = null, player = null) {
@@ -89,15 +99,17 @@ export function getWorldsBeyondTriggerSupport(source, trigger = "play", mode = n
   const text = resolveWorldsBeyondVariables(conditional.text, source);
   const targetSpec = worldsBeyondTargetEffectSpec(text, source);
   const discardRequired = HAND_DISCARD_SELECTION.test(text);
+  const handReturnSelection = hasWorldsBeyondHandReturnSelection(text);
   const unsupportedTarget = Boolean(targetSpec && !SUPPORTED_TARGET_KINDS.has(targetSpec.kind));
-  const unsupportedChoice = hasUnsupportedChoiceOrCondition(text, { targetSpec, discardRequired });
-  const residual = unsupportedResidualText(text, { targetSpec, discardRequired });
+  const unsupportedChoice = hasUnsupportedChoiceOrCondition(text, { targetSpec, discardRequired, handReturnSelection });
+  const residual = unsupportedResidualText(text, { targetSpec, discardRequired, handReturnSelection });
   return {
     supported: !unsupportedTarget && !unsupportedChoice && !residual,
     text,
     residual,
     targetSpec,
     discardRequired,
+    handReturnSelection,
     conditionInactive: false,
     notes: conditional.notes ?? [],
     mechanic: conditional.mechanic ?? null
@@ -141,31 +153,36 @@ export function resolveWorldsBeyondTrigger(session, { trigger, playerIndex, sour
   const targetOptions = targetSpec ? targetOptionsForSpec(session, playerIndex, targetSpec) : [];
   const targetPlayer = targetSpec ? targetPlayerForSpec(playerIndex, targetSpec) : null;
   const discardRequired = HAND_DISCARD_SELECTION.test(text);
+  const handReturnSelection = hasWorldsBeyondHandReturnSelection(text);
   const discardOptions = discardRequired ? player.hand.filter(item => item.instanceId !== source.instanceId) : [];
+  const returnOptions = handReturnSelection ? getWorldsBeyondHandReturnOptions(player, source) : [];
+  const returnRequired = handReturnSelection && returnOptions.length > 0;
+  const selectionOptions = handReturnSelection ? returnOptions : discardOptions;
+  const handSelectionRequired = discardRequired || returnRequired;
   const discardCanSkip = discardRequired && canSkipWorldsBeyondHandDiscard(source, trigger, mode, player);
   let target = null;
   let targetMissing = false;
   let invalidTarget = false;
-  let discard = null;
-  let discardMissing = false;
-  let invalidDiscard = false;
+  let selectedHandCard = null;
+  let handSelectionMissing = false;
+  let invalidHandSelection = false;
 
   if (targetSpec && targetOptions.length) {
     target = targetOptions.find(unit => unit.instanceId === targetInstanceId) ?? null;
     targetMissing = !targetInstanceId;
     invalidTarget = Boolean(targetInstanceId && !target);
   }
-  if (discardRequired) {
-    discard = discardOptions.find(item => item.instanceId === discardInstanceId) ?? null;
-    discardMissing = !discardInstanceId && !discardCanSkip;
-    invalidDiscard = Boolean(discardInstanceId && !discard);
+  if (handSelectionRequired) {
+    selectedHandCard = selectionOptions.find(item => item.instanceId === discardInstanceId) ?? null;
+    handSelectionMissing = !discardInstanceId && !discardCanSkip;
+    invalidHandSelection = Boolean(discardInstanceId && !selectedHandCard);
   }
 
   const unsupportedTarget = Boolean(targetSpec && !SUPPORTED_TARGET_KINDS.has(targetSpec.kind));
-  const unsupportedChoice = hasUnsupportedChoiceOrCondition(text, { targetSpec, discardRequired });
-  const unsupportedResidual = unsupportedResidualText(text, { targetSpec, discardRequired });
+  const unsupportedChoice = hasUnsupportedChoiceOrCondition(text, { targetSpec, discardRequired, handReturnSelection });
+  const unsupportedResidual = unsupportedResidualText(text, { targetSpec, discardRequired, handReturnSelection });
   const supportBlocked = unsupportedTarget || unsupportedChoice || Boolean(unsupportedResidual);
-  const unresolved = targetMissing || invalidTarget || discardMissing || invalidDiscard || supportBlocked;
+  const unresolved = targetMissing || invalidTarget || handSelectionMissing || invalidHandSelection || supportBlocked;
 
   const conditional = unresolved
     ? preview
@@ -187,10 +204,14 @@ export function resolveWorldsBeyondTrigger(session, { trigger, playerIndex, sour
       targetPlayer,
       targetRequired: Boolean(targetSpec && targetOptions.length),
       targetAvailable: targetOptions.length > 0,
-      discard: discard ? session.cardView(discard) : null,
+      discard: discardRequired && selectedHandCard ? session.cardView(selectedHandCard) : null,
       discardRequired,
       discardAvailable: discardOptions.length > 0,
-      discardSkipped: discardCanSkip && !discard,
+      discardSkipped: discardCanSkip && !selectedHandCard,
+      returnToDeck: handReturnSelection && selectedHandCard ? session.cardView(selectedHandCard) : null,
+      returnRequired,
+      returnAvailable: returnOptions.length > 0,
+      returnSkipped: handReturnSelection && !returnRequired,
       unsupportedResidual: unsupportedResidual || null,
       supportBlocked,
       conditionNotes: conditional.notes,
@@ -205,12 +226,22 @@ export function resolveWorldsBeyondTrigger(session, { trigger, playerIndex, sour
       text: resolvedText,
       targetSpec,
       target,
-      discard,
+      discard: discardRequired ? selectedHandCard : null,
+      returnToDeck: handReturnSelection ? selectedHandCard : null,
       residual: unsupportedResidual,
       notes: conditional.notes
     };
   }
-  return executeSimpleEffects(session, { text: resolvedText, playerIndex, source, targetSpec, target, discard, notes: conditional.notes });
+  return executeSimpleEffects(session, {
+    text: resolvedText,
+    playerIndex,
+    source,
+    targetSpec,
+    target,
+    discard: discardRequired ? selectedHandCard : null,
+    returnToDeck: handReturnSelection ? selectedHandCard : null,
+    notes: conditional.notes
+  });
 }
 
 export function gainWorldsBeyondShadows(session, playerIndex, amount = 1) {
@@ -270,7 +301,7 @@ function prospectiveTargetPlayer(player, source, trigger) {
 function triggerText(source, trigger, mode) {
   const text = String(source?.activeText ?? source?.card?.text ?? "");
   if (trigger === "play") return baseText(mode?.text ?? text);
-  if (trigger === "engage") return getWorldsBeyondEngageInfo(source)?.text ?? "";
+  if (trigger === "engage") return replicateFanfareIfRequested(text, getWorldsBeyondEngageInfo(source)?.text ?? "");
   if (trigger === "strike") return section(text, "strike");
   if (trigger === "evolve") return replicateFanfareIfRequested(text, section(text, "evolve") || naturalLifecycle(text, /(?<!["“])when this follower evolves,\s*/i));
   if (trigger === "super-evolve") return replicateFanfareIfRequested(text, section(text, "super-evolve"));
@@ -366,17 +397,19 @@ function targetPlayerForSpec(playerIndex, targetSpec) {
   return targetSpec?.targetSide === "allied" ? playerIndex : 1 - playerIndex;
 }
 
-function hasUnsupportedChoiceOrCondition(text, { targetSpec = null, discardRequired = false } = {}) {
+function hasUnsupportedChoiceOrCondition(text, { targetSpec = null, discardRequired = false, handReturnSelection = false } = {}) {
   let inspect = String(text ?? "");
   if (discardRequired) inspect = inspect.replace(/\bselect (?:a|an|one) (?:[a-z]+craft )?card in your hand and discard it\.?/gi, "");
+  if (handReturnSelection) inspect = stripWorldsBeyondHandReturnSelection(inspect);
   if (targetSpec) inspect = stripSupportedTargetText(inspect);
   inspect = inspect.replace(/\bGain Crest\s*:\s*[^.;\n]+[.;]?/gi, "");
   return /\b(?:select|choose)\b|\bif\b|\bunless\b|\bfor each\b|\bwhenever\b|\bwhen(?:ever)?\b|\brandomly select\b|\bX\b|\b(?:Earth Rite|Engage|Fuse|Transmute|Crest|Faith)\b/i.test(inspect);
 }
 
-function unsupportedResidualText(text, { targetSpec = null, discardRequired = false } = {}) {
+function unsupportedResidualText(text, { targetSpec = null, discardRequired = false, handReturnSelection = false } = {}) {
   let inspect = String(text ?? "");
   if (discardRequired) inspect = inspect.replace(new RegExp(HAND_DISCARD_SELECTION.source, "gi"), " ");
+  if (handReturnSelection) inspect = stripWorldsBeyondHandReturnSelection(inspect);
   if (targetSpec) inspect = stripSupportedTargetText(inspect);
 
   const patterns = [
@@ -435,10 +468,17 @@ function stripSupportedTargetText(text) {
   return inspect;
 }
 
-function executeSimpleEffects(session, { text, playerIndex, source, targetSpec = null, target = null, discard = null, notes = [] }) {
+function executeSimpleEffects(session, { text, playerIndex, source, targetSpec = null, target = null, discard = null, returnToDeck = null, notes = [] }) {
   const enemyIndex = 1 - playerIndex;
   const targetPlayer = targetSpec ? targetPlayerForSpec(playerIndex, targetSpec) : enemyIndex;
   let applied = false;
+
+  if (returnToDeck) {
+    applied = Boolean(returnWorldsBeyondHandCardToDeck(session, playerIndex, returnToDeck.instanceId, {
+      source,
+      reason: "ability"
+    })) || applied;
+  }
 
   const preApplied = commandsApplied(resolveEffectCommands(
     session,
@@ -663,7 +703,7 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
   ));
   applied = trailingApplied || applied;
 
-  return { applied, unresolved: false, text, targetSpec, target, discard, notes };
+  return { applied, unresolved: false, text, targetSpec, target, discard, returnToDeck, notes };
 }
 
 function resolveFollowerAreaDamage(session, targets, amount, { actor, source } = {}) {

@@ -161,11 +161,12 @@ export function compileWorldsBeyondTrailingFilteredDrawCommands(text, { playerIn
     }, sourceOptions)];
   }
 
-  const typed = value.match(/\bdraw\s+(?:a|an|one)\s+([a-z]+craft)\s+(follower)\s*\.?\s*$/i);
+  const typed = value.match(/\bdraw\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+([a-z]+craft)\s+(followers?)\s*\.?\s*$/i);
   if (typed) {
     return [createWorldsBeyondFilteredDrawCommand(playerIndex, {
-      cardClass: typed[1],
-      cardType: typed[2]
+      amount: numberWord(typed[1]),
+      cardClass: typed[2],
+      cardType: singularType(typed[3])
     }, sourceOptions)];
   }
 
@@ -411,6 +412,7 @@ function singularType(value) {
   const normalized = normalize(value);
   if (normalized === "amulets") return "amulet";
   if (normalized === "spells") return "spell";
+  if (normalized === "followers") return "follower";
   return normalized;
 }
 

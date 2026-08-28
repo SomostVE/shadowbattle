@@ -35,7 +35,7 @@ function captureMultiSelection(event) {
   if (boardTarget && pending && pendingHasTarget() && !selectedDiscardInstanceId) {
     event.preventDefault();
     event.stopImmediatePropagation();
-    setHelp("Choose a highlighted card in your hand to discard before selecting the effect target.", "Choose discard");
+    setHelp(`Choose a highlighted card in your hand to ${selectionVerb()} before selecting the effect target.`, selectionStatus());
     return;
   }
 
@@ -117,11 +117,12 @@ function beginSelection(next, { preserveDiscard = false } = {}) {
   if (!preserveDiscard) selectedDiscardInstanceId = null;
   decorateDiscardCandidates();
   const hasTarget = pendingHasTarget();
+  const verb = selectionVerb();
   setHelp(
     selectedDiscardInstanceId
-      ? (hasTarget ? "Discard selected. Choose the highlighted effect target." : "Discard selected. Resolving selection…")
-      : "Choose a highlighted card in your hand to discard.",
-    selectedDiscardInstanceId ? (hasTarget ? "Choose effect target" : "Discard selected") : "Choose discard"
+      ? (hasTarget ? `${selectionNoun()} selected. Choose the highlighted effect target.` : `${selectionNoun()} selected. Resolving selection…`)
+      : `Choose a highlighted card in your hand to ${verb}.`,
+    selectedDiscardInstanceId ? (hasTarget ? "Choose effect target" : `${selectionNoun()} selected`) : selectionStatus()
   );
 }
 
@@ -142,17 +143,18 @@ function selectDiscard(instanceId) {
   }
 
   if (pendingHasTarget()) {
-    setHelp("Discard selected. Choose the highlighted effect target.", "Choose effect target");
+    setHelp(`${selectionNoun()} selected. Choose the highlighted effect target.`, "Choose effect target");
     return;
   }
 
-  setHelp("Discard selected. Resolving selection…", "Discard selected");
+  setHelp(`${selectionNoun()} selected. Resolving selection…`, `${selectionNoun()} selected`);
 }
 
 function decorateDiscardCandidates() {
   clearDecorations();
   if (!pending) return;
   const candidateIds = new Set(selectionActions().map(action => action.discardInstanceId).filter(Boolean));
+  const label = selectionNoun();
   for (const button of document.querySelectorAll("#battle-player-hand .sb-battle-card[data-instance-id]")) {
     const id = button.dataset.instanceId;
     if (!candidateIds.has(id)) continue;
@@ -162,7 +164,7 @@ function decorateDiscardCandidates() {
     const marker = document.createElement("span");
     marker.className = "sb-battle-card-marker sb-discard-marker";
     marker.dataset.discardMarker = "true";
-    marker.textContent = id === selectedDiscardInstanceId ? "Discard ✓" : "Discard";
+    marker.textContent = id === selectedDiscardInstanceId ? `${label} ✓` : label;
     button.append(marker);
   }
 }
@@ -275,6 +277,29 @@ function discardValue(instance) {
 
 function uniqueModeKeys(actions) {
   return new Set(actions.map(action => action.playModeKey ?? `base:${action.cost ?? 0}`));
+}
+
+function selectionKind() {
+  const source = pendingSourceInstance();
+  return /\breturn it to (?:your\s+)?deck\b/i.test(String(source?.card?.text ?? source?.activeText ?? "")) ? "return" : "discard";
+}
+
+function selectionVerb() {
+  return selectionKind() === "return" ? "return it to your deck" : "discard it";
+}
+
+function selectionNoun() {
+  return selectionKind() === "return" ? "Return" : "Discard";
+}
+
+function selectionStatus() {
+  return selectionKind() === "return" ? "Choose return" : "Choose discard";
+}
+
+function pendingSourceInstance() {
+  if (!activeSession || !pending?.sourceId) return null;
+  if (pending.sourceType === "engage") return activeSession.findBoardCard(0, pending.sourceId);
+  return activeSession.findHandCard(0, pending.sourceId);
 }
 
 function setHelp(text, status) {
