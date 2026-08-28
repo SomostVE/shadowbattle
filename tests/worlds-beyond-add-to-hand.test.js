@@ -41,7 +41,7 @@ const COMPOUND_UNSUPPORTED = Object.freeze({
   attack: 1,
   defense: 1,
   keywords: ["Fanfare"],
-  text: "Fanfare: Deal 1 damage to the enemy leader. Add a Majestic Megalorca to your hand."
+  text: "Fanfare: Deal 1 damage to the enemy leader. Add a Majestic Megalorca to your hand. Restore 1 defense to your leader."
 });
 
 function fillerDeck(prefix) {
