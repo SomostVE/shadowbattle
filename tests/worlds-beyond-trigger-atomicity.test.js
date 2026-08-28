@@ -58,7 +58,7 @@ test("a mixed unsupported Fanfare is atomic and does not execute its supported p
     attack: 1,
     defense: 1,
     keywords: ["Fanfare"],
-    text: "Fanfare: Draw 2 cards. Destroy all damaged enemy followers."
+    text: "Fanfare: Draw 2 cards. Banish all duplicates from your deck."
   });
   const handBefore = game.players[0].hand.length;
 
@@ -68,7 +68,7 @@ test("a mixed unsupported Fanfare is atomic and does not execute its supported p
   assert.equal(game.players[0].board.some(unit => unit.instanceId === card.instanceId), true, "playing the follower itself remains legal");
   const trigger = latestTrigger(game);
   assert.equal(trigger?.payload.resolved, false);
-  assert.match(trigger?.payload.unsupportedResidual ?? "", /Destroy all damaged enemy followers/i);
+  assert.match(trigger?.payload.unsupportedResidual ?? "", /Banish all duplicates from your deck/i);
 });
 
 test("an unresolved Necromancy trigger does not consume Shadows", () => {
@@ -83,7 +83,7 @@ test("an unresolved Necromancy trigger does not consume Shadows", () => {
     attack: 1,
     defense: 1,
     keywords: ["Fanfare", "Necromancy"],
-    text: "Fanfare: Necromancy (2): Draw 1 card. Destroy all damaged enemy followers."
+    text: "Fanfare: Necromancy (2): Draw 1 card. Banish all duplicates from your deck."
   });
   const handBefore = game.players[0].hand.length;
 
@@ -128,7 +128,7 @@ test("mixed unsupported Last Words do not partially draw before surfacing unreso
     attack: 1,
     defense: 1,
     keywords: ["Rush", "Last Words"],
-    text: "Last Words: Draw 1 card. Destroy all damaged enemy followers."
+    text: "Last Words: Draw 1 card. Banish all duplicates from your deck."
   });
   game.dispatch({ type: "play-card", player: 0, cardInstanceId: card.instanceId });
   const follower = game.players[0].board.find(unit => unit.instanceId === card.instanceId);
@@ -151,5 +151,5 @@ test("mixed unsupported Last Words do not partially draw before surfacing unreso
   assert.equal(game.players[0].hand.length, handBefore);
   const trigger = latestTrigger(game, "last-words");
   assert.equal(trigger?.payload.resolved, false);
-  assert.match(trigger?.payload.unsupportedResidual ?? "", /Destroy all damaged enemy followers/i);
+  assert.match(trigger?.payload.unsupportedResidual ?? "", /Banish all duplicates from your deck/i);
 });
