@@ -137,7 +137,7 @@ test("Hark to the Night Song resolves split damage before its active Necromancy 
   assert.equal(game.findBoardCard(1, oldest.instanceId), null);
   assert.equal(game.findBoardCard(1, newest.instanceId)?.defense, 1);
   assert.equal(game.players[1].hp, 18);
-  assert.equal(game.players[0].resources.shadows, 0);
+  assert.equal(game.players[0].resources.shadows, 1, "Necromancy spends 6, then the resolved spell creates its normal cemetery Shadow");
 
   const events = game.getEvents({ viewer: 0 });
   const splitDamageIndex = events.findIndex(event => event.type === BATTLE_EVENT.FOLLOWER_DAMAGE
