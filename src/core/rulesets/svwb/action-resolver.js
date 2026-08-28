@@ -97,8 +97,10 @@ export function listWorldsBeyondActions(session, playerIndex) {
       };
       const targetRequirement = getWorldsBeyondTargetRequirement(card, "play", mode, player);
       const discardRequired = requiresWorldsBeyondHandDiscard(card, "play", mode, player);
-      const discardOptions = discardRequired ? handDiscardOptions(player, card) : [null];
-      if (discardRequired && !discardOptions.length) continue;
+      const discardCanSkip = discardRequired && canSkipWorldsBeyondHandDiscard(card, "play", mode, player);
+      const discardCandidates = discardRequired ? handDiscardOptions(player, card) : [null];
+      if (discardRequired && !discardCandidates.length && !discardCanSkip) continue;
+      const discardOptions = discardRequired && !discardCandidates.length ? [null] : discardCandidates;
       const handCopySpec = getWorldsBeyondArtifactHandCopySpec(card, mode?.text || card.card?.text);
       const handCopySelections = handCopySpec ? getWorldsBeyondArtifactHandCopySelections(player, card, handCopySpec) : [null];
       if (handCopySpec && !handCopySelections.length) continue;
@@ -221,7 +223,8 @@ function playCard(session, action) {
   const requirement = getWorldsBeyondTargetRequirement(instance, "play", mode, player);
   const targets = requirement ? getWorldsBeyondTargetOptions(session, { trigger: "play", playerIndex, source: instance, mode }) : [];
   const discardRequired = requiresWorldsBeyondHandDiscard(instance, "play", mode, player);
-  validateDiscardSelection(player, instance, discardRequired, action.discardInstanceId);
+  const discardCanSkip = discardRequired && canSkipWorldsBeyondHandDiscard(instance, "play", mode, player);
+  validateDiscardSelection(player, instance, discardRequired, action.discardInstanceId, { allowMissing: discardCanSkip });
   const handCopySpec = getWorldsBeyondArtifactHandCopySpec(instance, mode?.text || instance.card?.text);
   validateWorldsBeyondArtifactHandCopySelection(player, instance, handCopySpec, action.handCopyInstanceIds ?? []);
   const optionalAlliedSpec = getWorldsBeyondOptionalAlliedCardSpec(instance, mode?.text || instance.card?.text);
