@@ -44,10 +44,6 @@ export function resolveWorldsBeyondGenericEffects(session, {
   const value = String(text ?? "");
   const effects = [];
 
-  collect(value, new RegExp(`\\bdeal\\s+${NUMBER}\\s+damage split between all enemy followers\\b`, "gi"), match => ({
-    kind: "split-enemy-follower-damage",
-    amount: numberWord(match[1])
-  }), effects);
   collect(value, new RegExp(`\\bdeal\\s+${NUMBER}\\s+damage to your leader\\b`, "gi"), match => ({
     kind: "self-leader-damage",
     amount: numberWord(match[1])
@@ -100,10 +96,6 @@ export function resolveWorldsBeyondGenericEffects(session, {
   let applied = false;
   for (const effect of effects) {
     if (session.phase === "ended") break;
-    if (effect.kind === "split-enemy-follower-damage") {
-      applied = dealSplitEnemyFollowerDamage(session, playerIndex, source, effect.amount, destroyFollower) || applied;
-      continue;
-    }
     if (effect.kind === "self-leader-damage") {
       applied = session.damageLeader(playerIndex, effect.amount, { actor: playerIndex, source, reason: "ability" }) > 0 || applied;
       continue;
@@ -162,7 +154,12 @@ function collect(text, pattern, factory, effects) {
   for (const match of text.matchAll(pattern)) effects.push({ index: match.index ?? 0, ...factory(match) });
 }
 
-function dealSplitEnemyFollowerDamage(session, playerIndex, source, amount, destroyFollower) {
+export function resolveWorldsBeyondSplitEnemyFollowerDamage(session, {
+  playerIndex,
+  source,
+  amount,
+  destroyFollower
+} = {}) {
   let remaining = Math.max(0, Number(amount) || 0);
   if (!remaining) return false;
   const enemyIndex = 1 - playerIndex;
