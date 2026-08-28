@@ -110,7 +110,7 @@ export function compileWorldsBeyondPreTargetCommands(text, { playerIndex, source
     });
   }
 
-  const addToHand = value.match(/^\s*Add\s+(?:a|an|one)\s+(.+?)\s+to your hand\s*\.?\s*$/i);
+  const addToHand = value.match(/^\s*Add\s+(?:a|an|one)\s+([^\n.]+?)\s+to your hand\s*\.?/i);
   if (addToHand) {
     indexed.push({ index: addToHand.index ?? 0, command: createWorldsBeyondAddToHandCommand(playerIndex, addToHand[1].trim(), sourceOptions) });
   }
