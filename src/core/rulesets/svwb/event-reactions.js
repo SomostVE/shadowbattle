@@ -1,6 +1,7 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
 import { grantWorldsBeyondKeyword } from "./combat-readiness.js";
 import { crestView, getWorldsBeyondCrests } from "./crests.js";
+import { resolveWorldsBeyondDiscardReaction } from "./discard-reactions.js";
 
 const COMBAT_KEYWORDS = new Set(["storm", "rush", "ward", "bane", "drain"]);
 const MARINE_ENTRY_WARD = /\bWhenever an allied Marine follower enters the field, give it Ward\.?/i;
@@ -11,6 +12,9 @@ export function resolveWorldsBeyondEventReaction(session, event) {
   if (event.type === BATTLE_EVENT.TURN_START) {
     restorePersistentAttackLocks(session, event);
     return true;
+  }
+  if (event.type === BATTLE_EVENT.CARD_DISCARDED) {
+    return resolveWorldsBeyondDiscardReaction(session, event);
   }
   if (event.type === BATTLE_EVENT.FOLLOWER_ENTER) {
     return resolveAlliedFollowerEntryReactions(session, event);

@@ -1,4 +1,5 @@
 import { stripWorldsBeyondArtifactHandCopyText } from "../artifact-hand-copy.js";
+import { stripWorldsBeyondDiscardReactionText } from "../discard-reactions.js";
 import { stripWorldsBeyondOptionalAlliedCardText } from "../optional-allied-card.js";
 import { norm, word } from "./battle-engine-v5-utils.js";
 
@@ -85,7 +86,9 @@ function stripExplicitActionChoices(textValue) {
 }
 
 export function baseText(text) {
-  const clean = stripHandActivationPreambleText(stripAmuletSetupText(stripSpellboostPreambleText(stripFuseAbilityText(text))));
+  const clean = stripWorldsBeyondDiscardReactionText(
+    stripHandActivationPreambleText(stripAmuletSetupText(stripSpellboostPreambleText(stripFuseAbilityText(text))))
+  );
   const fanfare = section(clean, "fanfare");
   if (fanfare) return stripExplicitActionChoices(fanfare);
   const value = String(clean);
