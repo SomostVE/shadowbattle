@@ -149,7 +149,7 @@ test("Burnite discards before its X damage resolves", () => {
   const events = game.getEvents({ viewer: 0 });
   const abilityIndex = events.findIndex(event => event.type === BATTLE_EVENT.ABILITY_TRIGGER && event.payload?.card?.instanceId === burnite.instanceId);
   const discardIndex = events.findIndex(event => event.type === BATTLE_EVENT.CARD_DISCARDED && event.payload?.card?.instanceId === selected.instanceId);
-  const damageIndex = events.findIndex(event => event.type === BATTLE_EVENT.FOLLOWER_DAMAGE && event.payload?.card?.instanceId === target.instanceId);
+  const damageIndex = events.findIndex(event => event.type === BATTLE_EVENT.FOLLOWER_DAMAGE && event.payload?.target?.instanceId === target.instanceId);
   assert.ok(abilityIndex >= 0 && discardIndex > abilityIndex && damageIndex > discardIndex);
 });
 
