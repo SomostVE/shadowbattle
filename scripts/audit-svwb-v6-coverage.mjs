@@ -1,4 +1,6 @@
 import { getWorldsBeyondTriggerSupport } from "../src/core/rulesets/svwb/effect-resolver.js";
+import { getSimpleWorldsBeyondModeChoices } from "../src/core/rulesets/svwb/mode-selection.js";
+import { baseText, section } from "../src/core/rulesets/svwb/v5/battle-engine-v5-text.js";
 
 // Structural audit only: semantic correctness is still enforced by card-level tests.
 const CODEX_URL = process.env.SVWB_CODEX_URL ?? "https://raw.githubusercontent.com/SomostVE/beyond_codex/main/api/v1/cards.json";
@@ -28,21 +30,22 @@ for (const card of cards) {
   };
 
   for (const trigger of triggers) {
-    const result = getWorldsBeyondTriggerSupport(source, trigger, null, player);
-    if (!result.text && !result.residual) continue;
+    const results = auditTriggerResults(source, trigger, player);
+    if (!results.some(result => result.text || result.residual)) continue;
     const key = `${card.class}:${trigger}`;
     totals.set(key, (totals.get(key) ?? 0) + 1);
-    if (result.supported) {
+    if (results.length && results.every(result => result.supported)) {
       supportedByClass.set(key, (supportedByClass.get(key) ?? 0) + 1);
       continue;
     }
+    const failed = results.find(result => !result.supported) ?? results[0];
     unsupported.push({
       id: card.id,
       name: card.name,
       class: card.class,
       trigger,
-      residual: normalizeResidual(result.residual || result.text),
-      text: result.text
+      residual: normalizeResidual(failed?.residual || failed?.text),
+      text: results.map(result => result.text).filter(Boolean).join(" || ")
     });
   }
 }
@@ -76,6 +79,32 @@ for (const group of [...groups.values()].sort((a, b) => b.count - a.count || a.r
 }
 
 if (process.argv.includes("--fail-on-unsupported") && unsupported.length) process.exitCode = 1;
+
+function auditTriggerResults(source, trigger, player) {
+  const choices = auditModeChoices(source, trigger, player);
+  if (!choices.length) return [getWorldsBeyondTriggerSupport(source, trigger, null, player)];
+
+  if (trigger === "play") {
+    return choices.map(mode => getWorldsBeyondTriggerSupport(source, trigger, mode, player));
+  }
+
+  return choices.map(mode => getWorldsBeyondTriggerSupport(modeSource(source, trigger, mode), trigger, null, player));
+}
+
+function auditModeChoices(source, trigger, player) {
+  const text = String(source?.card?.text ?? "");
+  if (trigger === "play") return getSimpleWorldsBeyondModeChoices(baseText(text), player);
+  if (trigger !== "evolve" && trigger !== "super-evolve") return [];
+
+  let triggerText = section(text, trigger);
+  if (/replicate the effects? of this card'?s fanfare ability/i.test(triggerText)) triggerText = baseText(text);
+  return getSimpleWorldsBeyondModeChoices(triggerText, player);
+}
+
+function modeSource(source, trigger, mode) {
+  const label = trigger === "super-evolve" ? "Super-Evolve" : "Evolve";
+  return { ...source, activeText: `${label}: ${mode.text}` };
+}
 
 function permissivePlayer(className) {
   return {
