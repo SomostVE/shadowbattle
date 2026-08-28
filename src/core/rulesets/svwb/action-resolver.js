@@ -25,6 +25,12 @@ import {
   hasWorldsBeyondTrait,
   resolveWorldsBeyondFuse
 } from "./fuse.js";
+import {
+  getWorldsBeyondOptionalAlliedCardOptions,
+  getWorldsBeyondOptionalAlliedCardSpec,
+  resolveWorldsBeyondOptionalAlliedCardSelection,
+  validateWorldsBeyondOptionalAlliedCardSelection
+} from "./optional-allied-card.js";
 import { modes as v5Modes } from "./v5/battle-engine-v5-modes.js";
 
 export const SVWB_ACTION = Object.freeze({
@@ -95,15 +101,19 @@ export function listWorldsBeyondActions(session, playerIndex) {
       const handCopySpec = getWorldsBeyondArtifactHandCopySpec(card, mode?.text || card.card?.text);
       const handCopySelections = handCopySpec ? getWorldsBeyondArtifactHandCopySelections(player, card, handCopySpec) : [null];
       if (handCopySpec && !handCopySelections.length) continue;
+      const optionalAlliedSpec = getWorldsBeyondOptionalAlliedCardSpec(card, mode?.text || card.card?.text);
+      const optionalAlliedTargets = optionalAlliedSpec ? getWorldsBeyondOptionalAlliedCardOptions(player, card, optionalAlliedSpec) : [null];
 
       if (!targetRequirement) {
         for (const discard of discardOptions) {
           for (const handCopySelection of handCopySelections) {
-            actions.push(withArtifactHandCopySelection(
-              withDiscardSelection(baseAction, discard, discardRequired),
-              handCopySelection,
-              handCopySpec
-            ));
+            for (const optionalAlliedTarget of optionalAlliedTargets) {
+              actions.push(withOptionalAlliedCardSelection(withArtifactHandCopySelection(
+                withDiscardSelection(baseAction, discard, discardRequired),
+                handCopySelection,
+                handCopySpec
+              ), optionalAlliedTarget, optionalAlliedSpec));
+            }
           }
         }
         continue;
@@ -114,23 +124,27 @@ export function listWorldsBeyondActions(session, playerIndex) {
         for (const target of targets) {
           for (const discard of discardOptions) {
             for (const handCopySelection of handCopySelections) {
-              actions.push(withArtifactHandCopySelection(withDiscardSelection({
-                ...baseAction,
-                targetInstanceId: target.instanceId,
-                targetKind: targetRequirement.kind,
-                targetAmount: targetRequirement.amount ?? 0
-              }, discard, discardRequired), handCopySelection, handCopySpec));
+              for (const optionalAlliedTarget of optionalAlliedTargets) {
+                actions.push(withOptionalAlliedCardSelection(withArtifactHandCopySelection(withDiscardSelection({
+                  ...baseAction,
+                  targetInstanceId: target.instanceId,
+                  targetKind: targetRequirement.kind,
+                  targetAmount: targetRequirement.amount ?? 0
+                }, discard, discardRequired), handCopySelection, handCopySpec), optionalAlliedTarget, optionalAlliedSpec));
+              }
             }
           }
         }
       } else if (type !== "spell") {
         for (const discard of discardOptions) {
           for (const handCopySelection of handCopySelections) {
-            actions.push(withArtifactHandCopySelection(
-              withDiscardSelection(baseAction, discard, discardRequired),
-              handCopySelection,
-              handCopySpec
-            ));
+            for (const optionalAlliedTarget of optionalAlliedTargets) {
+              actions.push(withOptionalAlliedCardSelection(withArtifactHandCopySelection(
+                withDiscardSelection(baseAction, discard, discardRequired),
+                handCopySelection,
+                handCopySpec
+              ), optionalAlliedTarget, optionalAlliedSpec));
+            }
           }
         }
       }
@@ -209,8 +223,10 @@ function playCard(session, action) {
   validateDiscardSelection(player, instance, discardRequired, action.discardInstanceId);
   const handCopySpec = getWorldsBeyondArtifactHandCopySpec(instance, mode?.text || instance.card?.text);
   validateWorldsBeyondArtifactHandCopySelection(player, instance, handCopySpec, action.handCopyInstanceIds ?? []);
+  const optionalAlliedSpec = getWorldsBeyondOptionalAlliedCardSpec(instance, mode?.text || instance.card?.text);
+  validateWorldsBeyondOptionalAlliedCardSelection(player, instance, optionalAlliedSpec, action.optionalAlliedCardInstanceId ?? null);
   if (targets.length && !action.targetInstanceId) throw new Error("This card requires an effect target");
-  if (action.targetInstanceId && !targets.some(target => target.instanceId === action.targetInstanceId)) throw new Error("Selected effect target is not legal");
+  if (!optionalAlliedSpec && action.targetInstanceId && !targets.some(target => target.instanceId === action.targetInstanceId)) throw new Error("Selected effect target is not legal");
   if (requirement && type === "spell" && !targets.length) throw new Error("This spell has no legal target");
 
   player.resources.pp -= cost;
@@ -256,6 +272,16 @@ function playCard(session, action) {
       source: instance,
       spec: handCopySpec,
       selectedInstanceIds: action.handCopyInstanceIds ?? []
+    });
+  } else if (optionalAlliedSpec) {
+    resolveWorldsBeyondOptionalAlliedCardSelection(session, {
+      playerIndex,
+      source: instance,
+      spec: optionalAlliedSpec,
+      targetInstanceId: action.optionalAlliedCardInstanceId ?? null,
+      trigger: "play",
+      destroyFollower: destroyWorldsBeyondFollower,
+      destroyAmulet: destroyWorldsBeyondAmulet
     });
   } else {
     resolveWorldsBeyondTrigger(session, {
@@ -416,6 +442,21 @@ function withArtifactHandCopySelection(action, selection, spec) {
     handCopyCardIds: selected.map(item => item.cardId ?? item.card?.id ?? null),
     handCopySelectionCount: selected.length,
     handCopySelectionMax: spec.count
+  };
+}
+
+function withOptionalAlliedCardSelection(action, target, spec) {
+  if (!spec) return action;
+  return {
+    ...action,
+    targetOptional: true,
+    targetSide: "allied",
+    targetKind: "destroy",
+    optionalSelectionKind: spec.kind,
+    optionalFollowUpKind: spec.followUpKind,
+    optionalFollowUpAmount: spec.amount,
+    optionalAlliedCardInstanceId: target?.instanceId ?? null,
+    ...(target ? { targetInstanceId: target.instanceId } : {})
   };
 }
 
