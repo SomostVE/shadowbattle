@@ -1,6 +1,7 @@
 import { stripWorldsBeyondArtifactHandCopyText } from "../artifact-hand-copy.js";
 import { stripWorldsBeyondDiscardReactionText } from "../discard-reactions.js";
 import { stripWorldsBeyondOptionalAlliedCardText } from "../optional-allied-card.js";
+import { resolveWorldsBeyondSelectedCardCostX } from "../selected-card-cost-x.js";
 import { norm, word } from "./battle-engine-v5-utils.js";
 
 export function expandModes(text, player = null) {
@@ -90,7 +91,7 @@ export function baseText(text) {
     stripHandActivationPreambleText(stripAmuletSetupText(stripSpellboostPreambleText(stripFuseAbilityText(text))))
   );
   const fanfare = section(clean, "fanfare");
-  if (fanfare) return stripExplicitActionChoices(fanfare);
+  if (fanfare) return stripExplicitActionChoices(resolveWorldsBeyondSelectedCardCostX(fanfare));
   const value = String(clean);
   const colonIndex = value.search(/\b(?:Last Words|Strike|Clash|Evolve|Super-Evolve|Enhance|Accelerate|Crystallize|Engage|On Spellboost|At the start of your turn|At the end of your turn)\s*\(?\s*\d*\s*\)?\s*:/i);
   const naturalIndex = value.search(/(?<!["“])\b(?:At the end of your turn|At the start of your turn|When this follower evolves),\s*/i);
@@ -99,7 +100,7 @@ export function baseText(text) {
   const indexes = [colonIndex, naturalIndex, reactiveIndex, passiveIndex].filter(index => index >= 0);
   const index = indexes.length ? Math.min(...indexes) : -1;
   const body = index < 0 ? value : value.slice(0, index).trim();
-  return stripExplicitActionChoices(body);
+  return stripExplicitActionChoices(resolveWorldsBeyondSelectedCardCostX(body));
 }
 
 export function crystallizeText(textValue, cost) {
