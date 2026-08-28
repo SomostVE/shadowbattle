@@ -112,15 +112,16 @@ export function stripWorldsBeyondArtifactHandCopyText(textValue) {
   const text = String(textValue ?? "");
   const specMatch = CORE_SELECTION.exec(text);
   if (!specMatch) return text;
-  let start = specMatch.index;
+  const start = specMatch.index;
   let end = start + specMatch[0].length;
   const tail = text.slice(end);
   const delayed = tail.match(/^\s*,?\s*and\s+give the exact copies\s+["“]At the end of your opponent's turn, destroy this card\.["”]\s*\.?/i);
   if (delayed) end += delayed[0].length;
-  return `${text.slice(0, start)} ${text.slice(end)}`
+  const cleaned = `${text.slice(0, start)} ${text.slice(end)}`
     .replace(/\s+([.,;:!?])/g, "$1")
     .replace(/\s+/g, " ")
     .trim();
+  return /^[.;,:!?]*$/.test(cleaned) ? "" : cleaned;
 }
 
 function handCopyEffectText(textValue) {
