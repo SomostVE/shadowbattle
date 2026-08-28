@@ -241,7 +241,7 @@ test("Earrings of Sunlight Engage replicates its Fanfare hand return and draw be
   const game = readyGame([EARRINGS_OF_SUNLIGHT]);
   const [selected] = installHand(game, [returned]);
   installDeckCard(game, 0, drawCard);
-  game.rng = () => 0;
+  game.rng = () => 0.999999;
 
   const amulet = {
     instanceId: "0:earrings",
