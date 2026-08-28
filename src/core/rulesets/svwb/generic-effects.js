@@ -14,6 +14,7 @@ const GENERIC_EFFECT_PATTERNS = Object.freeze([
   /\bdestroy all damaged enemy followers\b/gi,
   new RegExp(`\\bgain\\s+${NUMBER}\\s+shadows?\\b`, "gi"),
   new RegExp(`\\bgain\\s+${NUMBER}\\s+max play points?\\b`, "gi"),
+  new RegExp(`\\brecover\\s+${NUMBER}\\s+evolution points?\\b`, "gi"),
   new RegExp(`\\badd\\s+${NUMBER}\\s+copies of\\s+[^.]+?\\s+to your hand\\s*\\.?\\s*$`, "gi"),
   new RegExp(`^\\s*add\\s+(?:a|an|one)\\s+${CARD_NAME}\\s+to your hand\\s*\\.?`, "gi"),
   new RegExp(`[.!?]\\s+add\\s+(?:a|an|one)\\s+${CARD_NAME}\\s+to your hand\\s*\\.?\\s*$`, "gi"),
@@ -75,6 +76,10 @@ export function resolveWorldsBeyondGenericEffects(session, {
     kind: "gain-max-pp",
     amount: numberWord(match[1])
   }), effects);
+  collect(value, new RegExp(`\\brecover\\s+${NUMBER}\\s+evolution points?\\b`, "gi"), match => ({
+    kind: "recover-evolution-points",
+    amount: numberWord(match[1])
+  }), effects);
   collect(value, new RegExp(`[.!?]\\s+add\\s+(?:a|an|one)\\s+${CARD_NAME}\\s+to your hand\\s*\\.?\\s*$`, "gi"), match => ({
     kind: "add-to-hand",
     cardName: match[1].trim()
@@ -123,6 +128,10 @@ export function resolveWorldsBeyondGenericEffects(session, {
     }
     if (effect.kind === "gain-max-pp") {
       applied = gainMaximumPlayPoints(session, playerIndex, effect.amount) || applied;
+      continue;
+    }
+    if (effect.kind === "recover-evolution-points") {
+      applied = recoverEvolutionPoints(session, playerIndex, effect.amount) || applied;
       continue;
     }
     if (effect.kind === "add-to-hand") {
@@ -206,6 +215,18 @@ function gainMaximumPlayPoints(session, playerIndex, amount) {
   if (after === before) return false;
   player.resources.maxPp = after;
   return true;
+}
+
+function recoverEvolutionPoints(session, playerIndex, amount) {
+  const value = Math.max(0, Number(amount) || 0);
+  if (!value) return false;
+  const player = session.getPlayer(playerIndex);
+  const before = Math.max(0, Number(player.resources?.evolutionPoints ?? 0));
+  const starting = session.ruleset?.startingEvolutionPoints ?? {};
+  const cap = Math.max(0, Number(starting[player.goingFirst ? "first" : "second"] ?? 2) || 2);
+  const after = Math.min(cap, before + value);
+  player.resources.evolutionPoints = after;
+  return after > before;
 }
 
 function addGeneratedCardToHand(session, playerIndex, cardName) {
