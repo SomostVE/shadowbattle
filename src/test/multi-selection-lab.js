@@ -5,13 +5,18 @@ let activeSession = null;
 let pending = null;
 let selectedDiscardInstanceId = null;
 let replaying = false;
+let pendingEvolutionMode = null;
+let replayingEvolution = false;
 
 GameSession.prototype.listLegalActions = function patchedListLegalActions(playerIndex = this.activePlayer) {
   activeSession = this;
-  const actions = originalListLegalActions.call(this, playerIndex);
-  if (playerIndex === 1) return prioritizeCpuDiscardVariants(actions, this, playerIndex);
+  let actions = originalListLegalActions.call(this, playerIndex);
+  if (playerIndex === 1) actions = prioritizeCpuDiscardVariants(actions, this, playerIndex);
   if (playerIndex === 0 && pending && selectedDiscardInstanceId) {
-    return prioritizeSelectedDiscard(actions, pending, selectedDiscardInstanceId);
+    actions = prioritizeSelectedDiscard(actions, pending, selectedDiscardInstanceId);
+  }
+  if (playerIndex === 0 && pendingEvolutionMode) {
+    actions = prioritizeEvolutionMode(actions, pendingEvolutionMode);
   }
   return actions;
 };
@@ -22,6 +27,20 @@ document.addEventListener("click", () => queueMicrotask(syncFromRenderedSelectio
 
 function captureMultiSelection(event) {
   if (!activeSession || activeSession.phase !== "main" || activeSession.activePlayer !== 0) return;
+
+  const evolutionButton = event.target.closest?.("#battle-player-board .sb-battle-evolution-button:not(.is-engage)");
+  if (evolutionButton && !replayingEvolution) {
+    const unit = evolutionButton.closest?.(".sb-battle-unit[data-instance-id]");
+    const sourceId = unit?.dataset.instanceId ?? null;
+    const type = evolutionButton.classList.contains("is-super") ? "super-evolve" : "evolve";
+    const modeActions = uniqueEvolutionModeActions(rawActions(0).filter(action => action.type === type && action.followerInstanceId === sourceId));
+    if (modeActions.length > 1) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      showEvolutionModeMenu(evolutionButton, { type, sourceId, actions: modeActions });
+      return;
+    }
+  }
 
   const handCard = event.target.closest?.("#battle-player-hand .sb-battle-card[data-instance-id]");
   if (handCard && pending && !replaying && isDiscardCandidate(handCard.dataset.instanceId)) {
@@ -83,7 +102,16 @@ function captureMultiSelection(event) {
 function syncFromRenderedSelection() {
   if (!activeSession || activeSession.phase !== "main" || activeSession.activePlayer !== 0) {
     clearSelection();
+    clearEvolutionModeSelection();
     return;
+  }
+
+  if (pendingEvolutionMode && !rawActions(0).some(action =>
+    action.type === pendingEvolutionMode.type
+    && action.followerInstanceId === pendingEvolutionMode.sourceId
+    && action.evolutionModeKey === pendingEvolutionMode.evolutionModeKey
+  )) {
+    clearEvolutionModeSelection();
   }
 
   const selectedPlay = document.querySelector("#battle-player-hand .sb-battle-card.is-selected[data-instance-id]");
@@ -110,6 +138,87 @@ function syncFromRenderedSelection() {
   }
 
   if (pending && !pendingSourceStillLegal()) clearSelection();
+}
+
+function showEvolutionModeMenu(button, selection) {
+  clearEvolutionModeMenu();
+  const controls = button.closest?.(".sb-battle-evolution-controls") ?? button.parentElement;
+  if (!controls) return;
+
+  const menu = document.createElement("span");
+  menu.className = "sb-battle-mode-menu sb-evolution-mode-menu";
+  menu.dataset.evolutionModeMenu = "true";
+  for (const action of selection.actions) {
+    const option = document.createElement("button");
+    option.type = "button";
+    option.className = "sb-battle-mode-button";
+    option.textContent = evolutionModeLabel(action);
+    option.addEventListener("click", event => {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      selectEvolutionMode(button, selection, action);
+    }, { capture: true });
+    menu.append(option);
+  }
+  controls.append(menu);
+  setHelp(`Choose the ${selection.type === "super-evolve" ? "Super Evo" : "Evo"} ability mode.`, "Choose evolution mode");
+}
+
+function selectEvolutionMode(button, selection, action) {
+  pendingEvolutionMode = {
+    type: selection.type,
+    sourceId: selection.sourceId,
+    evolutionModeKey: action.evolutionModeKey
+  };
+  clearEvolutionModeMenu();
+  replayingEvolution = true;
+  try {
+    button.click();
+  } finally {
+    replayingEvolution = false;
+  }
+  queueMicrotask(syncFromRenderedSelection);
+}
+
+function clearEvolutionModeSelection() {
+  pendingEvolutionMode = null;
+  clearEvolutionModeMenu();
+}
+
+function clearEvolutionModeMenu() {
+  for (const menu of document.querySelectorAll("[data-evolution-mode-menu='true']")) menu.remove();
+}
+
+function uniqueEvolutionModeActions(actions) {
+  const seen = new Set();
+  const result = [];
+  for (const action of actions) {
+    const key = action.evolutionModeKey ?? "default";
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(action);
+  }
+  return result;
+}
+
+function evolutionModeLabel(action) {
+  const indices = action?.evolutionMode?.selectedModeIndices ?? [];
+  if (indices.length > 1) return `Modes ${indices.join(" + ")}`;
+  const index = indices[0] ?? action?.evolutionMode?.modeIndex ?? 1;
+  return `Mode ${index}`;
+}
+
+function prioritizeEvolutionMode(actions, selection) {
+  const preferred = [];
+  const sameSourceOtherModes = [];
+  const rest = [];
+  for (const action of actions) {
+    const sameSource = action.type === selection.type && action.followerInstanceId === selection.sourceId;
+    if (!sameSource) rest.push(action);
+    else if (action.evolutionModeKey === selection.evolutionModeKey) preferred.push(action);
+    else sameSourceOtherModes.push(action);
+  }
+  return [...preferred, ...sameSourceOtherModes, ...rest];
 }
 
 function beginSelection(next, { preserveDiscard = false } = {}) {
@@ -326,6 +435,12 @@ function installStyles() {
     }
     #battle-player-hand .sb-discard-marker {
       letter-spacing: .04em;
+    }
+    #battle-player-board .sb-evolution-mode-menu {
+      display: inline-flex;
+      gap: .35rem;
+      margin-left: .35rem;
+      vertical-align: middle;
     }
   `;
   document.head.append(style);
