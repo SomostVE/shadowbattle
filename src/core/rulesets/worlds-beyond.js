@@ -1,7 +1,10 @@
 import { BATTLE_EVENT } from "../battle-events.js";
 import { GAME_IDS } from "../game-catalog.js";
 import { applyWorldsBeyondAction, listWorldsBeyondActions, prepareWorldsBeyondTurn } from "./svwb/action-resolver.js";
-import { evolveWorldsBeyondFollowerByAbility } from "./svwb/ability-evolution.js";
+import {
+  evolveWorldsBeyondFollowerByAbility,
+  superEvolveWorldsBeyondFollowerByAbility
+} from "./svwb/ability-evolution.js";
 import { applyWorldsBeyondCombatAction, listWorldsBeyondCombatActions } from "./svwb/combat-actions.js";
 import {
   modifyWorldsBeyondFollowerDamage,
@@ -17,6 +20,7 @@ import {
 } from "./svwb/generic-effects.js";
 import { runWorldsBeyondTurnEnd, runWorldsBeyondTurnStart } from "./svwb/lifecycle.js";
 import { accountWorldsBeyondFollowerEntryHistory } from "./svwb/match-history.js";
+import { gainWorldsBeyondRally } from "./svwb/rally.js";
 import { spellboostWorldsBeyondHand } from "./svwb/spellboost.js";
 import { resolveWorldsBeyondEffectCommand } from "./svwb/v6/effect-commands.js";
 import { SHADOWBATTLE_V6_ENGINE_PROFILE } from "./svwb/v6/engine-profile.js";
@@ -80,6 +84,9 @@ export const WORLDS_BEYOND_RULESET = Object.freeze({
   evolveFollowerByAbility(session, playerIndex, source) {
     return evolveWorldsBeyondFollowerByAbility(session, playerIndex, source);
   },
+  superEvolveFollowerByAbility(session, playerIndex, source) {
+    return superEvolveWorldsBeyondFollowerByAbility(session, playerIndex, source);
+  },
   resolveSplitEnemyFollowerDamage(session, { playerIndex, source, amount }) {
     return resolveWorldsBeyondSplitEnemyFollowerDamage(session, {
       playerIndex,
@@ -100,7 +107,7 @@ export const WORLDS_BEYOND_RULESET = Object.freeze({
   afterEvent(session, event) {
     accountCemeteryOverflowShadow(session, event);
     if (event.type === BATTLE_EVENT.FOLLOWER_ENTER) {
-      accountFollowerEnterRally(session, event);
+      if (!event.payload?.deferRally) accountFollowerEnterRally(session, event);
       accountWorldsBeyondFollowerEntryHistory(session, event);
       normalizeWorldsBeyondCombatEvent(session, event);
     }
@@ -140,8 +147,7 @@ export const WORLDS_BEYOND_RULESET = Object.freeze({
 function accountFollowerEnterRally(session, event) {
   const owner = event.actor;
   if (owner !== 0 && owner !== 1) return;
-  const player = session.getPlayer(owner);
-  player.resources.rally = Math.max(0, Number(player.resources?.rally ?? 0)) + 1;
+  gainWorldsBeyondRally(session.getPlayer(owner), 1);
 }
 
 function accountCemeteryOverflowShadow(session, event) {

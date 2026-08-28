@@ -22,7 +22,8 @@ const GENERIC_EFFECT_PATTERNS = Object.freeze([
   new RegExp(`[.!?]\\s+add\\s+(?:a|an|one)\\s+${CARD_NAME}\\s+to your hand\\s*\\.?\\s*$`, "gi"),
   new RegExp(`\\bdraw\\s+${NUMBER}\\s+amulets?\\s*\\.?\\s*$`, "gi"),
   new RegExp(`\\bdraw\\s+${NUMBER}\\s+spells?\\s*\\.?\\s*$`, "gi"),
-  /\bevolve this follower\b/gi,
+  /\bsuper[- ]evolve this follower\b/gi,
+  /(?<!super[- ])\bevolve this follower\b/gi,
   /\bgive (?:this follower|it)\s+Barrier\b/gi
 ]);
 
@@ -86,7 +87,10 @@ export function resolveWorldsBeyondGenericEffects(session, {
     kind: "add-to-hand",
     cardName: match[1].trim()
   }), effects);
-  collect(value, /\bevolve this follower\b/gi, () => ({
+  collect(value, /\bsuper[- ]evolve this follower\b/gi, () => ({
+    kind: "ability-super-evolve"
+  }), effects);
+  collect(value, /(?<!super[- ])\bevolve this follower\b/gi, () => ({
     kind: "ability-evolve"
   }), effects);
   collect(value, /\bgive (?:this follower|it)\s+Barrier\b/gi, () => ({
@@ -138,6 +142,10 @@ export function resolveWorldsBeyondGenericEffects(session, {
     }
     if (effect.kind === "add-to-hand") {
       applied = addGeneratedCardToHand(session, playerIndex, effect.cardName) || applied;
+      continue;
+    }
+    if (effect.kind === "ability-super-evolve") {
+      applied = Boolean(session.ruleset?.superEvolveFollowerByAbility?.(session, playerIndex, source)) || applied;
       continue;
     }
     if (effect.kind === "ability-evolve") {
