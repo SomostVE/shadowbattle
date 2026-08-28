@@ -31,6 +31,7 @@ import {
   resolveWorldsBeyondOptionalAlliedCardSelection,
   validateWorldsBeyondOptionalAlliedCardSelection
 } from "./optional-allied-card.js";
+import { gainWorldsBeyondRally } from "./rally.js";
 import { modes as v5Modes } from "./v5/battle-engine-v5-modes.js";
 
 export const SVWB_ACTION = Object.freeze({
@@ -254,7 +255,14 @@ function playCard(session, action) {
   if (type === "follower") {
     prepareFollower(instance, session.turn);
     player.board.push(instance);
-    session.emit(BATTLE_EVENT.FOLLOWER_ENTER, { actor: playerIndex, payload: { card: session.cardView(instance), position: player.board.length - 1 } });
+    session.emit(BATTLE_EVENT.FOLLOWER_ENTER, {
+      actor: playerIndex,
+      payload: {
+        card: session.cardView(instance),
+        position: player.board.length - 1,
+        deferRally: true
+      }
+    });
   } else if (type === "amulet") {
     instance.countdown = readCountdown(mode.text || instance.card?.text);
     instance.playedTurn = session.turn;
@@ -293,6 +301,7 @@ function playCard(session, action) {
       mode
     });
   }
+  if (type === "follower") gainWorldsBeyondRally(player, 1);
   if (type === "spell") gainWorldsBeyondShadows(session, playerIndex, 1);
   if (mode.accelerated || mode.kind === "accelerate") restoreOriginalCardForm(instance);
   return session.getSnapshot(playerIndex);
