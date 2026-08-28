@@ -2,8 +2,14 @@ import { BATTLE_EVENT } from "../../battle-events.js";
 import {
   getWorldsBeyondTargetOptions,
   getWorldsBeyondTargetRequirement,
+  getWorldsBeyondTriggerSupport,
   resolveWorldsBeyondTrigger
 } from "./effect-resolver.js";
+import {
+  getSimpleWorldsBeyondModeChoices,
+  worldsBeyondModeChoiceKey
+} from "./mode-selection.js";
+import { baseText, section } from "./v5/battle-engine-v5-text.js";
 
 const EVOLVE = "evolve";
 const SUPER_EVOLVE = "super-evolve";
@@ -42,8 +48,16 @@ export function applyWorldsBeyondEvolutionAction(session, action) {
   if (!player.resources[availableKey]) throw new Error(superEvolution ? "Super Evolution is not available yet" : "Evolution is not available yet");
   if (Number(player.resources[pointsKey] ?? 0) <= 0) throw new Error(superEvolution ? "No Super Evolution points remain" : "No Evolution points remain");
 
-  const requirement = getWorldsBeyondTargetRequirement(follower, trigger, null, player);
-  const targets = requirement ? getWorldsBeyondTargetOptions(session, { trigger, playerIndex, source: follower }) : [];
+  const modeChoices = getEvolutionModeChoices(follower, trigger, player);
+  const selectedMode = selectEvolutionMode(modeChoices, action.evolutionModeKey);
+  if (modeChoices.length && !selectedMode) throw new Error("Selected evolution mode is not legal");
+  const effectSource = selectedMode ? evolutionModeSource(follower, trigger, selectedMode) : follower;
+  if (selectedMode && !getWorldsBeyondTriggerSupport(effectSource, trigger, null, player).supported) {
+    throw new Error("This evolution mode is not fully supported by the Worlds Beyond resolver");
+  }
+
+  const requirement = getWorldsBeyondTargetRequirement(effectSource, trigger, null, player);
+  const targets = requirement ? getWorldsBeyondTargetOptions(session, { trigger, playerIndex, source: effectSource }) : [];
   if (targets.length && !action.targetInstanceId) throw new Error("This evolution ability requires an effect target");
   if (action.targetInstanceId && !targets.some(target => target.instanceId === action.targetInstanceId)) {
     throw new Error("Selected evolution target is not legal");
@@ -67,36 +81,98 @@ export function applyWorldsBeyondEvolutionAction(session, action) {
       card: session.cardView(follower),
       pointsRemaining: player.resources[pointsKey],
       statBonus: bonus,
-      target: target ? session.cardView(target) : null
+      target: target ? session.cardView(target) : null,
+      mode: selectedMode ? modeView(selectedMode) : null
     }
   });
-  resolveWorldsBeyondTrigger(session, {
-    trigger,
-    playerIndex,
-    source: follower,
-    targetInstanceId: action.targetInstanceId ?? null
-  });
+
+  const previousActiveText = follower.activeText;
+  if (selectedMode) follower.activeText = evolutionModeText(trigger, selectedMode.text);
+  try {
+    resolveWorldsBeyondTrigger(session, {
+      trigger,
+      playerIndex,
+      source: follower,
+      targetInstanceId: action.targetInstanceId ?? null
+    });
+  } finally {
+    if (previousActiveText == null) delete follower.activeText;
+    else follower.activeText = previousActiveText;
+  }
   return session.getSnapshot(playerIndex);
 }
 
 function appendEvolutionBranches(actions, session, playerIndex, follower, superEvolution) {
   const type = superEvolution ? SUPER_EVOLVE : EVOLVE;
   const player = session.getPlayer(playerIndex);
-  const base = { type, player: playerIndex, followerInstanceId: follower.instanceId };
-  const requirement = getWorldsBeyondTargetRequirement(follower, type, null, player);
-  const targets = requirement ? getWorldsBeyondTargetOptions(session, { trigger: type, playerIndex, source: follower }) : [];
-  if (!targets.length) {
-    actions.push(base);
-    return;
+  const modeChoices = getEvolutionModeChoices(follower, type, player);
+  const variants = modeChoices.length ? modeChoices : [null];
+
+  for (const mode of variants) {
+    const effectSource = mode ? evolutionModeSource(follower, type, mode) : follower;
+    if (mode && !getWorldsBeyondTriggerSupport(effectSource, type, null, player).supported) continue;
+
+    const base = {
+      type,
+      player: playerIndex,
+      followerInstanceId: follower.instanceId,
+      ...(mode ? {
+        evolutionModeKey: worldsBeyondModeChoiceKey(mode),
+        evolutionMode: modeView(mode)
+      } : {})
+    };
+    const requirement = getWorldsBeyondTargetRequirement(effectSource, type, null, player);
+    const targets = requirement ? getWorldsBeyondTargetOptions(session, { trigger: type, playerIndex, source: effectSource }) : [];
+    if (!targets.length) {
+      actions.push(base);
+      continue;
+    }
+    for (const target of targets) {
+      actions.push({
+        ...base,
+        targetInstanceId: target.instanceId,
+        targetKind: requirement.kind,
+        targetAmount: Number(requirement.amount ?? 0)
+      });
+    }
   }
-  for (const target of targets) {
-    actions.push({
-      ...base,
-      targetInstanceId: target.instanceId,
-      targetKind: requirement.kind,
-      targetAmount: Number(requirement.amount ?? 0)
-    });
-  }
+}
+
+function getEvolutionModeChoices(follower, trigger, player) {
+  return getSimpleWorldsBeyondModeChoices(evolutionEffectText(follower, trigger), player);
+}
+
+function evolutionEffectText(follower, trigger) {
+  const text = String(follower?.card?.text ?? "");
+  const triggerSection = section(text, trigger);
+  if (!/replicate the effects? of this card'?s fanfare ability/i.test(triggerSection)) return triggerSection;
+  return baseText(text);
+}
+
+function evolutionModeSource(follower, trigger, mode) {
+  return {
+    ...follower,
+    activeText: evolutionModeText(trigger, mode.text)
+  };
+}
+
+function evolutionModeText(trigger, text) {
+  return `${trigger === SUPER_EVOLVE ? "Super-Evolve" : "Evolve"}: ${String(text ?? "")}`;
+}
+
+function selectEvolutionMode(choices, key) {
+  if (!choices.length) return null;
+  if (key) return choices.find(choice => worldsBeyondModeChoiceKey(choice) === key) ?? null;
+  return choices.length === 1 ? choices[0] : null;
+}
+
+function modeView(mode) {
+  return {
+    kind: "mode",
+    modeIndex: Number(mode?.modeIndex ?? 0),
+    selectedModeCount: Number(mode?.selectedModeCount ?? 0),
+    selectedModeIndices: [...(mode?.selectedModeIndices ?? [])]
+  };
 }
 
 function assertMainActor(session, playerIndex) {
