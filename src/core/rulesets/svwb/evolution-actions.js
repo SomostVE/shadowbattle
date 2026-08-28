@@ -154,7 +154,10 @@ function appendEvolutionBranches(actions, session, playerIndex, follower, superE
           ...base,
           targetOptional: true,
           targetSide: "allied",
-          targetKind: optionalAlliedSpec.kind,
+          targetKind: "destroy",
+          optionalSelectionKind: optionalAlliedSpec.kind,
+          optionalFollowUpKind: optionalAlliedSpec.followUpKind,
+          optionalFollowUpAmount: optionalAlliedSpec.amount,
           optionalAlliedCardInstanceId: target?.instanceId ?? null,
           ...(target ? { targetInstanceId: target.instanceId } : {})
         });
