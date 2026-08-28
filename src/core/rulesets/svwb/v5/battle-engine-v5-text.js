@@ -33,10 +33,24 @@ export function expandModes(text, player = null) {
 }
 
 function stripFuseAbilityText(textValue) {
-  return String(textValue ?? "")
-    .replace(/^\s*Fuse\s*:[^\n]*(?:\n+|$)/gim, "")
-    .replace(/^\s*When you Fuse to this card,[^\n]*(?:\n+|$)/gim, "")
-    .replace(/^\s*When you've Fused both to this card,[^\n]*(?:\n+|$)/gim, "")
+  const lines = String(textValue ?? "").split(/\r?\n/);
+  const kept = [];
+  let stripCostTransformRows = false;
+
+  for (const line of lines) {
+    if (/^\s*Fuse\s*:/i.test(line)) continue;
+    if (/^\s*When you Fuse to this card,\s*transform it based on the total cost of the cards fused\.?\s*$/i.test(line)) {
+      stripCostTransformRows = true;
+      continue;
+    }
+    if (/^\s*When you Fuse to this card,/i.test(line)) continue;
+    if (/^\s*When you've Fused both to this card,/i.test(line)) continue;
+    if (stripCostTransformRows && /^\s*\d+(?:\s+or more)?\s*:\s*.+$/i.test(line)) continue;
+    stripCostTransformRows = false;
+    kept.push(line);
+  }
+
+  return kept.join("\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
