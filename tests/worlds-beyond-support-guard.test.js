@@ -13,7 +13,7 @@ const CONDITIONAL_UNSUPPORTED = Object.freeze({
   attack: 0,
   defense: 0,
   keywords: ["Overflow"],
-  text: "Draw a card. If you're in Overflow, destroy all damaged enemy followers."
+  text: "Draw a card. If you're in Overflow, banish all duplicates from your deck."
 });
 
 const FANGS = Object.freeze({
@@ -96,7 +96,7 @@ test("an unsupported Overflow suffix blocks a spell only while that branch is ac
   const activeSpell = replaceHandCard(active, CONDITIONAL_UNSUPPORTED);
   const activeSupport = getWorldsBeyondTriggerSupport(activeSpell, "play", null, active.players[0]);
   assert.equal(activeSupport.supported, false);
-  assert.match(activeSupport.residual, /destroy all damaged enemy followers/i);
+  assert.match(activeSupport.residual, /banish all duplicates from your deck/i);
   assert.equal(active.listLegalActions(0).some(action => action.type === "play-card" && action.cardInstanceId === activeSpell.instanceId), false);
 });
 
