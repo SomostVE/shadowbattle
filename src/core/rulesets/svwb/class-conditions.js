@@ -1,3 +1,4 @@
+import { hasWorldsBeyondKeyword } from "./combat-readiness.js";
 import { canUseClassMechanic } from "./v5/battle-class-mechanics.js";
 
 const COUNT_WORDS = Object.freeze({
@@ -26,6 +27,13 @@ export function evaluateWorldsBeyondClassCondition(textValue, player, card, { co
     text = comboVariable.text;
     mechanic = "combo";
     notes.push(`X = Combo ${comboVariable.value}`);
+  }
+
+  const stateVariable = resolveStateCountVariable(text, player);
+  if (stateVariable) {
+    text = stateVariable.text;
+    mechanic = mechanic ?? "stateCount";
+    notes.push(`X = ${stateVariable.label} ${stateVariable.value}`);
   }
 
   const alliedAmulets = findThresholdMechanic(text, /\bif there are at least\s+(\d+)\s+allied amulets on the field\s*,?\s*(.*)$/i);
@@ -246,6 +254,92 @@ function resolveComboVariable(text, player) {
     value,
     text: normalizeResolvedText(withoutDefinition.replace(/\bX\b/g, String(value)))
   };
+}
+
+function resolveStateCountVariable(text, player) {
+  const value = String(text ?? "");
+  if ((value.match(/\bX is\b/gi) ?? []).length !== 1) return null;
+
+  const definitions = [
+    {
+      label: "Earth Sigils",
+      pattern: /\bX is the number of earth sigils you have\s*\.?/i,
+      blocked: prefixMutatesEarthSigils,
+      count: () => Math.max(0, Number(player?.resources?.earthSigils ?? player?.earthSigils ?? 0) || 0)
+    },
+    {
+      label: "allied Ward followers",
+      pattern: /\bX is the number of allied followers on the field with Ward\s*\.?/i,
+      blocked: prefixMutatesWardFollowerCount,
+      count: () => countAlliedFollowers(player, unit => hasWorldsBeyondKeyword(unit, "Ward"))
+    },
+    {
+      label: "allied high-cost followers",
+      pattern: /\bX is the number of allied followers on the field with a base cost of\s+(\d+)\s+or more\s*\.?/i,
+      blocked: prefixMutatesAlliedFollowers,
+      count: match => countAlliedFollowers(player, unit => baseCardCost(unit) >= Number(match[1] ?? 0))
+    },
+    {
+      label: "allied followers",
+      pattern: /\bX is the number of allied followers on the field\s*\.?/i,
+      blocked: prefixMutatesAlliedFollowers,
+      count: () => countAlliedFollowers(player)
+    },
+    {
+      label: "amulets in hand",
+      pattern: /\bX is the number of amulets in your hand\s*\.?/i,
+      blocked: prefixMutatesHand,
+      count: () => (player?.hand ?? []).filter(item => cardType(item) === "amulet").length
+    },
+    {
+      label: "cards in hand",
+      pattern: /\bX is the number of cards in your hand\s*\.?/i,
+      blocked: prefixMutatesHand,
+      count: () => (player?.hand ?? []).filter(Boolean).length
+    }
+  ];
+
+  for (const definition of definitions) {
+    const match = definition.pattern.exec(value);
+    if (!match) continue;
+    const prefix = value.slice(0, match.index);
+    if (definition.blocked(prefix)) return null;
+    const count = Math.max(0, Number(definition.count(match)) || 0);
+    const withoutDefinition = `${value.slice(0, match.index)} ${value.slice(match.index + match[0].length)}`;
+    return {
+      label: definition.label,
+      value: count,
+      text: normalizeResolvedText(withoutDefinition.replace(/\bX\b/g, String(count)))
+    };
+  }
+  return null;
+}
+
+function prefixMutatesHand(prefix) {
+  const value = String(prefix ?? "");
+  return /\bdraw\b|\bdiscard\b|\bfuse\b|\badd\b[^.]*\bto your hand\b|\breturn\b[^.]*\bto (?:your )?deck\b|\bbanish\b[^.]*\bfrom your hand\b|\btransform\b[^.]*\bin your hand\b/i.test(value);
+}
+
+function prefixMutatesAlliedFollowers(prefix) {
+  const value = String(prefix ?? "");
+  return /\bsummon\b|\b(?:destroy|banish|return|transform)\b[^.]*\ballied followers?\b|\bevolve\b[^.]*\ballied followers?\b/i.test(value);
+}
+
+function prefixMutatesWardFollowerCount(prefix) {
+  const value = String(prefix ?? "");
+  return prefixMutatesAlliedFollowers(value) || /\b(?:give|remove)\b[^.]*\bWard\b/i.test(value);
+}
+
+function prefixMutatesEarthSigils(prefix) {
+  return /\bEarth Rite\b|\bgain\b[^.]*\bearth sigils?\b|\b(?:spend|consume|remove)\b[^.]*\bearth sigils?\b/i.test(String(prefix ?? ""));
+}
+
+function countAlliedFollowers(player, predicate = null) {
+  return (player?.board ?? []).filter(item => cardType(item) === "follower" && (!predicate || predicate(item))).length;
+}
+
+function baseCardCost(instance) {
+  return Math.max(0, Number(instance?.card?.cost ?? instance?.baseCost ?? instance?.cost ?? 0) || 0);
 }
 
 function countAlliedAmulets(player) {
