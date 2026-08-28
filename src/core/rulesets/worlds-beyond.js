@@ -9,8 +9,9 @@ import {
   normalizeWorldsBeyondTurnCombatReadiness
 } from "./svwb/combat-readiness.js";
 import { resolveWorldsBeyondEventReaction } from "./svwb/event-reactions.js";
-import { gainWorldsBeyondShadows } from "./svwb/effect-resolver.js";
+import { destroyWorldsBeyondFollower, gainWorldsBeyondShadows } from "./svwb/effect-resolver.js";
 import { applyWorldsBeyondEvolutionAction, listWorldsBeyondEvolutionActions } from "./svwb/evolution-actions.js";
+import { resolveWorldsBeyondSplitEnemyFollowerDamage } from "./svwb/generic-effects.js";
 import { runWorldsBeyondTurnEnd, runWorldsBeyondTurnStart } from "./svwb/lifecycle.js";
 import { spellboostWorldsBeyondHand } from "./svwb/spellboost.js";
 import { resolveWorldsBeyondEffectCommand } from "./svwb/v6/effect-commands.js";
@@ -73,6 +74,14 @@ export const WORLDS_BEYOND_RULESET = Object.freeze({
   },
   evolveFollowerByAbility(session, playerIndex, source) {
     return evolveWorldsBeyondFollowerByAbility(session, playerIndex, source);
+  },
+  resolveSplitEnemyFollowerDamage(session, { playerIndex, source, amount }) {
+    return resolveWorldsBeyondSplitEnemyFollowerDamage(session, {
+      playerIndex,
+      source,
+      amount,
+      destroyFollower: destroyWorldsBeyondFollower
+    });
   },
   afterEvent(session, event) {
     accountCemeteryOverflowShadow(session, event);
