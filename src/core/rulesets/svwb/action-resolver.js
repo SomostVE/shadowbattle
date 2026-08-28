@@ -102,7 +102,7 @@ export function listWorldsBeyondActions(session, playerIndex) {
       const targetRequirement = getWorldsBeyondTargetRequirement(card, "play", mode, player);
       const discardRequired = requiresWorldsBeyondHandDiscard(card, "play", mode, player);
       const discardCandidates = discardRequired ? handDiscardOptions(player, card) : [null];
-      const discardCanSkip = discardRequired && !discardCandidates.length && hasWorldsBeyondSelectedCardCostX(mode?.text || card.card?.text);
+      const discardCanSkip = discardRequired && !discardCandidates.length && hasWorldsBeyondSelectedCardCostX(card.card?.text);
       if (discardRequired && !discardCandidates.length && !discardCanSkip) continue;
       const discardOptions = discardRequired && !discardCandidates.length ? [null] : discardCandidates;
       const handCopySpec = getWorldsBeyondArtifactHandCopySpec(card, mode?.text || card.card?.text);
@@ -212,6 +212,7 @@ function playCard(session, action) {
   const index = player.hand.findIndex(card => card.instanceId === action.cardInstanceId);
   if (index < 0) throw new Error("Card is not in the active player's hand");
   const instance = player.hand[index];
+  const selectedCostSourceText = String(instance.card?.text ?? "");
   const availableModes = playModes(instance, player);
   const mode = selectPlayMode(availableModes, action);
   if (!mode) throw new Error("Selected play mode is not legal");
@@ -228,7 +229,7 @@ function playCard(session, action) {
   const targets = requirement ? getWorldsBeyondTargetOptions(session, { trigger: "play", playerIndex, source: instance, mode }) : [];
   const discardRequired = requiresWorldsBeyondHandDiscard(instance, "play", mode, player);
   const discardCandidates = discardRequired ? handDiscardOptions(player, instance) : [];
-  const discardCanSkip = discardRequired && !discardCandidates.length && hasWorldsBeyondSelectedCardCostX(mode?.text || instance.card?.text);
+  const discardCanSkip = discardRequired && !discardCandidates.length && hasWorldsBeyondSelectedCardCostX(selectedCostSourceText);
   const selectedDiscard = validateDiscardSelection(player, instance, discardRequired, action.discardInstanceId, { allowMissing: discardCanSkip });
   const handCopySpec = getWorldsBeyondArtifactHandCopySpec(instance, mode?.text || instance.card?.text);
   validateWorldsBeyondArtifactHandCopySelection(player, instance, handCopySpec, action.handCopyInstanceIds ?? []);
@@ -302,7 +303,6 @@ function playCard(session, action) {
   } else {
     const originalActiveText = instance.activeText;
     const hadActiveText = Object.prototype.hasOwnProperty.call(instance, "activeText");
-    const selectedCostSourceText = instance.activeText ?? instance.card?.text ?? mode?.text ?? "";
     if (hasWorldsBeyondSelectedCardCostX(selectedCostSourceText)) {
       instance.activeText = resolveWorldsBeyondSelectedCardCostX(selectedCostSourceText, selectedDiscard, {
         omitSelectionWhenMissing: discardCanSkip && !selectedDiscard
