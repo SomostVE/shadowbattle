@@ -32,6 +32,10 @@ import {
   validateWorldsBeyondOptionalAlliedCardSelection
 } from "./optional-allied-card.js";
 import { gainWorldsBeyondRally } from "./rally.js";
+import {
+  hasWorldsBeyondSelectedCardCostX,
+  resolveWorldsBeyondSelectedCardCostX
+} from "./selected-card-cost-x.js";
 import { modes as v5Modes } from "./v5/battle-engine-v5-modes.js";
 
 export const SVWB_ACTION = Object.freeze({
@@ -97,8 +101,10 @@ export function listWorldsBeyondActions(session, playerIndex) {
       };
       const targetRequirement = getWorldsBeyondTargetRequirement(card, "play", mode, player);
       const discardRequired = requiresWorldsBeyondHandDiscard(card, "play", mode, player);
-      const discardOptions = discardRequired ? handDiscardOptions(player, card) : [null];
-      if (discardRequired && !discardOptions.length) continue;
+      const discardCandidates = discardRequired ? handDiscardOptions(player, card) : [null];
+      const discardCanSkip = discardRequired && !discardCandidates.length && hasWorldsBeyondSelectedCardCostX(card.card?.text);
+      if (discardRequired && !discardCandidates.length && !discardCanSkip) continue;
+      const discardOptions = discardRequired && !discardCandidates.length ? [null] : discardCandidates;
       const handCopySpec = getWorldsBeyondArtifactHandCopySpec(card, mode?.text || card.card?.text);
       const handCopySelections = handCopySpec ? getWorldsBeyondArtifactHandCopySelections(player, card, handCopySpec) : [null];
       if (handCopySpec && !handCopySelections.length) continue;
@@ -206,6 +212,7 @@ function playCard(session, action) {
   const index = player.hand.findIndex(card => card.instanceId === action.cardInstanceId);
   if (index < 0) throw new Error("Card is not in the active player's hand");
   const instance = player.hand[index];
+  const selectedCostSourceText = String(instance.card?.text ?? "");
   const availableModes = playModes(instance, player);
   const mode = selectPlayMode(availableModes, action);
   if (!mode) throw new Error("Selected play mode is not legal");
@@ -221,7 +228,9 @@ function playCard(session, action) {
   const requirement = getWorldsBeyondTargetRequirement(instance, "play", mode, player);
   const targets = requirement ? getWorldsBeyondTargetOptions(session, { trigger: "play", playerIndex, source: instance, mode }) : [];
   const discardRequired = requiresWorldsBeyondHandDiscard(instance, "play", mode, player);
-  validateDiscardSelection(player, instance, discardRequired, action.discardInstanceId);
+  const discardCandidates = discardRequired ? handDiscardOptions(player, instance) : [];
+  const discardCanSkip = discardRequired && !discardCandidates.length && hasWorldsBeyondSelectedCardCostX(selectedCostSourceText);
+  const selectedDiscard = validateDiscardSelection(player, instance, discardRequired, action.discardInstanceId, { allowMissing: discardCanSkip });
   const handCopySpec = getWorldsBeyondArtifactHandCopySpec(instance, mode?.text || instance.card?.text);
   validateWorldsBeyondArtifactHandCopySelection(player, instance, handCopySpec, action.handCopyInstanceIds ?? []);
   const optionalAlliedSpec = getWorldsBeyondOptionalAlliedCardSpec(instance, mode?.text || instance.card?.text);
@@ -292,13 +301,21 @@ function playCard(session, action) {
       destroyAmulet: destroyWorldsBeyondAmulet
     });
   } else {
+    const resolvedMode = hasWorldsBeyondSelectedCardCostX(selectedCostSourceText)
+      ? {
+          ...mode,
+          text: resolveWorldsBeyondSelectedCardCostX(selectedCostSourceText, selectedDiscard, {
+            omitSelectionWhenMissing: discardCanSkip && !selectedDiscard
+          })
+        }
+      : mode;
     resolveWorldsBeyondTrigger(session, {
       trigger: "play",
       playerIndex,
       source: instance,
       targetInstanceId: action.targetInstanceId ?? null,
       discardInstanceId: action.discardInstanceId ?? null,
-      mode
+      mode: resolvedMode
     });
   }
   if (type === "follower") gainWorldsBeyondRally(player, 1);
