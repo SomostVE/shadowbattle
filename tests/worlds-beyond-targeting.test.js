@@ -73,6 +73,54 @@ test("targeted damage creates one legal play branch per enemy follower and resol
   assert.equal(trigger?.payload.target?.instanceId, second.instanceId);
 });
 
+test("follower-or-leader damage creates an explicit leader branch without changing the follower branch", () => {
+  const spell = card("follower-or-leader-damage", {
+    name: "Gilded Blade Pattern",
+    type: "Spell",
+    cost: 2,
+    text: "Select an enemy follower on the field or the enemy leader and deal it 3 damage."
+  });
+  const game = begin(spell);
+  const spellInstance = forceCardIntoHand(game, spell);
+  const follower = forceEnemyFollower(game, { defense: 6 });
+  const enemyHpBefore = game.players[1].hp;
+
+  const actions = game.listLegalActions(0).filter(action => action.type === "play-card" && action.cardInstanceId === spellInstance.instanceId);
+  assert.equal(actions.length, 2);
+  assert.ok(actions.some(action => action.targetInstanceId === follower.instanceId));
+  const leaderAction = actions.find(action => action.targetInstanceId !== follower.instanceId);
+  assert.ok(leaderAction);
+  assert.match(leaderAction.targetInstanceId, /^leader:1$/);
+
+  game.dispatch(leaderAction);
+
+  assert.equal(game.players[1].hp, enemyHpBefore - 3);
+  assert.equal(game.findBoardCard(1, follower.instanceId)?.defense, 6);
+  const trigger = game.getEvents({ viewer: 0 }).findLast(event => event.type === BATTLE_EVENT.ABILITY_TRIGGER && event.payload.card?.cardId === spell.id);
+  assert.equal(trigger?.payload.resolved, true);
+  assert.equal(trigger?.payload.target?.type, "leader");
+  assert.equal(trigger?.payload.target?.playerIndex, 1);
+});
+
+test("follower-or-leader damage remains playable with an empty enemy board because the leader is a legal target", () => {
+  const spell = card("leader-only-target", {
+    name: "Ravening Tentacles Pattern",
+    type: "Spell",
+    cost: 2,
+    text: "Select an enemy follower or the enemy leader and deal it 2 damage."
+  });
+  const game = begin(spell);
+  const spellInstance = forceCardIntoHand(game, spell);
+  const enemyHpBefore = game.players[1].hp;
+
+  const actions = game.listLegalActions(0).filter(action => action.type === "play-card" && action.cardInstanceId === spellInstance.instanceId);
+  assert.equal(actions.length, 1);
+  assert.equal(actions[0].targetInstanceId, "leader:1");
+
+  game.dispatch(actions[0]);
+  assert.equal(game.players[1].hp, enemyHpBefore - 2);
+});
+
 test("a targeted destroy spell cannot be played without a legal enemy target", () => {
   const spell = card("targeted-destroy", { name: "Clean Removal", type: "Spell", cost: 2, text: "Select an enemy follower and destroy it." });
   const game = begin(spell);
