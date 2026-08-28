@@ -287,6 +287,11 @@ function targetAdjustment(action, context, reasons) {
   const kind = normalize(action.targetKind);
   const amount = Math.max(0, Number(action.targetAmount ?? 0));
 
+  if (id === `leader:${context.enemyIndex}`) {
+    reasons.push("leader-target");
+    if (kind === "damage") return leaderDamageTargetValue(amount, context, reasons);
+    return 0;
+  }
   if (enemy) {
     reasons.push("enemy-target");
     if (kind === "damage") return enemyDamageTargetValue(enemy, amount, context.strategy, reasons);
@@ -303,6 +308,21 @@ function targetAdjustment(action, context, reasons) {
     return visibleCardValue(allied) * 0.32;
   }
   return 0;
+}
+
+function leaderDamageTargetValue(amount, context, reasons) {
+  if (!(amount > 0)) return 0;
+  const hp = Math.max(0, Number(context.enemy.hp ?? 0));
+  if (hp > 0 && amount >= hp) {
+    reasons.push("lethal");
+    return 1000 + amount;
+  }
+  const effectiveDamage = hp > 0 ? Math.min(amount, hp) : amount;
+  const closing = Math.max(0, 10 - Number(context.enemy.hp ?? 20)) * context.strategy.faceBias * 0.12;
+  const hiddenRisk = Number(context.hiddenInfo?.pressure ?? 0) * (0.12 + context.strategy.tradeBias * 0.25);
+  reasons.push("leader-pressure");
+  if (hiddenRisk >= 0.15) reasons.push("hidden-counterplay-risk");
+  return effectiveDamage * (0.8 + context.strategy.faceBias * 1.6) + closing - hiddenRisk;
 }
 
 function enemyDamageTargetValue(target, amount, strategy, reasons) {
