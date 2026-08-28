@@ -14,7 +14,7 @@ function unit(id, options = {}) {
     cardId: id,
     cost: source.cost,
     type: source.type,
-    grantedKeywords: new Set(options.grantedKeywords ?? [])
+    grantedKeywords: [...(options.grantedKeywords ?? [])]
   };
 }
 
