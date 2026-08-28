@@ -197,6 +197,42 @@ test("targeted damage prefers a follower it can remove over a larger follower it
   assert.ok(ranked[0].reasons.includes("removes-follower"));
 });
 
+test("targeted leader damage is recognized as visible lethal", () => {
+  const spell = card("burn", { cost: 2, type: "Spell" });
+  const follower = card("follower", { attack: 4, defense: 2 });
+  const game = session({
+    ai: player(1, { hand: [spell] }),
+    enemy: player(0, { hp: 3, board: [follower] }),
+    actions: [
+      { type: "play-card", player: 1, cardInstanceId: "burn", cost: 2, effectiveType: "spell", targetInstanceId: "leader:0", targetKind: "damage", targetAmount: 3 },
+      { type: "play-card", player: 1, cardInstanceId: "burn", cost: 2, effectiveType: "spell", targetInstanceId: "follower", targetKind: "damage", targetAmount: 3 }
+    ]
+  });
+
+  const ranked = evaluateIntermediateActions(game, 1, { strategy: { faceBias: 0.5, tradeBias: 0.8 } });
+  assert.equal(ranked[0].action.targetInstanceId, "leader:0");
+  assert.ok(ranked[0].reasons.includes("leader-target"));
+  assert.ok(ranked[0].reasons.includes("lethal"));
+});
+
+test("targeted damage uses face and trade bias when leader and follower are both legal", () => {
+  const spell = card("flex-burn", { cost: 2, type: "Spell" });
+  const follower = card("killable", { attack: 2, defense: 2 });
+  const actions = [
+    { type: "play-card", player: 1, cardInstanceId: "flex-burn", cost: 2, effectiveType: "spell", targetInstanceId: "leader:0", targetKind: "damage", targetAmount: 3 },
+    { type: "play-card", player: 1, cardInstanceId: "flex-burn", cost: 2, effectiveType: "spell", targetInstanceId: "killable", targetKind: "damage", targetAmount: 3 }
+  ];
+  const game = session({ ai: player(1, { hand: [spell] }), enemy: player(0, { hp: 20, board: [follower] }), actions });
+
+  const aggro = evaluateIntermediateActions(game, 1, { strategy: { faceBias: 0.95, tradeBias: 0.1 } });
+  const control = evaluateIntermediateActions(game, 1, { strategy: { faceBias: 0.1, tradeBias: 0.95 } });
+
+  assert.equal(aggro[0].action.targetInstanceId, "leader:0");
+  assert.ok(aggro[0].reasons.includes("leader-pressure"));
+  assert.equal(control[0].action.targetInstanceId, "killable");
+  assert.ok(control[0].reasons.includes("removes-follower"));
+});
+
 test("allied self-damage avoids killing a follower when a survivable legal target exists", () => {
   const spell = card("self-damage", { cost: 2, type: "Spell" });
   const fragile = card("fragile", { attack: 1, defense: 1 });

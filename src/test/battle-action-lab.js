@@ -308,7 +308,9 @@ async function resolveEnemyFollowerTarget(instanceId) {
 }
 
 async function attackOpponentLeader() {
-  if (!isHumanTurn() || !selectedAttacker || selectedPlayCard || selectedEngageAmulet || selectedEvolution || selectedFuseTarget) return;
+  if (!isHumanTurn()) return;
+  if (await resolveEffectFollowerTarget("leader:1")) return;
+  if (!selectedAttacker || selectedPlayCard || selectedEngageAmulet || selectedEvolution || selectedFuseTarget) return;
   const action = legalActions(0).find(item => item.type === "attack" && item.attackerInstanceId === selectedAttacker && item.target === "leader");
   if (!action) return;
   clearSelections();
@@ -393,7 +395,12 @@ function render() {
 
   const humanActions = isHumanTurn() ? legalActions(0) : [];
   const canHitLeader = selectedAttacker && !selectedPlayCard && !selectedEngageAmulet && !selectedEvolution && !selectedFuseTarget && humanActions.some(action => action.type === "attack" && action.attackerInstanceId === selectedAttacker && action.target === "leader");
-  ui.opponentLeader.classList.toggle("is-targetable", Boolean(canHitLeader));
+  const canEffectTargetLeader = Boolean(
+    (selectedPlayCard && selectedPlayModeKey && humanActions.some(action => action.type === "play-card" && action.cardInstanceId === selectedPlayCard && action.playModeKey === selectedPlayModeKey && action.targetInstanceId === "leader:1"))
+    || (selectedEngageAmulet && humanActions.some(action => action.type === "engage" && action.amuletInstanceId === selectedEngageAmulet && action.targetInstanceId === "leader:1"))
+    || (selectedEvolution && humanActions.some(action => action.type === selectedEvolution.type && action.followerInstanceId === selectedEvolution.followerInstanceId && action.targetInstanceId === "leader:1"))
+  );
+  ui.opponentLeader.classList.toggle("is-targetable", Boolean(canHitLeader || canEffectTargetLeader));
 
   ui.mulligan.disabled = snapshot.phase !== GAME_PHASE.MULLIGAN || human.mulliganDone || cpuBusy;
   ui.endTurn.disabled = !isHumanTurn();
@@ -423,13 +430,13 @@ function render() {
       ui.help.textContent = "Choose the play mode for the selected card.";
       setStatus("Choose play mode", "ready");
     } else if (selectedPlayCard) {
-      ui.help.textContent = "Choose a highlighted follower as the card effect target. Click the selected card again to cancel.";
+      ui.help.textContent = "Choose a highlighted follower as the card effect target, or the highlighted enemy leader when legal. Click the selected card again to cancel.";
       setStatus("Choose effect target", "ready");
     } else if (selectedEngageAmulet) {
-      ui.help.textContent = "Choose a highlighted follower as the Engage target.";
+      ui.help.textContent = "Choose Engage target: a highlighted follower or the enemy leader when legal.";
       setStatus("Choose Engage target", "ready");
     } else if (selectedEvolution) {
-      ui.help.textContent = `Choose a highlighted follower as the ${selectedEvolution.type === "super-evolve" ? "Super Evo" : "Evo"} effect target.`;
+      ui.help.textContent = `Choose a highlighted legal target for the ${selectedEvolution.type === "super-evolve" ? "Super Evo" : "Evo"} effect.`;
       setStatus("Choose evolution target", "ready");
     } else if (selectedAttacker) {
       ui.help.textContent = "Choose a highlighted enemy follower or the enemy leader as the attack target.";

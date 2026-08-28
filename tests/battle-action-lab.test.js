@@ -39,6 +39,14 @@ test("targeted card, Engage and evolution effects share the legal target graph w
   assert.match(controller, /is-effect-target/);
 });
 
+test("enemy leader effect targets reuse the explicit legal action graph", () => {
+  assert.match(controller, /resolveEffectFollowerTarget\("leader:1"\)/);
+  assert.match(controller, /const canEffectTargetLeader = Boolean/);
+  assert.match(controller, /action\.targetInstanceId === "leader:1"/);
+  assert.match(controller, /canHitLeader \|\| canEffectTargetLeader/);
+  assert.match(controller, /highlighted enemy leader when legal/);
+});
+
 test("allied effect targets use the same explicit target graph instead of auto-selecting", () => {
   assert.match(controller, /resolveAlliedFollowerTarget/);
   assert.match(controller, /resolveEffectFollowerTarget/);
