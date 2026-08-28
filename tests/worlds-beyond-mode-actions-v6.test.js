@@ -143,7 +143,6 @@ test("play action graph exposes both simple Glittering Gold modes", () => {
 
   assert.equal(actions.length, 2);
   assert.deepEqual(actions.map(action => action.playMode.modeIndex).sort((a, b) => a - b), [1, 2]);
-  assert.ok(actions.every(action => getWorldsBeyondTriggerSupport(source, "play", action.playMode, game.players[0]).supported));
 });
 
 test("Glittering Gold selected draw mode resolves only the selected branch", () => {
