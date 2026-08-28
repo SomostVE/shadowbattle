@@ -10,7 +10,8 @@ export const SVWB_EFFECT_COMMAND = Object.freeze({
   ADD_TO_HAND: "svwb:add-to-hand",
   SUMMON: "svwb:summon",
   HEAL_LEADER: "heal-leader",
-  DAMAGE_LEADER: "damage-leader"
+  DAMAGE_LEADER: "damage-leader",
+  SPLIT_DAMAGE_ENEMY_FOLLOWERS: "svwb:split-damage-enemy-followers"
 });
 
 export function createWorldsBeyondEffectCommand(type, payload = {}, metadata = {}) {
@@ -26,6 +27,16 @@ export function createWorldsBeyondLeaderDamageCommand(playerIndex, targetPlayerI
     sourceCardId: options.sourceCardId ?? null,
     sourceCardName: options.sourceCardName ?? null,
     crest: options.crest ?? null
+  }, options.metadata);
+}
+
+export function createWorldsBeyondSplitEnemyFollowerDamageCommand(playerIndex, amount, options = {}) {
+  return createWorldsBeyondEffectCommand(SVWB_EFFECT_COMMAND.SPLIT_DAMAGE_ENEMY_FOLLOWERS, {
+    playerIndex,
+    amount,
+    reason: options.reason ?? "ability",
+    sourceCardId: options.sourceCardId ?? null,
+    sourceCardName: options.sourceCardName ?? null
   }, options.metadata);
 }
 
@@ -128,25 +139,31 @@ export function compileWorldsBeyondPreTargetCommands(text, { playerIndex, source
 }
 
 export function compileWorldsBeyondPostTargetCommands(text, { playerIndex, source } = {}) {
-  const commands = [];
+  const indexed = [];
   const sourceOptions = cardSourceOptions(source, "post-target");
+  const value = String(text ?? "");
 
-  for (const match of String(text ?? "").matchAll(/\bdraw\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+cards?\b/gi)) {
+  for (const match of value.matchAll(/\bdraw\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+cards?\b/gi)) {
     const amount = numberWord(match[1]);
-    if (amount > 0) commands.push(createWorldsBeyondDrawCommand(playerIndex, amount, sourceOptions));
+    if (amount > 0) indexed.push({ index: match.index ?? 0, command: createWorldsBeyondDrawCommand(playerIndex, amount, sourceOptions) });
   }
 
-  for (const match of String(text ?? "").matchAll(/\b(?:restore|recover)\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+defense to your leader\b/gi)) {
+  for (const match of value.matchAll(/\b(?:restore|recover)\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+defense to your leader\b/gi)) {
     const amount = numberWord(match[1]);
-    if (amount > 0) commands.push(createWorldsBeyondLeaderHealCommand(playerIndex, amount, sourceOptions));
+    if (amount > 0) indexed.push({ index: match.index ?? 0, command: createWorldsBeyondLeaderHealCommand(playerIndex, amount, sourceOptions) });
   }
 
-  for (const match of String(text ?? "").matchAll(/\bdeal\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+damage to (?:the )?enemy leader\b/gi)) {
+  for (const match of value.matchAll(/\bdeal\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+damage to (?:the )?enemy leader\b/gi)) {
     const amount = numberWord(match[1]);
-    if (amount > 0) commands.push(createWorldsBeyondLeaderDamageCommand(playerIndex, 1 - Number(playerIndex), amount, sourceOptions));
+    if (amount > 0) indexed.push({ index: match.index ?? 0, command: createWorldsBeyondLeaderDamageCommand(playerIndex, 1 - Number(playerIndex), amount, sourceOptions) });
   }
 
-  return commands;
+  for (const match of value.matchAll(/\bdeal\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+damage split between all enemy followers\b/gi)) {
+    const amount = numberWord(match[1]);
+    if (amount > 0) indexed.push({ index: match.index ?? 0, command: createWorldsBeyondSplitEnemyFollowerDamageCommand(playerIndex, amount, sourceOptions) });
+  }
+
+  return indexed.sort((left, right) => left.index - right.index).map(item => item.command);
 }
 
 export function compileWorldsBeyondTrailingFilteredDrawCommands(text, { playerIndex, source } = {}) {
@@ -238,6 +255,17 @@ export function resolveWorldsBeyondEffectCommand(session, command) {
         })
       : 0;
     return { applied: requested > 0, requested, damage };
+  }
+
+  if (command.type === SVWB_EFFECT_COMMAND.SPLIT_DAMAGE_ENEMY_FOLLOWERS) {
+    const requested = positiveAmount(payload.amount);
+    if (!requested) return { applied: false, requested: 0 };
+    const applied = Boolean(session.ruleset?.resolveSplitEnemyFollowerDamage?.(session, {
+      playerIndex,
+      source,
+      amount: requested
+    }));
+    return { applied, requested };
   }
 
   throw new Error(`Unsupported Worlds Beyond effect command: ${command?.type ?? "unknown"}`);
