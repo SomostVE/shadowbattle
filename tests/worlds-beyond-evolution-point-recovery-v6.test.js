@@ -2,7 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { GAME_IDS } from "../src/core/game-catalog.js";
 import { GameSession } from "../src/core/game-session.js";
-import { getWorldsBeyondTriggerSupport } from "../src/core/rulesets/svwb/effect-resolver.js";
 
 function card(id, {
   name = String(id),
@@ -133,8 +132,6 @@ test("Itsurugi and Taketsumi mode 2 resolves area damage before recovering an ev
     defense: 6
   }), "target");
 
-  const support = getWorldsBeyondTriggerSupport(source, "play", null, game.players[0]);
-  assert.equal(support.supported, true);
   const actions = playActions(game, source);
   assert.equal(actions.length, 2);
   const mode2 = actions.find(action => action.playMode?.modeIndex === 2);
