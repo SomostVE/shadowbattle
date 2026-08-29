@@ -29,4 +29,5 @@ jobs:
           git add src/core/rulesets/svwb/effect-resolver.js
           git diff --cached --quiet && exit 0
           git commit -m "feat: resolve Marlone board-difference X"
+          git pull --rebase origin engine-v6-0.5.22-marlone-board-difference-x
           git push
