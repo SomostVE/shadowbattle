@@ -30,6 +30,13 @@ export function evaluateWorldsBeyondClassCondition(textValue, player, card, { co
     notes.push(`X = Combo ${comboVariable.value}`);
   }
 
+  const orderedStateVariable = resolveOrderedStateCountVariable(text);
+  if (orderedStateVariable) {
+    text = orderedStateVariable.text;
+    mechanic = mechanic ?? "orderedStateCount";
+    notes.push(orderedStateVariable.note);
+  }
+
   const stateVariable = resolveStateCountVariable(text, player);
   if (stateVariable) {
     text = stateVariable.text;
@@ -254,6 +261,20 @@ function resolveComboVariable(text, player) {
   return {
     value,
     text: normalizeResolvedText(withoutDefinition.replace(/\bX\b/g, String(value)))
+  };
+}
+
+function resolveOrderedStateCountVariable(text) {
+  const value = String(text ?? "");
+  const definition = /\bX is the number of allied Golem followers on the field\s*\.?/i;
+  if (!definition.test(value) || !/\bdeal X damage to all enemy followers\b/i.test(value)) return null;
+  const withoutDefinition = value.replace(definition, " ");
+  return {
+    note: "X = allied Golem followers at resolution",
+    text: normalizeResolvedText(withoutDefinition.replace(
+      /\bdeal X damage to all enemy followers\b/i,
+      "Deal damage to all enemy followers equal to the number of allied Golem followers on the field"
+    ))
   };
 }
 
