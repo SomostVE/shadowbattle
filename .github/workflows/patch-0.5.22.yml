@@ -1,0 +1,32 @@
+name: Patch 0.5.22
+
+on:
+  push:
+    branches:
+      - engine-v6-0.5.22-marlone-board-difference-x
+    paths:
+      - scripts/patch-0.5.22.mjs
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: engine-v6-0.5.22-marlone-board-difference-x
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - name: Apply guarded patch
+        run: node scripts/patch-0.5.22.mjs
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/core/rulesets/svwb/effect-resolver.js
+          git diff --cached --quiet && exit 0
+          git commit -m "feat: resolve Marlone board-difference X"
+          git push
