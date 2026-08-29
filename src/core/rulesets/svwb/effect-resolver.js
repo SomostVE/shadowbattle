@@ -718,6 +718,7 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
     playerIndex,
     source,
     destroyFollower: destroyWorldsBeyondFollower,
+    destroyCard: destroyWorldsBeyondTargetCard,
     gainShadows: gainWorldsBeyondShadows
   }) || applied;
 
