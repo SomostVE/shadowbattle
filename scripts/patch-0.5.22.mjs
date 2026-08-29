@@ -1,5 +1,6 @@
 import fs from "node:fs";
 
+// Retry after the test commit raced the first patch push.
 const path = "src/core/rulesets/svwb/effect-resolver.js";
 let text = fs.readFileSync(path, "utf8");
 
