@@ -1,0 +1,32 @@
+name: Sync 0.5.21 Branch Version
+
+on:
+  push:
+    branches: [engine-v6-0.5.21-other-allied-cards-x]
+    paths:
+      - version.json
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: engine-v6-0.5.21-other-allied-cards-x
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - name: Synchronize public version references
+        run: node .github/scripts/sync-public-version.mjs
+      - name: Commit synchronized pages
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html api/index.html decks/index.html library/index.html test/index.html
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "chore: sync public version to 0.5.21"
+          git push
