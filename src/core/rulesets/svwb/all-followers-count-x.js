@@ -14,3 +14,41 @@ export function resolveWorldsBeyondAllFollowersCountX(textValue) {
     .replace(/\s+([.,;:!?])/g, "$1")
     .trim();
 }
+
+export function resolveWorldsBeyondAllFollowersCountDamage(session, {
+  playerIndex,
+  source = null,
+  destroyFollower
+} = {}) {
+  const targets = session.players.flatMap((player, owner) => player.board
+    .filter(unit => cardType(unit) === "follower")
+    .map(unit => ({ owner, instanceId: unit.instanceId })));
+  const amount = targets.length;
+  if (!amount) return false;
+
+  for (const { owner, instanceId } of targets) {
+    if (!session.findBoardCard(owner, instanceId)) continue;
+    session.damageFollower(owner, instanceId, amount, {
+      actor: playerIndex,
+      source,
+      reason: "ability",
+      resolveDeath: false
+    });
+  }
+
+  for (const { owner, instanceId } of targets) {
+    const live = session.findBoardCard(owner, instanceId);
+    if (!live || Number(live.defense ?? 0) > 0) continue;
+    destroyFollower?.(session, owner, instanceId, {
+      actor: playerIndex,
+      source,
+      reason: "ability",
+      byAbility: true
+    });
+  }
+  return true;
+}
+
+function cardType(instance) {
+  return String(instance?.typeOverride ?? instance?.card?.type ?? instance?.type ?? "").trim().toLowerCase();
+}
