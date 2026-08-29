@@ -306,7 +306,12 @@ function healLeaderByLiveHandSize(session, playerIndex, source) {
     createWorldsBeyondLeaderHealCommand(playerIndex, amount, {
       sourceCardId,
       sourceCardName,
-      reason: "ability"
+      reason: "ability",
+      metadata: {
+        source: "card-text",
+        stage: "post-draw-hand-x",
+        sourceInstanceId: source?.instanceId ?? null
+      }
     })
   ]);
   return Boolean(result?.applied);
