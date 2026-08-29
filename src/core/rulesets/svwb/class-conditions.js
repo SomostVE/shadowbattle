@@ -17,7 +17,7 @@ const COUNT_WORDS = Object.freeze({
   ten: 10
 });
 
-export function evaluateWorldsBeyondClassCondition(textValue, player, card, { consume = false } = {}) {
+export function evaluateWorldsBeyondClassCondition(textValue, player, card, { consume = false, source = null } = {}) {
   let text = normalizeText(textValue);
   if (!text) return { text: "", active: true, notes: [], mechanic: null };
   const notes = [];
@@ -37,7 +37,7 @@ export function evaluateWorldsBeyondClassCondition(textValue, player, card, { co
     notes.push(orderedStateVariable.note);
   }
 
-  const stateVariable = resolveStateCountVariable(text, player);
+  const stateVariable = resolveStateCountVariable(text, player, source);
   if (stateVariable) {
     text = stateVariable.text;
     mechanic = mechanic ?? "stateCount";
@@ -278,7 +278,7 @@ function resolveOrderedStateCountVariable(text) {
   };
 }
 
-function resolveStateCountVariable(text, player) {
+function resolveStateCountVariable(text, player, source = null) {
   const value = String(text ?? "");
   if ((value.match(/\bX is\b/gi) ?? []).length !== 1) return null;
 
@@ -306,6 +306,12 @@ function resolveStateCountVariable(text, player) {
       pattern: /\bX is the number of allied followers on the field with a base cost of\s+(\d+)\s+or more\s*\.?/i,
       blocked: prefixMutatesAlliedFollowers,
       count: match => countAlliedFollowers(player, unit => baseCardCost(unit) >= Number(match[1] ?? 0))
+    },
+    {
+      label: "other allied followers",
+      pattern: /\bX is the number of other allied followers on the field\s*\.?/i,
+      blocked: prefixMutatesAlliedFollowers,
+      count: () => countAlliedFollowers(player, null, source?.instanceId ?? null)
     },
     {
       label: "allied followers",
@@ -366,8 +372,12 @@ function prefixMutatesEarthSigils(prefix) {
   return /\bEarth Rite\b|\bgain\b[^.]*\bearth sigils?\b|\b(?:spend|consume|remove)\b[^.]*\bearth sigils?\b/i.test(String(prefix ?? ""));
 }
 
-function countAlliedFollowers(player, predicate = null) {
-  return (player?.board ?? []).filter(item => cardType(item) === "follower" && (!predicate || predicate(item))).length;
+function countAlliedFollowers(player, predicate = null, excludeInstanceId = null) {
+  return (player?.board ?? []).filter(item =>
+    cardType(item) === "follower"
+    && item?.instanceId !== excludeInstanceId
+    && (!predicate || predicate(item))
+  ).length;
 }
 
 function baseCardCost(instance) {
