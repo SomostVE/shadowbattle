@@ -24,7 +24,7 @@ const GENERIC_EFFECT_PATTERNS = Object.freeze([
   /\bgive all other allied followers(?: on the field)?\s+\+\d+\s*\/\s*\+\d+\b/gi,
   /\bgive all allied followers(?: on the field)?\s+Barrier\b/gi,
   /\bgive all enemy followers(?: on the field)?\s+-\d+\s*\/\s*-\d+\b/gi,
-  new RegExp(`\\bdestroy\\s+${NUMBER}\\s+random enemy followers?\\b`, "gi"),
+  new RegExp(`\\bdestroy\\s+${NUMBER}\\s+random enemy followers\\b`, "gi"),
   /\bdestroy all other allied cards(?: on the field)?\b/gi,
   /\bdestroy all damaged enemy followers\b/gi,
   new RegExp(`\\bgain\\s+${NUMBER}\\s+shadows?\\b`, "gi"),
@@ -91,7 +91,7 @@ export function resolveWorldsBeyondGenericEffects(session, {
     attack: Number(match[1]) || 0,
     defense: Number(match[2]) || 0
   }), effects);
-  collect(value, new RegExp(`\\bdestroy\\s+${NUMBER}\\s+random enemy followers?\\b`, "gi"), match => ({
+  collect(value, new RegExp(`\\bdestroy\\s+${NUMBER}\\s+random enemy followers\\b`, "gi"), match => ({
     kind: "destroy-random-enemy-followers",
     count: numberWord(match[1])
   }), effects);
