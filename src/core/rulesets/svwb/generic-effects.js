@@ -1,5 +1,9 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
 import { resolveEffectCommands } from "../../effect-commands.js";
+import {
+  LIVE_ALL_FOLLOWER_COUNT_DAMAGE,
+  resolveWorldsBeyondAllFollowersCountDamage
+} from "./all-followers-count-x.js";
 import { grantWorldsBeyondKeyword } from "./combat-readiness.js";
 import { addWorldsBeyondGeneratedCard } from "./generated-cards.js";
 import { LIVE_HAND_SIZE_LEADER_HEAL } from "./post-draw-hand-x.js";
@@ -15,6 +19,7 @@ const GENERIC_EFFECT_PATTERNS = Object.freeze([
   new RegExp(`\\bdeal\\s+${NUMBER}\\s+damage to your leader\\b`, "gi"),
   new RegExp(`\\bdeal\\s+${NUMBER}\\s+damage to both leaders\\b`, "gi"),
   ALLIED_GOLEM_AREA_DAMAGE,
+  LIVE_ALL_FOLLOWER_COUNT_DAMAGE,
   LIVE_HAND_SIZE_LEADER_HEAL,
   /\bgive all other allied followers(?: on the field)?\s+\+\d+\s*\/\s*\+\d+\b/gi,
   /\bgive all allied followers(?: on the field)?\s+Barrier\b/gi,
@@ -62,6 +67,9 @@ export function resolveWorldsBeyondGenericEffects(session, {
   }), effects);
   collect(value, ALLIED_GOLEM_AREA_DAMAGE, () => ({
     kind: "enemy-area-damage-by-allied-golem-count"
+  }), effects);
+  collect(value, LIVE_ALL_FOLLOWER_COUNT_DAMAGE, () => ({
+    kind: "all-followers-damage-by-live-count"
   }), effects);
   collect(value, LIVE_HAND_SIZE_LEADER_HEAL, () => ({
     kind: "leader-heal-by-live-hand-size"
@@ -123,6 +131,14 @@ export function resolveWorldsBeyondGenericEffects(session, {
     }
     if (effect.kind === "enemy-area-damage-by-allied-golem-count") {
       applied = damageEnemyFollowersByAlliedGolemCount(session, playerIndex, source, destroyFollower) || applied;
+      continue;
+    }
+    if (effect.kind === "all-followers-damage-by-live-count") {
+      applied = resolveWorldsBeyondAllFollowersCountDamage(session, {
+        playerIndex,
+        source,
+        destroyFollower
+      }) || applied;
       continue;
     }
     if (effect.kind === "leader-heal-by-live-hand-size") {

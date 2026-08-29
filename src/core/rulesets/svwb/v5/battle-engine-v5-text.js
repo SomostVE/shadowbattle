@@ -1,3 +1,4 @@
+import { resolveWorldsBeyondAllFollowersCountX } from "../all-followers-count-x.js";
 import { stripWorldsBeyondArtifactHandCopyText } from "../artifact-hand-copy.js";
 import { stripWorldsBeyondDiscardReactionText } from "../discard-reactions.js";
 import { stripWorldsBeyondOptionalAlliedCardText } from "../optional-allied-card.js";
@@ -88,7 +89,9 @@ function stripExplicitActionChoices(textValue) {
 }
 
 function resolvePlayTextVariables(textValue) {
-  return resolveWorldsBeyondPostDrawHandX(resolveWorldsBeyondSelectedCardCostX(textValue));
+  return resolveWorldsBeyondAllFollowersCountX(
+    resolveWorldsBeyondPostDrawHandX(resolveWorldsBeyondSelectedCardCostX(textValue))
+  );
 }
 
 export function baseText(text) {
