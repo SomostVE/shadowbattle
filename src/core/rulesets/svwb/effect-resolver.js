@@ -38,7 +38,7 @@ export function getWorldsBeyondTargetRequirement(source, trigger = "play", mode 
   const originalText = preprocessWorldsBeyondFuseText(source, triggerText(source, trigger, mode));
   if (!originalText) return null;
   const evaluationPlayer = prospectiveTargetPlayer(player, source, trigger);
-  const conditional = evaluationPlayer ? evaluateWorldsBeyondClassCondition(originalText, evaluationPlayer, source.card) : { text: originalText, active: true };
+  const conditional = evaluationPlayer ? evaluateWorldsBeyondClassCondition(originalText, evaluationPlayer, source.card, { source }) : { text: originalText, active: true };
   if (!conditional.active || !conditional.text) return null;
   const resolvedText = resolveWorldsBeyondVariables(conditional.text, source);
   const spec = worldsBeyondTargetEffectSpec(resolvedText, source);
@@ -50,7 +50,7 @@ export function requiresWorldsBeyondHandDiscard(source, trigger = "play", mode =
   const originalText = preprocessWorldsBeyondFuseText(source, triggerText(source, trigger, mode));
   if (!originalText) return false;
   const evaluationPlayer = prospectiveTargetPlayer(player, source, trigger);
-  const conditional = evaluationPlayer ? evaluateWorldsBeyondClassCondition(originalText, evaluationPlayer, source.card) : { text: originalText, active: true };
+  const conditional = evaluationPlayer ? evaluateWorldsBeyondClassCondition(originalText, evaluationPlayer, source.card, { source }) : { text: originalText, active: true };
   if (!conditional.active || !conditional.text) return false;
   if (HAND_DISCARD_SELECTION.test(conditional.text)) return true;
   if (!hasWorldsBeyondHandReturnSelection(conditional.text)) return false;
@@ -62,7 +62,7 @@ export function canSkipWorldsBeyondHandDiscard(source, trigger = "play", mode = 
   if (trigger !== "engage" || !source?.card || !player) return false;
   const originalText = preprocessWorldsBeyondFuseText(source, triggerText(source, trigger, mode));
   if (!originalText) return false;
-  const conditional = evaluateWorldsBeyondClassCondition(originalText, player, source.card);
+  const conditional = evaluateWorldsBeyondClassCondition(originalText, player, source.card, { source });
   if (!conditional.active || !conditional.text) return false;
   const match = HAND_DISCARD_SELECTION.exec(conditional.text);
   if (!match || match.index <= 0) return false;
@@ -81,7 +81,7 @@ export function getWorldsBeyondTriggerSupport(source, trigger = "play", mode = n
 
   const evaluationPlayer = prospectiveTargetPlayer(player, source, trigger);
   const conditional = evaluationPlayer
-    ? evaluateWorldsBeyondClassCondition(originalText, evaluationPlayer, source.card)
+    ? evaluateWorldsBeyondClassCondition(originalText, evaluationPlayer, source.card, { source })
     : { text: originalText, active: true, notes: [], mechanic: null };
   if (!conditional.active || !conditional.text) {
     return {
@@ -129,7 +129,7 @@ export function resolveWorldsBeyondTrigger(session, { trigger, playerIndex, sour
   if (!originalText) return { applied: false, unresolved: false, text: "" };
 
   const player = session.getPlayer(playerIndex);
-  const preview = evaluateWorldsBeyondClassCondition(originalText, player, source.card);
+  const preview = evaluateWorldsBeyondClassCondition(originalText, player, source.card, { source });
   if (!preview.active || !preview.text) {
     session.emit(BATTLE_EVENT.ABILITY_TRIGGER, {
       actor: playerIndex,
@@ -186,7 +186,7 @@ export function resolveWorldsBeyondTrigger(session, { trigger, playerIndex, sour
 
   const conditional = unresolved
     ? preview
-    : evaluateWorldsBeyondClassCondition(originalText, player, source.card, { consume: true });
+    : evaluateWorldsBeyondClassCondition(originalText, player, source.card, { consume: true, source });
   const resolvedText = resolveWorldsBeyondVariables(conditional.text || text, source);
 
   session.emit(BATTLE_EVENT.ABILITY_TRIGGER, {
