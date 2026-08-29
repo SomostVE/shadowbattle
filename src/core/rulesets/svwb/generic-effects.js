@@ -1,6 +1,9 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
+import { resolveEffectCommands } from "../../effect-commands.js";
 import { grantWorldsBeyondKeyword } from "./combat-readiness.js";
 import { addWorldsBeyondGeneratedCard } from "./generated-cards.js";
+import { LIVE_HAND_SIZE_LEADER_HEAL } from "./post-draw-hand-x.js";
+import { createWorldsBeyondLeaderHealCommand } from "./v6/effect-commands.js";
 
 const NUMBER = "(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\\d+)";
 const CARD_NAME = "([A-Z][A-Za-z0-9'’&,:\\- ]+?)";
@@ -12,6 +15,7 @@ const GENERIC_EFFECT_PATTERNS = Object.freeze([
   new RegExp(`\\bdeal\\s+${NUMBER}\\s+damage to your leader\\b`, "gi"),
   new RegExp(`\\bdeal\\s+${NUMBER}\\s+damage to both leaders\\b`, "gi"),
   ALLIED_GOLEM_AREA_DAMAGE,
+  LIVE_HAND_SIZE_LEADER_HEAL,
   /\bgive all other allied followers(?: on the field)?\s+\+\d+\s*\/\s*\+\d+\b/gi,
   /\bgive all allied followers(?: on the field)?\s+Barrier\b/gi,
   /\bgive all enemy followers(?: on the field)?\s+-\d+\s*\/\s*-\d+\b/gi,
@@ -58,6 +62,9 @@ export function resolveWorldsBeyondGenericEffects(session, {
   }), effects);
   collect(value, ALLIED_GOLEM_AREA_DAMAGE, () => ({
     kind: "enemy-area-damage-by-allied-golem-count"
+  }), effects);
+  collect(value, LIVE_HAND_SIZE_LEADER_HEAL, () => ({
+    kind: "leader-heal-by-live-hand-size"
   }), effects);
   collect(value, /\bgive all other allied followers(?: on the field)?\s+\+(\d+)\s*\/\s*\+(\d+)\b/gi, match => ({
     kind: "allied-buff",
@@ -116,6 +123,10 @@ export function resolveWorldsBeyondGenericEffects(session, {
     }
     if (effect.kind === "enemy-area-damage-by-allied-golem-count") {
       applied = damageEnemyFollowersByAlliedGolemCount(session, playerIndex, source, destroyFollower) || applied;
+      continue;
+    }
+    if (effect.kind === "leader-heal-by-live-hand-size") {
+      applied = healLeaderByLiveHandSize(session, playerIndex, source) || applied;
       continue;
     }
     if (effect.kind === "allied-buff") {
@@ -285,6 +296,25 @@ function damageEnemyFollowersByAlliedGolemCount(session, playerIndex, source, de
     });
   }
   return applied;
+}
+
+function healLeaderByLiveHandSize(session, playerIndex, source) {
+  const amount = session.getPlayer(playerIndex).hand.filter(Boolean).length;
+  const sourceCardId = source?.cardId ?? source?.card?.id ?? null;
+  const sourceCardName = source?.card?.name ?? null;
+  const [result] = resolveEffectCommands(session, [
+    createWorldsBeyondLeaderHealCommand(playerIndex, amount, {
+      sourceCardId,
+      sourceCardName,
+      reason: "ability",
+      metadata: {
+        source: "card-text",
+        stage: "post-draw-hand-x",
+        sourceInstanceId: source?.instanceId ?? null
+      }
+    })
+  ]);
+  return Boolean(result?.applied);
 }
 
 function buffAlliedFollowers(session, playerIndex, source, effect) {
