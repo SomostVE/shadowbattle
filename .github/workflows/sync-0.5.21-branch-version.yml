@@ -4,6 +4,7 @@ on:
   push:
     branches: [engine-v6-0.5.21-other-allied-cards-x]
     paths:
+      - .github/workflows/sync-0.5.21-branch-version.yml
       - version.json
 
 permissions:
@@ -20,7 +21,7 @@ jobs:
         with:
           node-version: 24
       - name: Synchronize public version references
-        run: node .github/scripts/sync-public-version.mjs
+        run: node scripts/sync-public-version.mjs
       - name: Commit synchronized pages
         shell: bash
         run: |
