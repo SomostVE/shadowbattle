@@ -24,7 +24,7 @@ const generic = "src/core/rulesets/svwb/generic-effects.js";
 replaceOnce(
   generic,
   `  /\\bdestroy all damaged enemy followers\\b/gi,`,
-  `  new RegExp(\`\\\\bdestroy\\\\s+${NUMBER}\\\\s+random enemy followers?\\\\b\`, "gi"),\n  /\\bdestroy all other allied cards(?: on the field)?\\b/gi,\n  /\\bdestroy all damaged enemy followers\\b/gi,`
+  `  new RegExp(\`\\\\bdestroy\\\\s+\${NUMBER}\\\\s+random enemy followers?\\\\b\`, "gi"),\n  /\\bdestroy all other allied cards(?: on the field)?\\b/gi,\n  /\\bdestroy all damaged enemy followers\\b/gi,`
 );
 replaceOnce(
   generic,
@@ -34,7 +34,7 @@ replaceOnce(
 replaceOnce(
   generic,
   `  collect(value, /\\bdestroy all damaged enemy followers\\b/gi, () => ({\n    kind: "destroy-damaged-enemies"\n  }), effects);`,
-  `  collect(value, new RegExp(\`\\\\bdestroy\\\\s+${NUMBER}\\\\s+random enemy followers?\\\\b\`, "gi"), match => ({\n    kind: "destroy-random-enemy-followers",\n    count: numberWord(match[1])\n  }), effects);\n  collect(value, /\\bdestroy all other allied cards(?: on the field)?\\b/gi, () => ({\n    kind: "destroy-other-allied-cards"\n  }), effects);\n  collect(value, /\\bdestroy all damaged enemy followers\\b/gi, () => ({\n    kind: "destroy-damaged-enemies"\n  }), effects);`
+  `  collect(value, new RegExp(\`\\\\bdestroy\\\\s+\${NUMBER}\\\\s+random enemy followers?\\\\b\`, "gi"), match => ({\n    kind: "destroy-random-enemy-followers",\n    count: numberWord(match[1])\n  }), effects);\n  collect(value, /\\bdestroy all other allied cards(?: on the field)?\\b/gi, () => ({\n    kind: "destroy-other-allied-cards"\n  }), effects);\n  collect(value, /\\bdestroy all damaged enemy followers\\b/gi, () => ({\n    kind: "destroy-damaged-enemies"\n  }), effects);`
 );
 replaceOnce(
   generic,
