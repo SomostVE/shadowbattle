@@ -24,6 +24,8 @@ const GENERIC_EFFECT_PATTERNS = Object.freeze([
   /\bgive all other allied followers(?: on the field)?\s+\+\d+\s*\/\s*\+\d+\b/gi,
   /\bgive all allied followers(?: on the field)?\s+Barrier\b/gi,
   /\bgive all enemy followers(?: on the field)?\s+-\d+\s*\/\s*-\d+\b/gi,
+  new RegExp(`\\bdestroy\\s+${NUMBER}\\s+random enemy followers\\b`, "gi"),
+  /\bdestroy all other allied cards(?: on the field)?\b/gi,
   /\bdestroy all damaged enemy followers\b/gi,
   new RegExp(`\\bgain\\s+${NUMBER}\\s+shadows?\\b`, "gi"),
   new RegExp(`\\bgain\\s+${NUMBER}\\s+max play points?\\b`, "gi"),
@@ -52,6 +54,7 @@ export function resolveWorldsBeyondGenericEffects(session, {
   playerIndex,
   source,
   destroyFollower,
+  destroyCard,
   gainShadows
 } = {}) {
   const value = String(text ?? "");
@@ -87,6 +90,13 @@ export function resolveWorldsBeyondGenericEffects(session, {
     kind: "enemy-debuff",
     attack: Number(match[1]) || 0,
     defense: Number(match[2]) || 0
+  }), effects);
+  collect(value, new RegExp(`\\bdestroy\\s+${NUMBER}\\s+random enemy followers\\b`, "gi"), match => ({
+    kind: "destroy-random-enemy-followers",
+    count: numberWord(match[1])
+  }), effects);
+  collect(value, /\bdestroy all other allied cards(?: on the field)?\b/gi, () => ({
+    kind: "destroy-other-allied-cards"
   }), effects);
   collect(value, /\bdestroy all damaged enemy followers\b/gi, () => ({
     kind: "destroy-damaged-enemies"
@@ -155,6 +165,14 @@ export function resolveWorldsBeyondGenericEffects(session, {
     }
     if (effect.kind === "enemy-debuff") {
       applied = debuffEnemyFollowers(session, playerIndex, source, effect, destroyFollower) || applied;
+      continue;
+    }
+    if (effect.kind === "destroy-random-enemy-followers") {
+      applied = destroyRandomEnemyFollowers(session, playerIndex, source, effect.count, destroyFollower) || applied;
+      continue;
+    }
+    if (effect.kind === "destroy-other-allied-cards") {
+      applied = destroyOtherAlliedCards(session, playerIndex, source, destroyCard) || applied;
       continue;
     }
     if (effect.kind === "destroy-damaged-enemies") {
@@ -414,6 +432,57 @@ function addGeneratedCardToHand(session, playerIndex, cardName) {
   if (!definition) return false;
   const result = addWorldsBeyondGeneratedCard(session, playerIndex, definition, { reason: "ability" });
   return Boolean(result.added || result.burned);
+}
+
+function destroyRandomEnemyFollowers(session, playerIndex, source, count, destroyFollower) {
+  const enemyIndex = 1 - playerIndex;
+  const candidates = session.getPlayer(enemyIndex).board
+    .filter(unit => cardType(unit) === "follower")
+    .map(unit => unit.instanceId);
+  const targetIds = [];
+  let remaining = Math.min(Math.max(0, Number(count) || 0), candidates.length);
+  while (remaining > 0 && candidates.length) {
+    const index = Math.floor(session.rng() * candidates.length);
+    targetIds.push(candidates.splice(index, 1)[0]);
+    remaining -= 1;
+  }
+
+  let applied = false;
+  for (const instanceId of targetIds) {
+    const live = session.findBoardCard(enemyIndex, instanceId);
+    if (!live || session.phase === "ended") continue;
+    const destroyed = destroyFollower?.(session, enemyIndex, live.instanceId, {
+      actor: playerIndex,
+      source,
+      reason: "ability",
+      byAbility: true,
+      abilityDestroy: true
+    });
+    applied = Boolean(destroyed) || applied;
+  }
+  return applied;
+}
+
+function destroyOtherAlliedCards(session, playerIndex, source, destroyCard) {
+  const sourceInstanceId = source?.instanceId ?? null;
+  const targetIds = session.getPlayer(playerIndex).board
+    .filter(card => card?.instanceId !== sourceInstanceId)
+    .map(card => card.instanceId);
+  let applied = false;
+
+  for (const instanceId of targetIds) {
+    const live = session.findBoardCard(playerIndex, instanceId);
+    if (!live || session.phase === "ended") continue;
+    const destroyed = destroyCard?.(session, playerIndex, live, {
+      actor: playerIndex,
+      source,
+      reason: "ability",
+      byAbility: true,
+      abilityDestroy: true
+    });
+    applied = Boolean(destroyed) || applied;
+  }
+  return applied;
 }
 
 function destroyDamagedEnemyFollowers(session, playerIndex, source, destroyFollower) {

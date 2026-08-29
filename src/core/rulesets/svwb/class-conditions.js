@@ -308,6 +308,12 @@ function resolveStateCountVariable(text, player, source = null) {
       count: match => countAlliedFollowers(player, unit => baseCardCost(unit) >= Number(match[1] ?? 0))
     },
     {
+      label: "other allied cards",
+      pattern: /\bX is the number of other allied cards on the field\s*\.?/i,
+      blocked: prefixMutatesAlliedCards,
+      count: () => (player?.board ?? []).filter(item => item?.instanceId !== source?.instanceId).length
+    },
+    {
       label: "other allied followers",
       pattern: /\bX is the number of other allied followers on the field\s*\.?/i,
       blocked: prefixMutatesAlliedFollowers,
@@ -352,6 +358,12 @@ function resolveStateCountVariable(text, player, source = null) {
 function prefixMutatesHand(prefix) {
   const value = String(prefix ?? "");
   return /\bdraw\b|\bdiscard\b|\bfuse\b|\badd\b[^.]*\bto your hand\b|\breturn\b[^.]*\bto (?:your )?deck\b|\bbanish\b[^.]*\bfrom your hand\b|\btransform\b[^.]*\bin your hand\b/i.test(value);
+}
+
+function prefixMutatesAlliedCards(prefix) {
+  const value = String(prefix ?? "");
+  return prefixMutatesAlliedFollowers(value)
+    || /\b(?:destroy|banish|return|transform)\b[^.]*\ballied (?:cards?|amulets?)\b/i.test(value);
 }
 
 function prefixMutatesAlliedFollowers(prefix) {
