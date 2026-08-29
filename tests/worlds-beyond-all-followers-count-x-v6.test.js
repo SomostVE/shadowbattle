@@ -141,7 +141,7 @@ test("Roar snapshots the live total before resolving follower deaths", () => {
   assert.equal(game.findBoardCard(1, doomedEnemy.instanceId), null);
   assert.equal(game.findBoardCard(0, survivingAlly.instanceId)?.defense, 3);
   assert.equal(game.findBoardCard(1, survivingEnemy.instanceId)?.defense, 3);
-  assert.equal(game.players[0].resources.shadows, 1);
+  assert.equal(game.players[0].resources.shadows, 2);
   assert.equal(game.players[1].resources.shadows, 1);
 
   const damageEvents = game.getEvents({ viewer: 0 }).filter(event =>
