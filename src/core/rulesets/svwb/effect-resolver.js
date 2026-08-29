@@ -97,12 +97,15 @@ export function getWorldsBeyondTriggerSupport(source, trigger = "play", mode = n
   }
 
   const text = resolveWorldsBeyondVariables(conditional.text, source);
-  const targetSpec = worldsBeyondTargetEffectSpec(text, source);
-  const discardRequired = HAND_DISCARD_SELECTION.test(text);
-  const handReturnSelection = hasWorldsBeyondHandReturnSelection(text);
+  const supportText = /\bX is the number of enemy followers on the field minus the number of allied followers on the field\b/i.test(conditional.text)
+    ? normalizeWorldsBeyondStructuralVariables(conditional.text)
+    : text;
+  const targetSpec = worldsBeyondTargetEffectSpec(supportText, source);
+  const discardRequired = HAND_DISCARD_SELECTION.test(supportText);
+  const handReturnSelection = hasWorldsBeyondHandReturnSelection(supportText);
   const unsupportedTarget = Boolean(targetSpec && !SUPPORTED_TARGET_KINDS.has(targetSpec.kind));
-  const unsupportedChoice = hasUnsupportedChoiceOrCondition(text, { targetSpec, discardRequired, handReturnSelection });
-  const residual = unsupportedResidualText(text, { targetSpec, discardRequired, handReturnSelection });
+  const unsupportedChoice = hasUnsupportedChoiceOrCondition(supportText, { targetSpec, discardRequired, handReturnSelection });
+  const residual = unsupportedResidualText(supportText, { targetSpec, discardRequired, handReturnSelection });
   return {
     supported: !unsupportedTarget && !unsupportedChoice && !residual,
     text,
@@ -148,7 +151,7 @@ export function resolveWorldsBeyondTrigger(session, { trigger, playerIndex, sour
     return { applied: false, unresolved: false, text: originalText, conditionInactive: true, notes: preview.notes };
   }
 
-  const text = resolveWorldsBeyondVariables(preview.text, source);
+  const text = resolveWorldsBeyondVariables(preview.text, source, { session, playerIndex });
   const targetSpec = worldsBeyondTargetEffectSpec(text, source);
   const targetOptions = targetSpec ? targetOptionsForSpec(session, playerIndex, targetSpec) : [];
   const targetPlayer = targetSpec ? targetPlayerForSpec(playerIndex, targetSpec) : null;
@@ -187,7 +190,7 @@ export function resolveWorldsBeyondTrigger(session, { trigger, playerIndex, sour
   const conditional = unresolved
     ? preview
     : evaluateWorldsBeyondClassCondition(originalText, player, source.card, { consume: true, source });
-  const resolvedText = resolveWorldsBeyondVariables(conditional.text || text, source);
+  const resolvedText = resolveWorldsBeyondVariables(conditional.text || text, source, { session, playerIndex });
 
   session.emit(BATTLE_EVENT.ABILITY_TRIGGER, {
     actor: playerIndex,
@@ -316,7 +319,7 @@ function replicateFanfareIfRequested(fullText, triggerSection) {
   return baseText(fullText);
 }
 
-function resolveWorldsBeyondVariables(textValue, source) {
+function resolveWorldsBeyondVariables(textValue, source, { session = null, playerIndex = null } = {}) {
   let text = String(textValue ?? "");
   if (!/\bX\b/.test(text)) return text;
 
@@ -330,10 +333,35 @@ function resolveWorldsBeyondVariables(textValue, source) {
       .trim();
   }
 
+  const boardDifferenceDefinition = /\bX is the number of enemy followers on the field minus the number of allied followers on the field\s*\.?/i;
+  if (boardDifferenceDefinition.test(text) && /\bdestroy X random enemy followers\b/i.test(text) && session && (playerIndex === 0 || playerIndex === 1)) {
+    const alliedFollowers = session.getPlayer(playerIndex).board.filter(item => cardType(item) === "follower").length;
+    const enemyFollowers = session.getPlayer(1 - playerIndex).board.filter(item => cardType(item) === "follower").length;
+    const x = Math.max(0, enemyFollowers - alliedFollowers);
+    text = text.replace(boardDifferenceDefinition, " ");
+    return text
+      .replace(/\bX\b/g, String(x))
+      .replace(/\s+/g, " ")
+      .replace(/\s+([.,;:!?])/g, "$1")
+      .trim();
+  }
+
   const hasExplicitX = Number.isFinite(Number(source?.x)) || /\bX starts at\s+\d+\b/i.test(String(source?.card?.text ?? ""));
   if (!hasExplicitX) return text;
   const x = Math.max(0, Number(worldsBeyondCardX(source)) || 0);
   return text.replace(/\bX\b/g, String(x));
+}
+
+function normalizeWorldsBeyondStructuralVariables(textValue) {
+  let text = String(textValue ?? "");
+  const definition = /\bX is the number of enemy followers on the field minus the number of allied followers on the field\s*\.?/i;
+  if (!definition.test(text) || !/\bdestroy X random enemy followers\b/i.test(text)) return text;
+  text = text.replace(definition, " ");
+  return text
+    .replace(/\bX\b/g, "0")
+    .replace(/\s+/g, " ")
+    .replace(/\s+([.,;:!?])/g, "$1")
+    .trim();
 }
 
 function currentSourceAttack(source) {
