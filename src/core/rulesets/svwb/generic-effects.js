@@ -4,12 +4,14 @@ import { addWorldsBeyondGeneratedCard } from "./generated-cards.js";
 
 const NUMBER = "(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\\d+)";
 const CARD_NAME = "([A-Z][A-Za-z0-9'’&,:\\- ]+?)";
+const ALLIED_GOLEM_AREA_DAMAGE = /\bdeal damage to all enemy followers equal to the number of allied Golem followers on the field\b/gi;
 
 const GENERIC_EFFECT_PATTERNS = Object.freeze([
   new RegExp(`\\bdeal\\s+${NUMBER}\\s+damage split between all enemy followers\\b`, "gi"),
   new RegExp(`\\bdeal\\s+${NUMBER}\\s+damage split between all enemies\\b`, "gi"),
   new RegExp(`\\bdeal\\s+${NUMBER}\\s+damage to your leader\\b`, "gi"),
   new RegExp(`\\bdeal\\s+${NUMBER}\\s+damage to both leaders\\b`, "gi"),
+  ALLIED_GOLEM_AREA_DAMAGE,
   /\bgive all other allied followers(?: on the field)?\s+\+\d+\s*\/\s*\+\d+\b/gi,
   /\bgive all allied followers(?: on the field)?\s+Barrier\b/gi,
   /\bgive all enemy followers(?: on the field)?\s+-\d+\s*\/\s*-\d+\b/gi,
@@ -53,6 +55,9 @@ export function resolveWorldsBeyondGenericEffects(session, {
   collect(value, new RegExp(`\\bdeal\\s+${NUMBER}\\s+damage to both leaders\\b`, "gi"), match => ({
     kind: "both-leaders-damage",
     amount: numberWord(match[1])
+  }), effects);
+  collect(value, ALLIED_GOLEM_AREA_DAMAGE, () => ({
+    kind: "enemy-area-damage-by-allied-golem-count"
   }), effects);
   collect(value, /\bgive all other allied followers(?: on the field)?\s+\+(\d+)\s*\/\s*\+(\d+)\b/gi, match => ({
     kind: "allied-buff",
@@ -109,6 +114,10 @@ export function resolveWorldsBeyondGenericEffects(session, {
       applied = damageLeadersSimultaneously(session, [playerIndex, 1 - playerIndex], effect.amount, { actor: playerIndex, source }) || applied;
       continue;
     }
+    if (effect.kind === "enemy-area-damage-by-allied-golem-count") {
+      applied = damageEnemyFollowersByAlliedGolemCount(session, playerIndex, source, destroyFollower) || applied;
+      continue;
+    }
     if (effect.kind === "allied-buff") {
       applied = buffAlliedFollowers(session, playerIndex, source, effect) || applied;
       continue;
@@ -160,6 +169,7 @@ export function resolveWorldsBeyondGenericEffects(session, {
 }
 
 function collect(text, pattern, factory, effects) {
+  pattern.lastIndex = 0;
   for (const match of text.matchAll(pattern)) effects.push({ index: match.index ?? 0, ...factory(match) });
 }
 
@@ -241,6 +251,38 @@ export function resolveWorldsBeyondSplitAllEnemiesDamage(session, {
       }
     }
     remaining -= 1;
+  }
+  return applied;
+}
+
+function damageEnemyFollowersByAlliedGolemCount(session, playerIndex, source, destroyFollower) {
+  const alliedGolems = session.getPlayer(playerIndex).board.filter(unit =>
+    cardType(unit) === "follower" && hasCardTrait(unit, "Golem")
+  ).length;
+  const enemyIndex = 1 - playerIndex;
+  const targetIds = session.getPlayer(enemyIndex).board
+    .filter(unit => cardType(unit) === "follower")
+    .map(unit => unit.instanceId);
+  let applied = false;
+
+  for (const instanceId of targetIds) {
+    const live = session.findBoardCard(enemyIndex, instanceId);
+    if (!live || session.phase === "ended") continue;
+    session.damageFollower(enemyIndex, live.instanceId, alliedGolems, {
+      actor: playerIndex,
+      source,
+      reason: "ability",
+      resolveDeath: false
+    });
+    applied = true;
+    const damaged = session.findBoardCard(enemyIndex, instanceId);
+    if (!damaged || currentDefense(damaged) > 0) continue;
+    destroyFollower?.(session, enemyIndex, damaged.instanceId, {
+      actor: playerIndex,
+      source,
+      reason: "ability",
+      byAbility: true
+    });
   }
   return applied;
 }
@@ -413,6 +455,13 @@ function damageLeadersSimultaneously(session, targetPlayerIndexes, amount, { act
     });
   }
   return true;
+}
+
+function hasCardTrait(instance, traitName) {
+  const target = String(traitName ?? "").trim().toLowerCase();
+  if (!target) return false;
+  const traits = instance?.card?.traits ?? instance?.traits ?? [];
+  return (Array.isArray(traits) ? traits : [traits]).some(trait => String(trait ?? "").trim().toLowerCase() === target);
 }
 
 function cardType(instance) {
