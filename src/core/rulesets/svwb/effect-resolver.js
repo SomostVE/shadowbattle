@@ -97,7 +97,9 @@ export function getWorldsBeyondTriggerSupport(source, trigger = "play", mode = n
   }
 
   const text = resolveWorldsBeyondVariables(conditional.text, source);
-  const supportText = normalizeWorldsBeyondStructuralVariables(conditional.text);
+  const supportText = /\bX is the number of enemy followers on the field minus the number of allied followers on the field\b/i.test(conditional.text)
+    ? normalizeWorldsBeyondStructuralVariables(conditional.text)
+    : text;
   const targetSpec = worldsBeyondTargetEffectSpec(supportText, source);
   const discardRequired = HAND_DISCARD_SELECTION.test(supportText);
   const handReturnSelection = hasWorldsBeyondHandReturnSelection(supportText);
