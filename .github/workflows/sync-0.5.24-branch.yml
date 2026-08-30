@@ -1,0 +1,34 @@
+name: Sync 0.5.24 Branch
+
+on:
+  push:
+    branches:
+      - engine-v6-0.5.24-random-multi-damage
+    paths:
+      - .github/workflows/sync-0.5.24-branch.yml
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: engine-v6-0.5.24-random-multi-damage
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - name: Synchronize public version references
+        run: node scripts/sync-public-version.mjs
+      - name: Commit synchronized pages
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html api/index.html test/index.html decks/index.html library/index.html
+          git diff --cached --quiet && exit 0
+          git commit -m "chore: sync public version references to 0.5.24"
+          git pull --rebase origin engine-v6-0.5.24-random-multi-damage
+          git push origin HEAD:engine-v6-0.5.24-random-multi-damage
