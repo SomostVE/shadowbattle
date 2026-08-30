@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { GAME_IDS } from "../src/core/game-catalog.js";
 import { GameSession } from "../src/core/game-session.js";
+import { getWorldsBeyondTriggerSupport } from "../src/core/rulesets/svwb/effect-resolver.js";
 
 function card(id, extra = {}) {
   return { id, name: String(id), class: "Runecraft", type: "Follower", cost: 1, attack: 1, defense: 1, text: "", keywords: [], traits: [], ...extra };
@@ -55,6 +56,9 @@ test("Unleashed mode 2 draws, damages 2 distinct enemy followers, then damages i
   const second = enemy(game, "u2");
   const third = enemy(game, "u3");
   const handBefore = game.players[0].hand.length;
+
+  const support = getWorldsBeyondTriggerSupport(source, "play", null, game.players[0]);
+  assert.equal(support.supported, true, `unexpected residual: ${support.residual}`);
 
   const action = game.listLegalActions(0).find(item => item.type === "play-card" && item.cardInstanceId === source.instanceId);
   assert.ok(action);
