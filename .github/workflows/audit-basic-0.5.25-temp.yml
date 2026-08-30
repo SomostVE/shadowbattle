@@ -18,3 +18,5 @@ jobs:
           node-version: 24
       - name: Audit Basic residuals with full text
         run: node scripts/audit-svwb-v6-basic-temp.mjs
+      - name: Audit Super Evo replacement wording
+        run: node scripts/audit-super-evolve-instead-temp.mjs
