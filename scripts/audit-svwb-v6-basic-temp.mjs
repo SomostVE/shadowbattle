@@ -26,7 +26,7 @@ for (const card of cards) {
     if (!results.some(result => result.text || result.residual)) continue;
     for (const result of results) {
       if (result.supported) continue;
-      unsupported.push({ id: card.id, name: card.name, class: card.class, trigger, residual: normalizeResidual(result.residual || result.text), text: result.text });
+      unsupported.push({ id: card.id, name: card.name, class: card.class, trigger, residual: normalizeResidual(result.residual || result.text), text: result.text, cardText: card.text });
       break;
     }
   }
@@ -38,6 +38,7 @@ for (const row of unsupported) {
   console.log(`- ${row.class} / ${row.trigger} / ${row.name} (${row.id})`);
   console.log(`  residual: ${row.residual}`);
   console.log(`  text: ${row.text}`);
+  console.log(`  full: ${String(row.cardText).replace(/\s+/g, " ")}`);
 }
 
 function auditTriggerResults(source, trigger, player) {
