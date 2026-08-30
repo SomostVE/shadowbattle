@@ -70,7 +70,7 @@ test("generic effect grammar distinguishes Super-evolve from normal Evolve", () 
   assert.equal(normalResidual.replace(/[\s.;,:!?]/g, ""), "");
 });
 
-test("ability Super-Evolution gives +3/+3, spends no SEP and still triggers natural evolution text", () => {
+test("ability Super-Evolution gives +3/+3, spends no Super Evo point and does not trigger natural Evo text", () => {
   const game = readyGame();
   const source = replaceHandCard(game, card("ability-super-evolver", {
     name: "Ability Super Evolver",
@@ -94,7 +94,7 @@ test("ability Super-Evolution gives +3/+3, spends no SEP and still triggers natu
   assert.equal(evolved.maxDefense, 5);
   assert.equal(game.players[0].resources.superEvolutionPoints, sepBefore);
   assert.equal(game.players[0].evolutionActionUsed, false);
-  assert.equal(game.players[0].hand.length, handBefore, "play one then natural evolution Draw 1 should restore hand size");
+  assert.equal(game.players[0].hand.length, handBefore - 1, "ability Super Evo must not activate the natural Evo Draw 1 text");
 
   const superEvent = game.getEvents({ viewer: 0 }).find(event =>
     event.type === BATTLE_EVENT.SUPER_EVOLVE && event.payload?.card?.instanceId === source.instanceId

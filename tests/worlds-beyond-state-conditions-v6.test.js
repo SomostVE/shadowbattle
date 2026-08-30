@@ -77,7 +77,7 @@ function zeroCostSpell(id, className = "Forestcraft") {
   return { id, name: id, class: className, type: "Spell", cost: 0, keywords: [], text: "" };
 }
 
-test("ability evolution gives +2/+2, triggers Evolve and spends no evolution point", () => {
+test("ability evolution gives +2/+2, spends no Evo point and does not trigger Evolve text", () => {
   const game = readyGame();
   const card = replaceHandCard(game, {
     id: "ability-evolver",
@@ -102,7 +102,7 @@ test("ability evolution gives +2/+2, triggers Evolve and spends no evolution poi
   assert.equal(evolved.maxDefense, 4);
   assert.equal(game.players[0].resources.evolutionPoints, pointsBefore);
   assert.equal(game.players[0].evolutionActionUsed, false);
-  assert.equal(game.players[0].hand.length, handBefore, "playing one card then drawing one should restore the prior hand size");
+  assert.equal(game.players[0].hand.length, handBefore - 1, "ability Evo must not activate the Evolve Draw 1 text");
   assert.equal(game.getEvents({ viewer: 0 }).some(event => event.type === BATTLE_EVENT.EVOLVE && event.payload?.byAbility === true), true);
 });
 
