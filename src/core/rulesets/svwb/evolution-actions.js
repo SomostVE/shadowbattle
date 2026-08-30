@@ -115,12 +115,32 @@ export function applyWorldsBeyondEvolutionAction(session, action) {
   const previousActiveText = follower.activeText;
   if (selectedMode) follower.activeText = evolutionModeText(trigger, selectedMode.text);
   try {
-    resolveWorldsBeyondTrigger(session, {
-      trigger,
-      playerIndex,
-      source: follower,
-      targetInstanceId: action.targetInstanceId ?? null
-    });
+    if (!superEvolution || superEvolutionReplacesEvolve(follower)) {
+      resolveWorldsBeyondTrigger(session, {
+        trigger,
+        playerIndex,
+        source: follower,
+        targetInstanceId: action.targetInstanceId ?? null
+      });
+    } else {
+      const beforeEvolveIds = new Set(player.board.map(unit => unit.instanceId));
+      resolveWorldsBeyondTrigger(session, {
+        trigger: EVOLVE,
+        playerIndex,
+        source: follower,
+        targetInstanceId: action.evolveTargetInstanceId ?? action.targetInstanceId ?? null
+      });
+      const antecedentInstanceIds = player.board
+        .filter(unit => !beforeEvolveIds.has(unit.instanceId))
+        .map(unit => unit.instanceId);
+      resolveWorldsBeyondTrigger(session, {
+        trigger: SUPER_EVOLVE,
+        playerIndex,
+        source: follower,
+        targetInstanceId: action.superEvolveTargetInstanceId ?? action.targetInstanceId ?? null,
+        antecedentInstanceIds
+      });
+    }
   } finally {
     if (previousActiveText == null) delete follower.activeText;
     else follower.activeText = previousActiveText;
@@ -184,6 +204,10 @@ function appendEvolutionBranches(actions, session, playerIndex, follower, superE
 
 function getEvolutionModeChoices(follower, trigger, player) {
   return getSimpleWorldsBeyondModeChoices(evolutionEffectText(follower, trigger), player);
+}
+
+function superEvolutionReplacesEvolve(follower) {
+  return /\binstead\b/i.test(section(String(follower?.card?.text ?? ""), SUPER_EVOLVE));
 }
 
 function evolutionEffectText(follower, trigger) {
