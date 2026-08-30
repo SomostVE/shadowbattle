@@ -1,0 +1,22 @@
+name: Validate 0.5.25 Temp
+
+on:
+  push:
+    branches:
+      - engine-v6-0.5.25-basic-cleanup
+    paths:
+      - .github/workflows/validate-0.5.25-temp.yml
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - run: npm test
+      - run: npm run audit:svwb
