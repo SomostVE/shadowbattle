@@ -190,6 +190,13 @@ export function compileWorldsBeyondPostTargetCommands(text, { playerIndex, sourc
         command: createWorldsBeyondLeaderDamageCommand(playerIndex, 1 - Number(playerIndex), amount, sourceOptions)
       });
     }
+    const selfDamage = tail.match(/^\s+and\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+damage to your leader\b/i);
+    if (selfDamage) {
+      indexed.push({
+        index: (match.index ?? 0) + match[0].length,
+        command: createWorldsBeyondLeaderDamageCommand(playerIndex, playerIndex, numberWord(selfDamage[1]), sourceOptions)
+      });
+    }
   }
 
   for (const match of value.matchAll(/\bdeal damage to (a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+) random enemy followers equal to the number of Neutral cards in your hand\b/gi)) {
