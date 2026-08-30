@@ -93,6 +93,7 @@ test("multi-random damage never hits the same follower twice when too few target
 
 test("Waterbending Charmwielder damages 3 distinct followers and Spellboosts the hand 3 times", () => {
   const game = readyGame();
+  game.players[0].className = "Runecraft";
   const charmwielder = card(10531120, {
     name: "Waterbending Charmwielder",
     class: "Runecraft",
@@ -103,7 +104,11 @@ test("Waterbending Charmwielder damages 3 distinct followers and Spellboosts the
     text: "Fanfare: Deal 3 damage to 3 random enemy followers. Spellboost your hand 3 times."
   });
   const source = replaceHand(game, 0, charmwielder);
-  const boostable = replaceHand(game, 1, card("boostable", { class: "Runecraft", text: "Spellboost: Subtract 1 from the cost of this card." }));
+  const boostable = replaceHand(game, 1, card("boostable", {
+    class: "Runecraft",
+    keywords: ["On Spellboost"],
+    text: "On Spellboost: Increase X by 1. X starts at 0."
+  }));
   const targets = [enemy(game, "w1"), enemy(game, "w2"), enemy(game, "w3"), enemy(game, "w4")];
   play(game, source);
   assert.equal(targets.filter(unit => game.findBoardCard(1, unit.instanceId)?.defense === 3).length, 3);
