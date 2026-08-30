@@ -178,10 +178,18 @@ export function compileWorldsBeyondPostTargetCommands(text, { playerIndex, sourc
   }
 
   for (const match of value.matchAll(/\bdeal\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+damage to\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+random enemy followers\b/gi)) {
+    const amount = numberWord(match[1]);
     indexed.push({
       index: match.index ?? 0,
-      command: createWorldsBeyondRandomEnemyFollowerDamageCommand(playerIndex, numberWord(match[1]), numberWord(match[2]), sourceOptions)
+      command: createWorldsBeyondRandomEnemyFollowerDamageCommand(playerIndex, amount, numberWord(match[2]), sourceOptions)
     });
+    const tail = value.slice((match.index ?? 0) + match[0].length);
+    if (/^\s+and the enemy leader\b/i.test(tail)) {
+      indexed.push({
+        index: (match.index ?? 0) + match[0].length,
+        command: createWorldsBeyondLeaderDamageCommand(playerIndex, 1 - Number(playerIndex), amount, sourceOptions)
+      });
+    }
   }
 
   for (const match of value.matchAll(/\bdeal damage to (a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+) random enemy followers equal to the number of Neutral cards in your hand\b/gi)) {

@@ -12,6 +12,7 @@ import { createWorldsBeyondLeaderHealCommand } from "./v6/effect-commands.js";
 const NUMBER = "(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\\d+)";
 const CARD_NAME = "([A-Z][A-Za-z0-9'’&,:\\- ]+?)";
 const ALLIED_GOLEM_AREA_DAMAGE = /\bdeal damage to all enemy followers equal to the number of allied Golem followers on the field\b/gi;
+const RANDOM_ENEMY_FOLLOWER_AND_LEADER_DAMAGE = new RegExp("\\bdeal\\s+" + NUMBER + "\\s+damage to\\s+" + NUMBER + "\\s+random enemy followers and the enemy leader\\b", "gi");
 const RANDOM_ENEMY_FOLLOWER_DAMAGE = new RegExp("\\bdeal\\s+" + NUMBER + "\\s+damage to\\s+" + NUMBER + "\\s+random enemy followers\\b", "gi");
 const LIVE_NEUTRAL_HAND_RANDOM_DAMAGE = /\bdeal damage to (?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+) random enemy followers equal to the number of Neutral cards in your hand\b/gi;
 
@@ -23,6 +24,7 @@ const GENERIC_EFFECT_PATTERNS = Object.freeze([
   ALLIED_GOLEM_AREA_DAMAGE,
   LIVE_ALL_FOLLOWER_COUNT_DAMAGE,
   LIVE_HAND_SIZE_LEADER_HEAL,
+  RANDOM_ENEMY_FOLLOWER_AND_LEADER_DAMAGE,
   RANDOM_ENEMY_FOLLOWER_DAMAGE,
   LIVE_NEUTRAL_HAND_RANDOM_DAMAGE,
   /\bgive all other allied followers(?: on the field)?\s+\+\d+\s*\/\s*\+\d+\b/gi,
