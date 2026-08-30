@@ -18,3 +18,5 @@ jobs:
           node-version: 24
       - name: Run set-by-set V6 audit
         run: node scripts/audit-svwb-v6-coverage-by-set.mjs
+      - name: Run generated-card audit
+        run: node scripts/audit-svwb-v6-generated-set-temp.mjs
