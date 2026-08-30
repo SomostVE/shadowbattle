@@ -266,14 +266,30 @@ function resolveComboVariable(text, player) {
 
 function resolveOrderedStateCountVariable(text) {
   const value = String(text ?? "");
-  const definition = /\bX is the number of allied Golem followers on the field\s*\.?/i;
-  if (!definition.test(value) || !/\bdeal X damage to all enemy followers\b/i.test(value)) return null;
-  const withoutDefinition = value.replace(definition, " ");
+  const golemDefinition = /\bX is the number of allied Golem followers on the field\s*\.?/i;
+  if (golemDefinition.test(value) && /\bdeal X damage to all enemy followers\b/i.test(value)) {
+    const withoutDefinition = value.replace(golemDefinition, " ");
+    return {
+      note: "X = allied Golem followers at resolution",
+      text: normalizeResolvedText(withoutDefinition.replace(
+        /\bdeal X damage to all enemy followers\b/i,
+        "Deal damage to all enemy followers equal to the number of allied Golem followers on the field"
+      ))
+    };
+  }
+
+  const neutralDefinition = /\bX is the number of Neutral cards in your hand\s*\.?/i;
+  const neutralMatch = neutralDefinition.exec(value);
+  const randomDamage = /\bdeal X damage to (a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+) random enemy followers\b/i;
+  if (!neutralMatch || !randomDamage.test(value)) return null;
+  const prefix = value.slice(0, neutralMatch.index);
+  if (!prefixMutatesHand(prefix)) return null;
+  const withoutDefinition = value.slice(0, neutralMatch.index) + " " + value.slice(neutralMatch.index + neutralMatch[0].length);
   return {
-    note: "X = allied Golem followers at resolution",
+    note: "X = Neutral cards in hand at resolution",
     text: normalizeResolvedText(withoutDefinition.replace(
-      /\bdeal X damage to all enemy followers\b/i,
-      "Deal damage to all enemy followers equal to the number of allied Golem followers on the field"
+      randomDamage,
+      (_, count) => "Deal damage to " + count + " random enemy followers equal to the number of Neutral cards in your hand"
     ))
   };
 }
@@ -324,6 +340,12 @@ function resolveStateCountVariable(text, player, source = null) {
       pattern: /\bX is the number of allied followers on the field\s*\.?/i,
       blocked: prefixMutatesAlliedFollowers,
       count: () => countAlliedFollowers(player)
+    },
+    {
+      label: "Neutral cards in hand",
+      pattern: /\bX is the number of Neutral cards in your hand\s*\.?/i,
+      blocked: prefixMutatesHand,
+      count: () => (player?.hand ?? []).filter(item => cardClass(item) === "neutral").length
     },
     {
       label: "Pixie followers in hand",
@@ -425,6 +447,10 @@ function hasCardTrait(instance, trait) {
   const traits = instance?.card?.traits ?? instance?.traits ?? [];
   return Array.isArray(traits)
     && traits.some(value => String(value ?? "").trim().toLowerCase() === expected);
+}
+
+function cardClass(instance) {
+  return String(instance?.card?.class ?? instance?.card?.className ?? instance?.class ?? instance?.className ?? "").trim().toLowerCase();
 }
 
 function cardType(instance) {
