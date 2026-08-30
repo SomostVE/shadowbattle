@@ -294,25 +294,25 @@ function normalizeSuperEvolutionReplacement(fullText, triggerSection) {
 
   let match = value.match(/^Restore\\s+(\\d+)\\s+defense instead\\.?$/i);
   if (match && /restore\\s+\\d+\\s+defense to your leader/i.test(evolveText)) {
-    return `Restore ${match[1]} defense to your leader.`;
+    return "Restore " + match[1] + " defense to your leader.";
   }
 
   match = value.match(/^Deal damage to all enemy followers instead\\.?$/i);
   if (match) {
     const amount = evolveText.match(/deal it\\s+(\\d+)\\s+damage/i)?.[1];
-    if (amount) return `Deal ${amount} damage to all enemy followers.`;
+    if (amount) return "Deal " + amount + " damage to all enemy followers.";
   }
 
   match = value.match(/^Summon\\s+(\\d+)\\s+instead\\.?$/i);
   if (match) {
     const cardName = evolveText.match(/Summon\\s+(?:a|an|one)\\s+([^.]+?)\\s*\\.?$/i)?.[1]?.trim();
-    if (cardName) return `Summon ${match[1]} copies of ${cardName}.`;
+    if (cardName) return "Summon " + match[1] + " copies of " + cardName + ".";
   }
 
   match = value.match(/^Add\\s+(\\d+)\\s+copies instead\\.?$/i);
   if (match) {
     const cardName = evolveText.match(/Add\\s+(?:a|an|one)\\s+(.+?)\\s+to your hand/i)?.[1]?.trim();
-    if (cardName) return `Add ${match[1]} copies of ${cardName} to your hand.`;
+    if (cardName) return "Add " + match[1] + " copies of " + cardName + " to your hand.";
   }
 
   return value.replace(/\\s+instead\\b/gi, "").trim();
