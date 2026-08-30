@@ -1,0 +1,20 @@
+name: Audit V6 By Set Temp
+
+on:
+  push:
+    branches:
+      - audit-v6-by-set-temp
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - name: Run set-by-set V6 audit
+        run: node scripts/audit-svwb-v6-coverage-by-set.mjs
