@@ -326,6 +326,12 @@ function resolveStateCountVariable(text, player, source = null) {
       count: () => countAlliedFollowers(player)
     },
     {
+      label: "Pixie followers in hand",
+      pattern: /\bX is the number of Pixie followers in your hand\s*\.?/i,
+      blocked: prefixMutatesHand,
+      count: () => (player?.hand ?? []).filter(item => cardType(item) === "follower" && hasCardTrait(item, "Pixie")).length
+    },
+    {
       label: "amulets in hand",
       pattern: /\bX is the number of amulets in your hand\s*\.?/i,
       blocked: prefixMutatesHand,
@@ -411,6 +417,14 @@ function deckHasNoDuplicates(player) {
     seen.add(key);
   }
   return true;
+}
+
+function hasCardTrait(instance, trait) {
+  const expected = String(trait ?? "").trim().toLowerCase();
+  if (!expected) return false;
+  const traits = instance?.card?.traits ?? instance?.traits ?? [];
+  return Array.isArray(traits)
+    && traits.some(value => String(value ?? "").trim().toLowerCase() === expected);
 }
 
 function cardType(instance) {
