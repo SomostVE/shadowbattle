@@ -1,0 +1,51 @@
+name: Fix 0.5.25 Regression Tests Temp
+
+on:
+  push:
+    branches:
+      - engine-v6-0.5.25-basic-cleanup
+    paths:
+      - .github/workflows/fix-0.5.25-regression-tests-temp.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: engine-v6-0.5.25-basic-cleanup
+          fetch-depth: 0
+      - name: Update obsolete ability-Evo expectations
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          patches = {
+            'tests/worlds-beyond-self-super-evolve-v6.test.js': [
+              ('test("ability Super-Evolution gives +3/+3, spends no SEP and still triggers natural evolution text", () => {', 'test("ability Super-Evolution gives +3/+3, spends no Super Evo point and does not trigger natural Evo text", () => {'),
+              ('assert.equal(game.players[0].hand.length, handBefore, "play one then natural evolution Draw 1 should restore hand size");', 'assert.equal(game.players[0].hand.length, handBefore - 1, "ability Super Evo must not activate the natural Evo Draw 1 text");')
+            ],
+            'tests/worlds-beyond-state-conditions-v6.test.js': [
+              ('test("ability evolution gives +2/+2, triggers Evolve and spends no evolution point", () => {', 'test("ability evolution gives +2/+2, spends no Evo point and does not trigger Evolve text", () => {'),
+              ('assert.equal(game.players[0].hand.length, handBefore, "playing one card then drawing one should restore the prior hand size");', 'assert.equal(game.players[0].hand.length, handBefore - 1, "ability Evo must not activate the Evolve Draw 1 text");')
+            ]
+          }
+          for path, replacements in patches.items():
+              p = Path(path)
+              s = p.read_text()
+              for old, new in replacements:
+                  if s.count(old) != 1:
+                      raise SystemExit(f'{path}: expected one occurrence of {old!r}')
+                  s = s.replace(old, new)
+              p.write_text(s)
+          PY
+      - name: Commit regression updates
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/worlds-beyond-self-super-evolve-v6.test.js tests/worlds-beyond-state-conditions-v6.test.js
+          git commit -m "test: align ability evolution with official trigger rules"
+          git pull --rebase origin engine-v6-0.5.25-basic-cleanup
+          git push origin HEAD:engine-v6-0.5.25-basic-cleanup
