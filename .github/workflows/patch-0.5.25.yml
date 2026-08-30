@@ -22,8 +22,10 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-      - name: Apply guarded 0.5.25 source patch
-        run: node scripts/patch-0.5.25.mjs
+      - name: Validate and apply guarded 0.5.25 source patch
+        run: |
+          node --check scripts/patch-0.5.25.mjs
+          node scripts/patch-0.5.25.mjs
       - name: Commit patched sources
         run: |
           git config user.name "github-actions[bot]"
