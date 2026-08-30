@@ -11,6 +11,7 @@ export const SVWB_EFFECT_COMMAND = Object.freeze({
   SUMMON: "svwb:summon",
   HEAL_LEADER: "heal-leader",
   DAMAGE_LEADER: "damage-leader",
+  RANDOM_DAMAGE_ENEMY_FOLLOWERS: "svwb:random-damage-enemy-followers",
   SPLIT_DAMAGE_ENEMY_FOLLOWERS: "svwb:split-damage-enemy-followers",
   SPLIT_DAMAGE_ALL_ENEMIES: "svwb:split-damage-all-enemies"
 });
@@ -28,6 +29,18 @@ export function createWorldsBeyondLeaderDamageCommand(playerIndex, targetPlayerI
     sourceCardId: options.sourceCardId ?? null,
     sourceCardName: options.sourceCardName ?? null,
     crest: options.crest ?? null
+  }, options.metadata);
+}
+
+export function createWorldsBeyondRandomEnemyFollowerDamageCommand(playerIndex, amount, count, options = {}) {
+  return createWorldsBeyondEffectCommand(SVWB_EFFECT_COMMAND.RANDOM_DAMAGE_ENEMY_FOLLOWERS, {
+    playerIndex,
+    amount: Math.max(0, Number(amount) || 0),
+    count: Math.max(0, Number(count) || 0),
+    amountFrom: options.amountFrom ?? null,
+    reason: options.reason ?? "ability",
+    sourceCardId: options.sourceCardId ?? null,
+    sourceCardName: options.sourceCardName ?? null
   }, options.metadata);
 }
 
@@ -164,6 +177,23 @@ export function compileWorldsBeyondPostTargetCommands(text, { playerIndex, sourc
     if (amount > 0) indexed.push({ index: match.index ?? 0, command: createWorldsBeyondLeaderHealCommand(playerIndex, amount, sourceOptions) });
   }
 
+  for (const match of value.matchAll(/\bdeal\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+damage to\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+random enemy followers\b/gi)) {
+    indexed.push({
+      index: match.index ?? 0,
+      command: createWorldsBeyondRandomEnemyFollowerDamageCommand(playerIndex, numberWord(match[1]), numberWord(match[2]), sourceOptions)
+    });
+  }
+
+  for (const match of value.matchAll(/\bdeal damage to (a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+) random enemy followers equal to the number of Neutral cards in your hand\b/gi)) {
+    indexed.push({
+      index: match.index ?? 0,
+      command: createWorldsBeyondRandomEnemyFollowerDamageCommand(playerIndex, 0, numberWord(match[1]), {
+        ...sourceOptions,
+        amountFrom: "neutral-hand-count"
+      })
+    });
+  }
+
   for (const match of value.matchAll(/\bdeal\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+damage to (?:the )?enemy leader\b/gi)) {
     const amount = numberWord(match[1]);
     if (amount > 0) indexed.push({ index: match.index ?? 0, command: createWorldsBeyondLeaderDamageCommand(playerIndex, 1 - Number(playerIndex), amount, sourceOptions) });
@@ -273,6 +303,21 @@ export function resolveWorldsBeyondEffectCommand(session, command) {
     return { applied: requested > 0, requested, damage };
   }
 
+  if (command.type === SVWB_EFFECT_COMMAND.RANDOM_DAMAGE_ENEMY_FOLLOWERS) {
+    const count = positiveAmount(payload.count);
+    const amount = payload.amountFrom === "neutral-hand-count"
+      ? countNeutralCardsInHand(session.getPlayer(playerIndex))
+      : Math.max(0, Number(payload.amount) || 0);
+    if (!count) return { applied: false, requested: 0, amount };
+    const applied = Boolean(session.ruleset?.resolveRandomEnemyFollowerDamage?.(session, {
+      playerIndex,
+      source,
+      amount,
+      count
+    }));
+    return { applied, requested: count, amount };
+  }
+
   if (command.type === SVWB_EFFECT_COMMAND.SPLIT_DAMAGE_ENEMY_FOLLOWERS) {
     const requested = positiveAmount(payload.amount);
     if (!requested) return { applied: false, requested: 0 };
@@ -297,6 +342,12 @@ export function resolveWorldsBeyondEffectCommand(session, command) {
   }
 
   throw new Error(`Unsupported Worlds Beyond effect command: ${command?.type ?? "unknown"}`);
+}
+
+function countNeutralCardsInHand(player) {
+  return (player?.hand ?? []).filter(instance =>
+    String(instance?.card?.class ?? instance?.card?.className ?? instance?.class ?? instance?.className ?? "").trim().toLowerCase() === "neutral"
+  ).length;
 }
 
 function resolveAddToHand(session, playerIndex, payload) {

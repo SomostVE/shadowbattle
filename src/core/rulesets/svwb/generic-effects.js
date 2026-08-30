@@ -12,6 +12,8 @@ import { createWorldsBeyondLeaderHealCommand } from "./v6/effect-commands.js";
 const NUMBER = "(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\\d+)";
 const CARD_NAME = "([A-Z][A-Za-z0-9'’&,:\\- ]+?)";
 const ALLIED_GOLEM_AREA_DAMAGE = /\bdeal damage to all enemy followers equal to the number of allied Golem followers on the field\b/gi;
+const RANDOM_ENEMY_FOLLOWER_DAMAGE = new RegExp("\\bdeal\\s+" + NUMBER + "\\s+damage to\\s+" + NUMBER + "\\s+random enemy followers\\b", "gi");
+const LIVE_NEUTRAL_HAND_RANDOM_DAMAGE = /\bdeal damage to (?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+) random enemy followers equal to the number of Neutral cards in your hand\b/gi;
 
 const GENERIC_EFFECT_PATTERNS = Object.freeze([
   new RegExp(`\\bdeal\\s+${NUMBER}\\s+damage split between all enemy followers\\b`, "gi"),
@@ -21,6 +23,8 @@ const GENERIC_EFFECT_PATTERNS = Object.freeze([
   ALLIED_GOLEM_AREA_DAMAGE,
   LIVE_ALL_FOLLOWER_COUNT_DAMAGE,
   LIVE_HAND_SIZE_LEADER_HEAL,
+  RANDOM_ENEMY_FOLLOWER_DAMAGE,
+  LIVE_NEUTRAL_HAND_RANDOM_DAMAGE,
   /\bgive all other allied followers(?: on the field)?\s+\+\d+\s*\/\s*\+\d+\b/gi,
   /\bgive all allied followers(?: on the field)?\s+Barrier\b/gi,
   /\bgive all enemy followers(?: on the field)?\s+-\d+\s*\/\s*-\d+\b/gi,
@@ -216,6 +220,49 @@ export function resolveWorldsBeyondGenericEffects(session, {
 function collect(text, pattern, factory, effects) {
   pattern.lastIndex = 0;
   for (const match of text.matchAll(pattern)) effects.push({ index: match.index ?? 0, ...factory(match) });
+}
+
+export function resolveWorldsBeyondRandomEnemyFollowerDamage(session, {
+  playerIndex,
+  source,
+  amount,
+  count,
+  destroyFollower
+} = {}) {
+  const enemyIndex = 1 - playerIndex;
+  const candidates = session.getPlayer(enemyIndex).board
+    .filter(unit => cardType(unit) === "follower")
+    .map(unit => unit.instanceId);
+  const targetIds = [];
+  let remaining = Math.min(Math.max(0, Number(count) || 0), candidates.length);
+  while (remaining > 0 && candidates.length) {
+    const index = Math.floor(session.rng() * candidates.length);
+    targetIds.push(candidates.splice(index, 1)[0]);
+    remaining -= 1;
+  }
+
+  let applied = false;
+  const damage = Math.max(0, Number(amount) || 0);
+  for (const instanceId of targetIds) {
+    const live = session.findBoardCard(enemyIndex, instanceId);
+    if (!live || session.phase === "ended") continue;
+    session.damageFollower(enemyIndex, live.instanceId, damage, {
+      actor: playerIndex,
+      source,
+      reason: "ability",
+      resolveDeath: false
+    });
+    applied = true;
+    const damaged = session.findBoardCard(enemyIndex, instanceId);
+    if (!damaged || currentDefense(damaged) > 0) continue;
+    destroyFollower?.(session, enemyIndex, damaged.instanceId, {
+      actor: playerIndex,
+      source,
+      reason: "ability",
+      byAbility: true
+    });
+  }
+  return applied;
 }
 
 export function resolveWorldsBeyondSplitEnemyFollowerDamage(session, {

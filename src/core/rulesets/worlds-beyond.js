@@ -15,6 +15,7 @@ import { resolveWorldsBeyondEventReaction } from "./svwb/event-reactions.js";
 import { destroyWorldsBeyondFollower, gainWorldsBeyondShadows } from "./svwb/effect-resolver.js";
 import { applyWorldsBeyondEvolutionAction, listWorldsBeyondEvolutionActions } from "./svwb/evolution-actions.js";
 import {
+  resolveWorldsBeyondRandomEnemyFollowerDamage,
   resolveWorldsBeyondSplitAllEnemiesDamage,
   resolveWorldsBeyondSplitEnemyFollowerDamage
 } from "./svwb/generic-effects.js";
@@ -86,6 +87,15 @@ export const WORLDS_BEYOND_RULESET = Object.freeze({
   },
   superEvolveFollowerByAbility(session, playerIndex, source) {
     return superEvolveWorldsBeyondFollowerByAbility(session, playerIndex, source);
+  },
+  resolveRandomEnemyFollowerDamage(session, { playerIndex, source, amount, count }) {
+    return resolveWorldsBeyondRandomEnemyFollowerDamage(session, {
+      playerIndex,
+      source,
+      amount,
+      count,
+      destroyFollower: destroyWorldsBeyondFollower
+    });
   },
   resolveSplitEnemyFollowerDamage(session, { playerIndex, source, amount }) {
     return resolveWorldsBeyondSplitEnemyFollowerDamage(session, {
