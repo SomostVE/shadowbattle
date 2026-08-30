@@ -1,0 +1,47 @@
+name: Fix Patch 0.5.25 Temp
+
+on:
+  push:
+    branches:
+      - engine-v6-0.5.25-basic-cleanup
+    paths:
+      - .github/workflows/fix-patch-0.5.25-temp.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: engine-v6-0.5.25-basic-cleanup
+          fetch-depth: 0
+      - name: Fix nested template literals
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('scripts/patch-0.5.25.mjs')
+          s = p.read_text()
+          replacements = {
+            '    return `Restore ${match[1]} defense to your leader.`;': '    return "Restore " + match[1] + " defense to your leader.";',
+            '    if (amount) return `Deal ${amount} damage to all enemy followers.`;': '    if (amount) return "Deal " + amount + " damage to all enemy followers.";',
+            '    if (cardName) return `Summon ${match[1]} copies of ${cardName}.`;': '    if (cardName) return "Summon " + match[1] + " copies of " + cardName + ".";',
+            '    if (cardName) return `Add ${match[1]} copies of ${cardName} to your hand.`;': '    if (cardName) return "Add " + match[1] + " copies of " + cardName + " to your hand.";'
+          }
+          for old, new in replacements.items():
+              if s.count(old) != 1:
+                  raise SystemExit(f'expected exactly one occurrence: {old}')
+              s = s.replace(old, new)
+          p.write_text(s)
+          PY
+          node --check scripts/patch-0.5.25.mjs
+      - name: Commit fixed patch script
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/patch-0.5.25.mjs
+          git commit -m "chore: fix 0.5.25 patch runner quoting"
+          git pull --rebase origin engine-v6-0.5.25-basic-cleanup
+          git push origin HEAD:engine-v6-0.5.25-basic-cleanup
