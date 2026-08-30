@@ -16,5 +16,5 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-      - name: Audit Basic residuals
+      - name: Audit Basic residuals with full text
         run: node scripts/audit-svwb-v6-basic-temp.mjs
