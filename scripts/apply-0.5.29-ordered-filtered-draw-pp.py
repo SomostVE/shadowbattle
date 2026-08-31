@@ -61,39 +61,25 @@ replace_once(
     if (amount > 0) indexed.push({ index: match.index ?? 0, command: createWorldsBeyondDrawCommand(playerIndex, amount, sourceOptions) });
   }
 
-  for (const match of value.matchAll(/\\bdraw\\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\\d+)\\s+(Neutral|[a-z]+craft)\\s+(followers?)\\b/gi)) {
-    const amount = numberWord(match[1]);
-    if (amount > 0) indexed.push({
-      index: match.index ?? 0,
+  for (const match of value.matchAll(/\\bdraw\\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\\d+)\\s+(Neutral|[a-z]+craft)\\s+(followers?)\\s*\\.\\s*recover\\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\\d+)\\s+play points?\\b/gi)) {
+    const drawAmount = numberWord(match[1]);
+    const recoverAmount = numberWord(match[4]);
+    const baseIndex = match.index ?? 0;
+    if (drawAmount > 0) indexed.push({
+      index: baseIndex,
       command: createWorldsBeyondFilteredDrawCommand(playerIndex, {
-        amount,
+        amount: drawAmount,
         cardClass: match[2],
         cardType: singularType(match[3])
       }, sourceOptions)
     });
-  }
-
-  for (const match of value.matchAll(/\\brecover\\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\\d+)\\s+play points?\\b/gi)) {
-    const amount = numberWord(match[1]);
-    if (amount > 0) indexed.push({ index: match.index ?? 0, command: createWorldsBeyondRecoverPlayPointsCommand(playerIndex, amount, sourceOptions) });
+    if (recoverAmount > 0) indexed.push({
+      index: baseIndex + Math.max(1, match[0].toLowerCase().lastIndexOf("recover")),
+      command: createWorldsBeyondRecoverPlayPointsCommand(playerIndex, recoverAmount, sourceOptions)
+    });
   }
 
   for (const match of value.matchAll(/\\b(?:restore|recover)\\s+'''
-)
-
-replace_once(
-    commands,
-    '''  const typed = value.match(/\\bdraw\\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\\d+)\\s+([a-z]+craft)\\s+(followers?)\\s*\\.?\\s*$/i);
-  if (typed) {
-    return [createWorldsBeyondFilteredDrawCommand(playerIndex, {
-      amount: numberWord(typed[1]),
-      cardClass: typed[2],
-      cardType: singularType(typed[3])
-    }, sourceOptions)];
-  }
-
-''',
-    ''
 )
 
 replace_once(
@@ -127,8 +113,7 @@ replace_once(
     '''  new RegExp(`\\\\brecover\\\\s+${NUMBER}\\\\s+evolution points?\\\\b`, "gi"),
   new RegExp(`\\\\badd\\\\s+${NUMBER}\\\\s+copies of''',
     '''  new RegExp(`\\\\brecover\\\\s+${NUMBER}\\\\s+evolution points?\\\\b`, "gi"),
-  new RegExp(`\\\\bdraw\\\\s+${NUMBER}\\\\s+(?:Neutral|[a-z]+craft)\\\\s+followers?\\\\b`, "gi"),
-  new RegExp(`\\\\brecover\\\\s+${NUMBER}\\\\s+play points?\\\\b`, "gi"),
+  new RegExp(`\\\\bdraw\\\\s+${NUMBER}\\\\s+(?:Neutral|[a-z]+craft)\\\\s+followers?\\\\s*\\\\.\\\\s*recover\\\\s+${NUMBER}\\\\s+play points?\\\\b`, "gi"),
   new RegExp(`\\\\badd\\\\s+${NUMBER}\\\\s+copies of'''
 )
 
