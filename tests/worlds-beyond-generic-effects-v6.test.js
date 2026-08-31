@@ -42,12 +42,12 @@ function replaceHandCard(game, card) {
   return instance;
 }
 
-function follower(instanceId, owner, { attack = 2, defense = 3, keywords = [], name = instanceId } = {}) {
+function follower(instanceId, owner, { attack = 2, defense = 3, keywords = [], traits = [], cardClass = "Neutral", name = instanceId } = {}) {
   return {
     instanceId,
     owner,
     cardId: instanceId,
-    card: { id: instanceId, name, type: "Follower", cost: 1, attack, defense, keywords },
+    card: { id: instanceId, name, class: cardClass, type: "Follower", cost: 1, attack, defense, keywords, traits },
     attack,
     defense,
     maxDefense: defense,
@@ -180,6 +180,60 @@ test("Ironcrown-style mode can buff all allied followers", () => {
   assert.equal(ally.attack, 3);
   assert.equal(ally.defense, 3);
   assert.equal(ally.maxDefense, 3);
+});
+
+test("trait-filtered allied buffs affect only matching followers", () => {
+  const game = readyGame();
+  const pixie = follower("pixie-ally", 0, { attack: 2, defense: 2, traits: ["Pixie"] });
+  const artifact = follower("artifact-ally", 0, { attack: 3, defense: 3, traits: ["Artifact"] });
+  const plain = follower("plain-ally", 0, { attack: 4, defense: 4 });
+  game.players[0].board.push(pixie, artifact, plain);
+  const card = replaceHandCard(game, {
+    id: "pixie-wide-buffer",
+    name: "Pixie Wide Buffer",
+    class: "Forestcraft",
+    type: "Spell",
+    cost: 0,
+    keywords: [],
+    text: "Give all allied Pixie followers on the field +1/+2."
+  });
+
+  game.dispatch({ type: "play-card", player: 0, cardInstanceId: card.instanceId });
+
+  assert.equal(pixie.attack, 3);
+  assert.equal(pixie.defense, 4);
+  assert.equal(pixie.maxDefense, 4);
+  assert.equal(artifact.attack, 3);
+  assert.equal(artifact.defense, 3);
+  assert.equal(plain.attack, 4);
+  assert.equal(plain.defense, 4);
+});
+
+test("trait-filtered allied buffs include a matching source unless 'other' is printed", () => {
+  const game = readyGame();
+  const ally = follower("artifact-friend", 0, { attack: 2, defense: 2, traits: ["Artifact"] });
+  game.players[0].board.push(ally);
+  const card = replaceHandCard(game, {
+    id: "artifact-source",
+    name: "Artifact Source",
+    class: "Portalcraft",
+    type: "Follower",
+    cost: 0,
+    attack: 1,
+    defense: 1,
+    traits: ["Artifact"],
+    keywords: ["Fanfare"],
+    text: "Fanfare: Give all allied Artifact followers on the field +1/+1."
+  });
+
+  game.dispatch({ type: "play-card", player: 0, cardInstanceId: card.instanceId });
+
+  const source = game.players[0].board.find(unit => unit.cardId === "artifact-source");
+  assert.equal(ally.attack, 3);
+  assert.equal(ally.defense, 3);
+  assert.equal(source.attack, 2);
+  assert.equal(source.defense, 2);
+  assert.equal(source.maxDefense, 2);
 });
 
 test("enemy-wide stat reduction clamps attack and destroys followers at zero defense", () => {
