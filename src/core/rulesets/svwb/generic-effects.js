@@ -29,7 +29,7 @@ const GENERIC_EFFECT_PATTERNS = Object.freeze([
   RANDOM_ENEMY_FOLLOWER_AND_SELF_DAMAGE,
   RANDOM_ENEMY_FOLLOWER_DAMAGE,
   LIVE_NEUTRAL_HAND_RANDOM_DAMAGE,
-  /\bgive all other allied followers(?: on the field)?\s+\+\d+\s*\/\s*\+\d+\b/gi,
+  /\bgive all (?:other )?allied followers(?: on the field)?\s+\+\d+\s*\/\s*\+\d+\b/gi,
   /\bgive all allied followers(?: on the field)?\s+Barrier\b/gi,
   /\bgive all enemy followers(?: on the field)?\s+-\d+\s*\/\s*-\d+\b/gi,
   new RegExp(`\\bdestroy\\s+${NUMBER}\\s+random enemy followers\\b`, "gi"),
@@ -86,11 +86,11 @@ export function resolveWorldsBeyondGenericEffects(session, {
   collect(value, LIVE_HAND_SIZE_LEADER_HEAL, () => ({
     kind: "leader-heal-by-live-hand-size"
   }), effects);
-  collect(value, /\bgive all other allied followers(?: on the field)?\s+\+(\d+)\s*\/\s*\+(\d+)\b/gi, match => ({
+  collect(value, /\bgive all (other )?allied followers(?: on the field)?\s+\+(\d+)\s*\/\s*\+(\d+)\b/gi, match => ({
     kind: "allied-buff",
-    attack: Number(match[1]) || 0,
-    defense: Number(match[2]) || 0,
-    excludeSource: true
+    attack: Number(match[2]) || 0,
+    defense: Number(match[3]) || 0,
+    excludeSource: Boolean(match[1])
   }), effects);
   collect(value, /\bgive all allied followers(?: on the field)?\s+Barrier\b/gi, () => ({
     kind: "allied-barrier"
