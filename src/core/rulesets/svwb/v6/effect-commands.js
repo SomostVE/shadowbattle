@@ -1,5 +1,6 @@
 import { BATTLE_EVENT, BATTLE_VISIBILITY } from "../../../battle-events.js";
 import { createEffectCommand } from "../../../effect-commands.js";
+import { grantWorldsBeyondKeyword } from "../combat-readiness.js";
 import { gainWorldsBeyondCrest } from "../crests.js";
 import { addWorldsBeyondGeneratedCard } from "../generated-cards.js";
 
@@ -87,7 +88,9 @@ export function createWorldsBeyondFilteredDrawCommand(playerIndex, {
   amount = 1,
   cardClass = null,
   cardType = null,
-  cardName = null
+  cardName = null,
+  allMatches = false,
+  grantKeyword = null
 } = {}, options = {}) {
   return createWorldsBeyondEffectCommand(SVWB_EFFECT_COMMAND.DRAW_FILTERED, {
     playerIndex,
@@ -95,6 +98,8 @@ export function createWorldsBeyondFilteredDrawCommand(playerIndex, {
     cardClass,
     cardType,
     cardName,
+    allMatches: Boolean(allMatches),
+    grantKeyword: grantKeyword ? String(grantKeyword).trim() : null,
     reason: options.reason ?? "ability"
   }, options.metadata);
 }
@@ -231,7 +236,16 @@ export function compileWorldsBeyondTrailingFilteredDrawCommands(text, { playerIn
   const value = String(text ?? "");
   const sourceOptions = cardSourceOptions(source, "trailing");
 
-  const genericType = value.match(/\bdraw\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+(amulets?|spells?)\s*\.?\s*$/i);
+  const allNamed = value.match(/\bdraw\s+all copies of\s+(.+?)\s+and give them\s+(Storm|Rush|Ward|Bane|Drain)\s*\.?\s*$/i);
+  if (allNamed) {
+    return [createWorldsBeyondFilteredDrawCommand(playerIndex, {
+      cardName: allNamed[1].trim(),
+      allMatches: true,
+      grantKeyword: allNamed[2]
+    }, sourceOptions)];
+  }
+
+  const genericType = value.match(/\bdraw\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+(amulets?|spells?|followers?)\s*\.?\s*$/i);
   if (genericType) {
     return [createWorldsBeyondFilteredDrawCommand(playerIndex, {
       amount: numberWord(genericType[1]),
@@ -388,16 +402,23 @@ function resolveAddToHand(session, playerIndex, payload) {
 }
 
 function resolveFilteredDraw(session, playerIndex, payload) {
-  const requested = positiveAmount(payload.amount);
-  if (!requested) return { applied: false, requested: 0, drawn: 0, burned: 0, matched: 0 };
-
   const player = session.getPlayer(playerIndex);
   const wantedClass = normalize(payload.cardClass);
   const wantedType = normalize(payload.cardType);
   const wantedName = normalize(payload.cardName);
+  const allMatches = Boolean(payload.allMatches);
+  const initialMatches = player.deck.filter(item => {
+    const card = item?.card ?? item;
+    return (!wantedClass || normalize(card?.class) === wantedClass)
+      && (!wantedType || normalize(card?.type) === wantedType)
+      && (!wantedName || normalize(card?.name) === wantedName);
+  }).length;
+  const requested = allMatches ? initialMatches : positiveAmount(payload.amount);
+  if (!requested) return { applied: false, requested: 0, drawn: 0, burned: 0, matched: initialMatches };
+
   let drawn = 0;
   let burned = 0;
-  let matched = 0;
+  let matched = initialMatches;
 
   for (let iteration = 0; iteration < requested; iteration += 1) {
     const candidates = player.deck
@@ -427,6 +448,7 @@ function resolveFilteredDraw(session, playerIndex, payload) {
     }
 
     player.hand.push(card);
+    if (payload.grantKeyword) grantWorldsBeyondKeyword(card, payload.grantKeyword);
     drawn += 1;
     session.emit(BATTLE_EVENT.DRAW, {
       actor: playerIndex,

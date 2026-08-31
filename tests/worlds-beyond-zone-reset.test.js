@@ -65,6 +65,7 @@ test("returning a follower clears temporary board keywords, locks and evolution 
     canAttackLeader: false,
     playedTurn: session.turn,
     grantedKeywords: ["Storm", "Ward"],
+    suppressedKeywords: ["Ward"],
     permanentAttackLock: true,
     himekaBanishAtOwnTurnEnd: true,
     himekaBanishActor: 0,
@@ -79,6 +80,7 @@ test("returning a follower clears temporary board keywords, locks and evolution 
   assert.equal(returned.card, base, "the canonical card definition is restored");
   assert.deepEqual(returned.card.keywords, []);
   assert.equal(returned.grantedKeywords, undefined);
+  assert.equal(returned.suppressedKeywords, undefined);
   assert.equal(returned.permanentAttackLock, undefined);
   assert.equal(returned.himekaBanishAtOwnTurnEnd, undefined);
   assert.equal(returned.himekaBanishActor, undefined);
@@ -93,4 +95,39 @@ test("returning a follower clears temporary board keywords, locks and evolution 
   assert.equal(returned.defenseBonus, 0);
   assert.equal(hasWorldsBeyondKeyword(returned, "Storm"), false);
   assert.equal(hasWorldsBeyondKeyword(returned, "Ward"), false);
+});
+
+test("returning a follower restores a printed keyword that was suppressed on the field", () => {
+  const session = game();
+  const base = {
+    id: 92002,
+    name: "Printed Ward Return Target",
+    type: "Follower",
+    cost: 2,
+    attack: 2,
+    defense: 3,
+    keywords: ["Ward"],
+    text: ""
+  };
+  session.registerCardDefinitions([base]);
+
+  const victim = {
+    instanceId: "return-printed-ward",
+    owner: 1,
+    cardId: base.id,
+    card: base,
+    attack: 2,
+    defense: 3,
+    maxDefense: 3,
+    suppressedKeywords: ["Ward"]
+  };
+  session.players[1].board.push(victim);
+  assert.equal(hasWorldsBeyondKeyword(victim, "Ward"), false);
+
+  returnBoardCardToHand(session, 1, victim.instanceId, { actor: 0, reason: "test-return-printed-ward" });
+
+  const returned = session.findHandCard(1, victim.instanceId);
+  assert.ok(returned);
+  assert.equal(returned.suppressedKeywords, undefined);
+  assert.equal(hasWorldsBeyondKeyword(returned, "Ward"), true);
 });

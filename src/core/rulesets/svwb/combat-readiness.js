@@ -132,20 +132,41 @@ export function grantWorldsBeyondKeyword(instance, keyword) {
   if (!instance || !keyword) return false;
   const wanted = normalize(keyword);
   const granted = keywordValues(instance.grantedKeywords);
+  const suppressed = keywordValues(instance.suppressedKeywords);
+  const remainingSuppressed = suppressed.filter(value => normalize(keywordName(value)) !== wanted);
+  const unsuppressed = remainingSuppressed.length !== suppressed.length;
+  if (unsuppressed) instance.suppressedKeywords = remainingSuppressed;
   const alreadyGranted = granted.some(value => normalize(keywordName(value)) === wanted);
   let reactivated = false;
   if (wanted === "barrier" && !instance.barrierActive) {
     instance.barrierActive = true;
     reactivated = true;
   }
-  if (alreadyGranted) return reactivated;
+  if (alreadyGranted) return reactivated || unsuppressed;
   instance.grantedKeywords = [...granted, String(keyword).trim()];
   return true;
+}
+
+export function removeWorldsBeyondKeyword(instance, keyword) {
+  if (!instance || !keyword) return false;
+  const wanted = normalize(keyword);
+  if (!wanted) return false;
+  const hadKeyword = hasWorldsBeyondKeyword(instance, keyword);
+  const granted = keywordValues(instance.grantedKeywords);
+  instance.grantedKeywords = granted.filter(value => normalize(keywordName(value)) !== wanted);
+  const suppressed = keywordValues(instance.suppressedKeywords);
+  if (!suppressed.some(value => normalize(keywordName(value)) === wanted)) {
+    instance.suppressedKeywords = [...suppressed, String(keyword).trim()];
+  }
+  if (wanted === "barrier") instance.barrierActive = false;
+  return hadKeyword;
 }
 
 export function hasWorldsBeyondKeyword(instance, keyword) {
   const wanted = normalize(keyword);
   if (!wanted) return false;
+  const suppressed = keywordValues(instance?.suppressedKeywords);
+  if (suppressed.some(value => normalize(keywordName(value)) === wanted)) return false;
   if (wanted === "barrier" && Object.prototype.hasOwnProperty.call(instance ?? {}, "barrierActive")) {
     return Boolean(instance.barrierActive);
   }

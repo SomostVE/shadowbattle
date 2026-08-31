@@ -52,26 +52,30 @@ export function applyWorldsBeyondEvolutionAction(session, action) {
 
   const availableKey = superEvolution ? "superEvolutionAvailable" : "evolutionAvailable";
   const pointsKey = superEvolution ? "superEvolutionPoints" : "evolutionPoints";
-  const trigger = superEvolution ? SUPER_EVOLVE : EVOLVE;
   if (!player.resources[availableKey]) throw new Error(superEvolution ? "Super Evolution is not available yet" : "Evolution is not available yet");
   if (Number(player.resources[pointsKey] ?? 0) <= 0) throw new Error(superEvolution ? "No Super Evolution points remain" : "No Evolution points remain");
 
-  const modeChoices = getEvolutionModeChoices(follower, trigger, player);
-  const selectedMode = selectEvolutionMode(modeChoices, action.evolutionModeKey);
-  if (modeChoices.length && !selectedMode) throw new Error("Selected evolution mode is not legal");
-  const effectSource = selectedMode ? evolutionModeSource(follower, trigger, selectedMode) : follower;
-  if (selectedMode && !getWorldsBeyondTriggerSupport(effectSource, trigger, null, player).supported) {
-    throw new Error("This evolution mode is not fully supported by the Worlds Beyond resolver");
-  }
-
-  const optionalAlliedSpec = getWorldsBeyondOptionalAlliedCardSpec(follower, optionalEvolutionEffectText(follower, trigger));
-  validateWorldsBeyondOptionalAlliedCardSelection(player, follower, optionalAlliedSpec, action.optionalAlliedCardInstanceId ?? null);
-  const requirement = optionalAlliedSpec ? null : getWorldsBeyondTargetRequirement(effectSource, trigger, null, player);
-  const targets = requirement ? getWorldsBeyondTargetOptions(session, { trigger, playerIndex, source: effectSource }) : [];
-  if (targets.length && !action.targetInstanceId) throw new Error("This evolution ability requires an effect target");
-  if (!optionalAlliedSpec && action.targetInstanceId && !targets.some(target => target.instanceId === action.targetInstanceId)) {
-    throw new Error("Selected evolution target is not legal");
-  }
+  const replacementSuper = superEvolution && superEvolutionReplacesEvolve(follower);
+  const additiveSuper = superEvolution && !replacementSuper;
+  const evolveSelection = additiveSuper
+    ? prepareEvolutionSelection(session, playerIndex, follower, EVOLVE, {
+      modeKey: actionFieldOrLegacy(action, "evolveModeKey", null),
+      targetInstanceId: actionFieldOrLegacy(action, "evolveTargetInstanceId", "targetInstanceId"),
+      optionalAlliedCardInstanceId: actionFieldOrLegacy(action, "evolveOptionalAlliedCardInstanceId", "optionalAlliedCardInstanceId")
+    })
+    : null;
+  const primaryTrigger = superEvolution ? SUPER_EVOLVE : EVOLVE;
+  const primarySelection = prepareEvolutionSelection(session, playerIndex, follower, primaryTrigger, {
+    modeKey: additiveSuper
+      ? actionFieldOrLegacy(action, "superEvolveModeKey", "evolutionModeKey")
+      : action.evolutionModeKey,
+    targetInstanceId: additiveSuper
+      ? actionFieldOrLegacy(action, "superEvolveTargetInstanceId", "targetInstanceId")
+      : action.targetInstanceId,
+    optionalAlliedCardInstanceId: additiveSuper
+      ? actionFieldOrLegacy(action, "superEvolveOptionalAlliedCardInstanceId", "optionalAlliedCardInstanceId")
+      : action.optionalAlliedCardInstanceId
+  });
 
   const bonus = superEvolution ? 3 : 2;
   follower.attack = currentAttack(follower) + bonus;
@@ -84,106 +88,285 @@ export function applyWorldsBeyondEvolutionAction(session, action) {
   player.resources[pointsKey] -= 1;
   player.evolutionActionUsed = true;
 
-  const targetOwner = optionalAlliedSpec ? playerIndex : 1 - playerIndex;
-  const targetId = optionalAlliedSpec ? action.optionalAlliedCardInstanceId : action.targetInstanceId;
-  const target = targetId ? session.findBoardCard(targetOwner, targetId) : null;
+  const eventSelection = primarySelection.targetInstanceId || primarySelection.optionalAlliedCardInstanceId
+    ? primarySelection
+    : evolveSelection;
+  const eventTargetId = eventSelection?.optionalAlliedCardInstanceId ?? eventSelection?.targetInstanceId ?? null;
+  const eventTarget = eventTargetId
+    ? session.findBoardCard(playerIndex, eventTargetId) ?? session.findBoardCard(1 - playerIndex, eventTargetId)
+    : null;
   session.emit(superEvolution ? BATTLE_EVENT.SUPER_EVOLVE : BATTLE_EVENT.EVOLVE, {
     actor: playerIndex,
     payload: {
       card: session.cardView(follower),
       pointsRemaining: player.resources[pointsKey],
       statBonus: bonus,
-      target: target ? session.cardView(target) : null,
-      targetOptional: Boolean(optionalAlliedSpec),
-      mode: selectedMode ? modeView(selectedMode) : null
+      target: eventTarget ? session.cardView(eventTarget) : null,
+      targetOptional: Boolean(eventSelection?.optionalSpec),
+      mode: primarySelection.mode ? modeView(primarySelection.mode) : null,
+      evolveMode: evolveSelection?.mode ? modeView(evolveSelection.mode) : null
     }
   });
 
-  if (optionalAlliedSpec) {
-    resolveWorldsBeyondOptionalAlliedCardSelection(session, {
-      trigger,
-      playerIndex,
-      source: follower,
-      spec: optionalAlliedSpec,
-      targetInstanceId: action.optionalAlliedCardInstanceId ?? null,
-      destroyFollower: destroyWorldsBeyondFollower,
-      destroyAmulet: destroyWorldsBeyondAmulet
-    });
+  if (!additiveSuper) {
+    resolvePreparedEvolutionSelection(session, primarySelection);
     return session.getSnapshot(playerIndex);
   }
 
-  const previousActiveText = follower.activeText;
-  if (selectedMode) follower.activeText = evolutionModeText(trigger, selectedMode.text);
-  try {
-    resolveWorldsBeyondTrigger(session, {
-      trigger,
-      playerIndex,
-      source: follower,
-      targetInstanceId: action.targetInstanceId ?? null
-    });
-  } finally {
-    if (previousActiveText == null) delete follower.activeText;
-    else follower.activeText = previousActiveText;
-  }
+  const beforeEvolveIds = new Set(player.board.map(unit => unit.instanceId));
+  resolvePreparedEvolutionSelection(session, evolveSelection);
+  const antecedentInstanceIds = player.board
+    .filter(unit => !beforeEvolveIds.has(unit.instanceId))
+    .map(unit => unit.instanceId);
+  resolvePreparedEvolutionSelection(session, primarySelection, { antecedentInstanceIds });
   return session.getSnapshot(playerIndex);
 }
 
 function appendEvolutionBranches(actions, session, playerIndex, follower, superEvolution) {
   const type = superEvolution ? SUPER_EVOLVE : EVOLVE;
+  const base = {
+    type,
+    player: playerIndex,
+    followerInstanceId: follower.instanceId
+  };
+
+  if (superEvolution && !superEvolutionReplacesEvolve(follower)) {
+    const evolveBranches = getEvolutionBranches(session, playerIndex, follower, EVOLVE);
+    const superBranches = getEvolutionBranches(session, playerIndex, follower, SUPER_EVOLVE);
+    for (const evolveBranch of evolveBranches) {
+      for (const superBranch of superBranches) {
+        actions.push(additiveSuperEvolutionAction(base, evolveBranch, superBranch));
+      }
+    }
+    return;
+  }
+
+  for (const branch of getEvolutionBranches(session, playerIndex, follower, type)) {
+    actions.push(singleEvolutionAction(base, branch));
+  }
+}
+
+function getEvolutionBranches(session, playerIndex, follower, trigger) {
   const player = session.getPlayer(playerIndex);
-  const modeChoices = getEvolutionModeChoices(follower, type, player);
-  const variants = modeChoices.length ? modeChoices : [null];
+  const modeChoices = getEvolutionModeChoices(follower, trigger, player);
+  const modes = modeChoices.length ? modeChoices : [null];
+  const branches = [];
 
-  for (const mode of variants) {
-    const effectSource = mode ? evolutionModeSource(follower, type, mode) : follower;
-    if (mode && !getWorldsBeyondTriggerSupport(effectSource, type, null, player).supported) continue;
+  for (const mode of modes) {
+    const effectSource = mode ? evolutionModeSource(follower, trigger, mode) : follower;
+    if (mode && !getWorldsBeyondTriggerSupport(effectSource, trigger, null, player).supported) continue;
 
-    const base = {
-      type,
-      player: playerIndex,
-      followerInstanceId: follower.instanceId,
-      ...(mode ? {
-        evolutionModeKey: worldsBeyondModeChoiceKey(mode),
-        evolutionMode: modeView(mode)
-      } : {})
-    };
-    const optionalAlliedSpec = getWorldsBeyondOptionalAlliedCardSpec(follower, optionalEvolutionEffectText(follower, type));
-    if (optionalAlliedSpec) {
-      for (const target of getWorldsBeyondOptionalAlliedCardOptions(player, follower, optionalAlliedSpec)) {
-        actions.push({
-          ...base,
-          targetOptional: true,
-          targetSide: "allied",
-          targetKind: "destroy",
-          optionalSelectionKind: optionalAlliedSpec.kind,
-          optionalFollowUpKind: optionalAlliedSpec.followUpKind,
-          optionalFollowUpAmount: optionalAlliedSpec.amount,
+    const optionalText = mode
+      ? evolutionModeText(trigger, mode.text)
+      : optionalEvolutionEffectText(follower, trigger);
+    const optionalSpec = getWorldsBeyondOptionalAlliedCardSpec(follower, optionalText);
+    if (optionalSpec) {
+      for (const target of getWorldsBeyondOptionalAlliedCardOptions(player, follower, optionalSpec)) {
+        branches.push({
+          trigger,
+          mode,
+          optionalSpec,
           optionalAlliedCardInstanceId: target?.instanceId ?? null,
-          ...(target ? { targetInstanceId: target.instanceId } : {})
+          targetInstanceId: null,
+          requirement: null
         });
       }
       continue;
     }
 
-    const requirement = getWorldsBeyondTargetRequirement(effectSource, type, null, player);
-    const targets = requirement ? getWorldsBeyondTargetOptions(session, { trigger: type, playerIndex, source: effectSource }) : [];
+    const requirement = getWorldsBeyondTargetRequirement(effectSource, trigger, null, player);
+    const targets = requirement ? getWorldsBeyondTargetOptions(session, { trigger, playerIndex, source: effectSource }) : [];
     if (!targets.length) {
-      actions.push(base);
+      branches.push({ trigger, mode, optionalSpec: null, optionalAlliedCardInstanceId: null, targetInstanceId: null, requirement });
       continue;
     }
     for (const target of targets) {
-      actions.push({
-        ...base,
+      branches.push({
+        trigger,
+        mode,
+        optionalSpec: null,
+        optionalAlliedCardInstanceId: null,
         targetInstanceId: target.instanceId,
-        targetKind: requirement.kind,
-        targetAmount: Number(requirement.amount ?? 0)
+        requirement
       });
     }
   }
+  return branches;
+}
+
+function singleEvolutionAction(base, branch) {
+  const action = { ...base };
+  if (branch.mode) {
+    action.evolutionModeKey = worldsBeyondModeChoiceKey(branch.mode);
+    action.evolutionMode = modeView(branch.mode);
+  }
+  applyLegacyTargetFields(action, branch);
+  return action;
+}
+
+function additiveSuperEvolutionAction(base, evolveBranch, superBranch) {
+  const action = {
+    ...base,
+    evolveModeKey: evolveBranch.mode ? worldsBeyondModeChoiceKey(evolveBranch.mode) : null,
+    superEvolveModeKey: superBranch.mode ? worldsBeyondModeChoiceKey(superBranch.mode) : null,
+    evolveTargetInstanceId: evolveBranch.targetInstanceId,
+    superEvolveTargetInstanceId: superBranch.targetInstanceId,
+    evolveOptionalAlliedCardInstanceId: evolveBranch.optionalAlliedCardInstanceId,
+    superEvolveOptionalAlliedCardInstanceId: superBranch.optionalAlliedCardInstanceId
+  };
+
+  if (evolveBranch.mode) action.evolveMode = modeView(evolveBranch.mode);
+  if (superBranch.mode) {
+    action.superEvolveMode = modeView(superBranch.mode);
+    action.evolutionModeKey = worldsBeyondModeChoiceKey(superBranch.mode);
+    action.evolutionMode = modeView(superBranch.mode);
+  } else if (evolveBranch.mode) {
+    action.evolutionModeKey = worldsBeyondModeChoiceKey(evolveBranch.mode);
+    action.evolutionMode = modeView(evolveBranch.mode);
+  }
+
+  const displayBranch = branchHasSelection(superBranch) ? superBranch : evolveBranch;
+  applyLegacyTargetFields(action, displayBranch);
+  if (evolveBranch.requirement) {
+    action.evolveTargetKind = evolveBranch.requirement.kind;
+    action.evolveTargetAmount = Number(evolveBranch.requirement.amount ?? 0);
+  }
+  if (superBranch.requirement) {
+    action.superEvolveTargetKind = superBranch.requirement.kind;
+    action.superEvolveTargetAmount = Number(superBranch.requirement.amount ?? 0);
+  }
+  if (evolveBranch.optionalSpec) action.evolveTargetOptional = true;
+  if (superBranch.optionalSpec) action.superEvolveTargetOptional = true;
+  return action;
+}
+
+function branchHasSelection(branch) {
+  return Boolean(branch?.mode || branch?.optionalSpec || branch?.requirement || branch?.targetInstanceId || branch?.optionalAlliedCardInstanceId);
+}
+
+function applyLegacyTargetFields(action, branch) {
+  const targetId = branch.optionalSpec ? branch.optionalAlliedCardInstanceId : branch.targetInstanceId;
+  if (targetId) action.targetInstanceId = targetId;
+  if (branch.optionalSpec) {
+    action.targetOptional = true;
+    action.targetSide = "allied";
+    action.targetKind = branch.optionalSpec.kind;
+    action.optionalSelectionKind = branch.optionalSpec.kind;
+    action.optionalFollowUpKind = branch.optionalSpec.followUpKind;
+    action.optionalFollowUpAmount = branch.optionalSpec.amount;
+    action.optionalAlliedCardInstanceId = branch.optionalAlliedCardInstanceId;
+    return;
+  }
+  if (branch.requirement) {
+    action.targetKind = branch.requirement.kind;
+    action.targetAmount = Number(branch.requirement.amount ?? 0);
+  }
+}
+
+function prepareEvolutionSelection(session, playerIndex, follower, trigger, {
+  modeKey = null,
+  targetInstanceId = null,
+  optionalAlliedCardInstanceId = null
+} = {}) {
+  const player = session.getPlayer(playerIndex);
+  const modeChoices = getEvolutionModeChoices(follower, trigger, player);
+  const selectedMode = selectEvolutionMode(modeChoices, modeKey);
+  if (modeChoices.length && !selectedMode) throw new Error("Selected evolution mode is not legal");
+  const effectSource = selectedMode ? evolutionModeSource(follower, trigger, selectedMode) : follower;
+  if (selectedMode && !getWorldsBeyondTriggerSupport(effectSource, trigger, null, player).supported) {
+    throw new Error("This evolution mode is not fully supported by the Worlds Beyond resolver");
+  }
+
+  const optionalText = selectedMode
+    ? evolutionModeText(trigger, selectedMode.text)
+    : optionalEvolutionEffectText(follower, trigger);
+  const optionalSpec = getWorldsBeyondOptionalAlliedCardSpec(follower, optionalText);
+  if (optionalSpec) {
+    const optionalTargetId = optionalAlliedCardInstanceId ?? targetInstanceId ?? null;
+    validateWorldsBeyondOptionalAlliedCardSelection(player, follower, optionalSpec, optionalTargetId);
+    return {
+      trigger,
+      playerIndex,
+      follower,
+      mode: selectedMode,
+      optionalSpec,
+      optionalAlliedCardInstanceId: optionalTargetId,
+      targetInstanceId: null,
+      requirement: null
+    };
+  }
+
+  if (optionalAlliedCardInstanceId) throw new Error("This evolution ability does not allow an optional allied-card selection");
+  const requirement = getWorldsBeyondTargetRequirement(effectSource, trigger, null, player);
+  const targets = requirement ? getWorldsBeyondTargetOptions(session, { trigger, playerIndex, source: effectSource }) : [];
+  if (targets.length && !targetInstanceId) throw new Error("This evolution ability requires an effect target");
+  if (targetInstanceId && !targets.some(target => target.instanceId === targetInstanceId)) {
+    throw new Error("Selected evolution target is not legal");
+  }
+  return {
+    trigger,
+    playerIndex,
+    follower,
+    mode: selectedMode,
+    optionalSpec: null,
+    optionalAlliedCardInstanceId: null,
+    targetInstanceId: targetInstanceId ?? null,
+    requirement
+  };
+}
+
+function resolvePreparedEvolutionSelection(session, selection, { antecedentInstanceIds = [] } = {}) {
+  if (!selection) return;
+  const {
+    trigger,
+    playerIndex,
+    follower,
+    mode,
+    optionalSpec,
+    optionalAlliedCardInstanceId,
+    targetInstanceId
+  } = selection;
+
+  if (optionalSpec) {
+    resolveWorldsBeyondOptionalAlliedCardSelection(session, {
+      trigger,
+      playerIndex,
+      source: follower,
+      spec: optionalSpec,
+      targetInstanceId: optionalAlliedCardInstanceId,
+      destroyFollower: destroyWorldsBeyondFollower,
+      destroyAmulet: destroyWorldsBeyondAmulet
+    });
+    return;
+  }
+
+  const previousActiveText = follower.activeText;
+  if (mode) follower.activeText = evolutionModeText(trigger, mode.text);
+  try {
+    resolveWorldsBeyondTrigger(session, {
+      trigger,
+      playerIndex,
+      source: follower,
+      targetInstanceId,
+      antecedentInstanceIds
+    });
+  } finally {
+    if (previousActiveText == null) delete follower.activeText;
+    else follower.activeText = previousActiveText;
+  }
+}
+
+function actionFieldOrLegacy(action, field, legacyField) {
+  if (Object.prototype.hasOwnProperty.call(action ?? {}, field)) return action[field] ?? null;
+  return legacyField ? action?.[legacyField] ?? null : null;
 }
 
 function getEvolutionModeChoices(follower, trigger, player) {
   return getSimpleWorldsBeyondModeChoices(evolutionEffectText(follower, trigger), player);
+}
+
+function superEvolutionReplacesEvolve(follower) {
+  return /\binstead\b/i.test(section(String(follower?.card?.text ?? ""), SUPER_EVOLVE));
 }
 
 function evolutionEffectText(follower, trigger) {

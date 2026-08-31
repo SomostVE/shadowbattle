@@ -1,5 +1,4 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
-import { resolveWorldsBeyondTrigger } from "./effect-resolver.js";
 
 export function evolveWorldsBeyondFollowerByAbility(session, playerIndex, source) {
   return evolveFollowerByAbility(session, playerIndex, source, false);
@@ -34,42 +33,7 @@ function evolveFollowerByAbility(session, playerIndex, source, superEvolution) {
     }
   });
 
-  if (superEvolution) {
-    resolveWorldsBeyondTrigger(session, {
-      trigger: "super-evolve",
-      playerIndex,
-      source: follower
-    });
-    resolveNaturalEvolutionAbility(session, playerIndex, follower);
-  } else {
-    resolveWorldsBeyondTrigger(session, {
-      trigger: "evolve",
-      playerIndex,
-      source: follower
-    });
-  }
   return true;
-}
-
-function resolveNaturalEvolutionAbility(session, playerIndex, follower) {
-  const text = naturalEvolutionText(follower.card?.text);
-  if (!text) return false;
-  const source = {
-    ...follower,
-    activeText: `Evolve: ${text}`
-  };
-  const result = resolveWorldsBeyondTrigger(session, {
-    trigger: "evolve",
-    playerIndex,
-    source
-  });
-  return Boolean(result?.applied);
-}
-
-function naturalEvolutionText(textValue) {
-  const text = String(textValue ?? "");
-  const match = text.match(/(?:^|\n\s*\n)\s*When this follower evolves,\s*([\s\S]*?)(?=\n\s*\n|$)/i);
-  return match?.[1]?.trim() ?? "";
 }
 
 function currentAttack(instance) {

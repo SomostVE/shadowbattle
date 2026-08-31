@@ -2,6 +2,7 @@ import { BATTLE_EVENT } from "../../battle-events.js";
 import { resolveEffectCommands } from "../../effect-commands.js";
 import { banishBoardCard, destroyBoardAmulet, restoreOriginalCardForm, returnBoardCardToHand } from "../../zone-actions.js";
 import { evaluateWorldsBeyondClassCondition } from "./class-conditions.js";
+import { grantWorldsBeyondKeyword, removeWorldsBeyondKeyword, refreshWorldsBeyondAttackReadiness } from "./combat-readiness.js";
 import { spellboostWorldsBeyondHand, worldsBeyondCardX } from "./spellboost.js";
 import { getWorldsBeyondEngageInfo } from "./engage.js";
 import { preprocessWorldsBeyondFuseText } from "./fuse.js";
@@ -24,7 +25,7 @@ import {
 } from "./v6/effect-commands.js";
 import { compileWorldsBeyondReanimateCommands } from "./v6/reanimate-command.js";
 
-const SUPPORTED_TARGET_KINDS = new Set(["damage", "destroy", "banish", "return", "set-defense", "stat-debuff"]);
+const SUPPORTED_TARGET_KINDS = new Set(["damage", "destroy", "banish", "return", "set-defense", "stat-debuff", "stat-buff", "grant-keyword", "remove-keyword", "evolve-and-buff"]);
 const HAND_DISCARD_SELECTION = /\bselect (?:a|an|one) (?:[a-z]+craft )?card in your hand and discard it\b/i;
 const DAMAGE_NUMBER = "(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\\d+)";
 const TRAILING_TYPED_DRAW = /\bdraw\s+(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+[a-z]+craft\s+followers?\s*\.?\s*$/i;
@@ -126,7 +127,7 @@ export function getWorldsBeyondTargetOptions(session, { trigger = "play", player
   return targetOptionsForSpec(session, playerIndex, requirement);
 }
 
-export function resolveWorldsBeyondTrigger(session, { trigger, playerIndex, source, targetInstanceId = null, discardInstanceId = null, mode = null }) {
+export function resolveWorldsBeyondTrigger(session, { trigger, playerIndex, source, targetInstanceId = null, discardInstanceId = null, mode = null, antecedentInstanceIds = [] }) {
   if (!source?.card) return { applied: false, unresolved: false, text: "" };
   const originalText = preprocessWorldsBeyondFuseText(source, triggerText(source, trigger, mode));
   if (!originalText) return { applied: false, unresolved: false, text: "" };
@@ -243,7 +244,8 @@ export function resolveWorldsBeyondTrigger(session, { trigger, playerIndex, sour
     target,
     discard: discardRequired ? selectedHandCard : null,
     returnToDeck: handReturnSelection ? selectedHandCard : null,
-    notes: conditional.notes
+    notes: conditional.notes,
+    antecedentInstanceIds
   });
 }
 
@@ -307,7 +309,7 @@ function triggerText(source, trigger, mode) {
   if (trigger === "engage") return replicateFanfareIfRequested(text, getWorldsBeyondEngageInfo(source)?.text ?? "");
   if (trigger === "strike") return section(text, "strike");
   if (trigger === "evolve") return replicateFanfareIfRequested(text, section(text, "evolve") || naturalLifecycle(text, /(?<!["“])when this follower evolves,\s*/i));
-  if (trigger === "super-evolve") return replicateFanfareIfRequested(text, section(text, "super-evolve"));
+  if (trigger === "super-evolve") return normalizeSuperEvolutionReplacement(text, replicateFanfareIfRequested(text, section(text, "super-evolve")));
   if (trigger === "last-words") return section(text, "last words");
   if (trigger === "turn-start") return section(text, "at the start of your turn") || naturalLifecycle(text, /(?<!["“])at the start of your turn,\s*/i);
   if (trigger === "turn-end") return section(text, "at the end of your turn") || naturalLifecycle(text, /(?<!["“])at the end of your turn,\s*/i);
@@ -317,6 +319,37 @@ function triggerText(source, trigger, mode) {
 function replicateFanfareIfRequested(fullText, triggerSection) {
   if (!/replicate the effects? of this card'?s fanfare ability/i.test(String(triggerSection ?? ""))) return triggerSection;
   return baseText(fullText);
+}
+
+function normalizeSuperEvolutionReplacement(fullText, triggerSection) {
+  let value = String(triggerSection ?? "").trim();
+  if (!/\binstead\b/i.test(value)) return value;
+  const evolveText = section(String(fullText ?? ""), "evolve");
+
+  let match = value.match(/^Restore\s+(\d+)\s+defense instead\.?$/i);
+  if (match && /restore\s+\d+\s+defense to your leader/i.test(evolveText)) {
+    return "Restore " + match[1] + " defense to your leader.";
+  }
+
+  match = value.match(/^Deal damage to all enemy followers instead\.?$/i);
+  if (match) {
+    const amount = evolveText.match(/deal it\s+(\d+)\s+damage/i)?.[1];
+    if (amount) return "Deal " + amount + " damage to all enemy followers.";
+  }
+
+  match = value.match(/^Summon\s+(\d+)\s+instead\.?$/i);
+  if (match) {
+    const cardName = evolveText.match(/Summon\s+(?:a|an|one)\s+([^.]+?)\s*\.?$/i)?.[1]?.trim();
+    if (cardName) return "Summon " + match[1] + " copies of " + cardName + ".";
+  }
+
+  match = value.match(/^Add\s+(\d+)\s+copies instead\.?$/i);
+  if (match) {
+    const cardName = evolveText.match(/Add\s+(?:a|an|one)\s+(.+?)\s+to your hand/i)?.[1]?.trim();
+    if (cardName) return "Add " + match[1] + " copies of " + cardName + " to your hand.";
+  }
+
+  return value.replace(/\s+instead\b/gi, "").trim();
 }
 
 function resolveWorldsBeyondVariables(textValue, source, { session = null, playerIndex = null } = {}) {
@@ -382,6 +415,30 @@ function worldsBeyondTargetEffectSpec(text, source) {
   let match = value.match(/select an allied card on the field and destroy it/i);
   if (match) return { kind: "destroy", selectedGrammar: true, targetSide: "allied", targetScope: "card" };
 
+  match = value.match(/select an allied card on the field and return it to hand/i);
+  if (match) return { kind: "return", selectedGrammar: true, targetSide: "allied", targetScope: "card" };
+
+  match = value.match(/select an allied follower(?: on the field)? and destroy it/i);
+  if (match) return { kind: "destroy", selectedGrammar: true, targetSide: "allied" };
+
+  match = value.match(/select an allied follower(?: on the field)? and give it\s+(Storm|Rush|Ward|Bane|Drain)/i);
+  if (match) return { kind: "grant-keyword", keyword: match[1], selectedGrammar: true, targetSide: "allied" };
+
+  match = value.match(/select an enemy follower(?: on the field)? and remove\s+(Storm|Rush|Ward|Bane|Drain)\s+from it/i);
+  if (match) return { kind: "remove-keyword", keyword: match[1], selectedGrammar: true, targetSide: "enemy" };
+
+  match = value.match(/select another allied follower(?: on the field)? and give it\s+\+(\d+)\s*\/\s*\+(\d+)/i);
+  if (match) return { kind: "stat-buff", attack: Number(match[1]) || 0, defense: Number(match[2]) || 0, selectedGrammar: true, targetSide: "allied", excludeInstanceId: source?.instanceId ?? null };
+
+  match = value.match(/select an allied\s+([A-Za-z]+)\s+follower(?: on the field)?,?\s+evolve it,?\s+and give it\s+\+(\d+)\s*\/\s*\+(\d+)/i);
+  if (match) return { kind: "evolve-and-buff", requiredTrait: match[1], attack: Number(match[2]) || 0, defense: Number(match[3]) || 0, selectedGrammar: true, targetSide: "allied", requireUnevolved: true };
+
+  match = value.match(/select an enemy follower(?: on the field)? with\s+(\d+)\s+defense or less and banish it/i);
+  if (match) return { kind: "banish", selectedGrammar: true, targetSide: "enemy", maxDefense: Number(match[1]) || 0 };
+
+  match = value.match(/select an enemy follower(?: on the field)? and return it to hand/i);
+  if (match) return { kind: "return", selectedGrammar: true, targetSide: "enemy" };
+
   match = value.match(/select an enemy card on the field and banish it/i);
   if (match) return { kind: "banish", selectedGrammar: true, targetSide: "enemy", targetScope: "card" };
 
@@ -424,7 +481,8 @@ function worldsBeyondTargetEffectSpec(text, source) {
 function targetOptionsForSpec(session, playerIndex, targetSpec) {
   if (targetSpec?.targetScope === "card") {
     const board = session.getPlayer(targetSpec.targetSide === "allied" ? playerIndex : 1 - playerIndex).board;
-    return targetSpec.targetSide === "allied" ? [...board] : targetableEnemyCards(board);
+    const candidates = targetSpec.targetSide === "allied" ? [...board] : targetableEnemyCards(board);
+    return filterTargetCandidates(candidates, targetSpec);
   }
   if (targetSpec?.targetScope === "follower-or-leader") {
     const enemyIndex = 1 - playerIndex;
@@ -434,9 +492,23 @@ function targetOptionsForSpec(session, playerIndex, targetSpec) {
     ];
   }
   if (targetSpec?.targetSide === "allied") {
-    return session.getPlayer(playerIndex).board.filter(unit => cardType(unit) === "follower");
+    return filterTargetCandidates(session.getPlayer(playerIndex).board.filter(unit => cardType(unit) === "follower"), targetSpec);
   }
-  return targetableEnemyFollowers(session.getPlayer(1 - playerIndex).board);
+  return filterTargetCandidates(targetableEnemyFollowers(session.getPlayer(1 - playerIndex).board), targetSpec);
+}
+
+function filterTargetCandidates(candidates, targetSpec) {
+  return candidates.filter(unit => {
+    if (targetSpec?.excludeInstanceId && unit.instanceId === targetSpec.excludeInstanceId) return false;
+    if (targetSpec?.maxDefense != null && Number(unit.defense ?? unit.card?.defense ?? 0) > Number(targetSpec.maxDefense)) return false;
+    if (targetSpec?.requireUnevolved && unit.evolved) return false;
+    if (targetSpec?.requiredTrait) {
+      const wanted = String(targetSpec.requiredTrait).trim().toLowerCase();
+      const traits = Array.isArray(unit?.card?.traits) ? unit.card.traits : Array.isArray(unit?.traits) ? unit.traits : [];
+      if (!traits.some(trait => String(trait).trim().toLowerCase() === wanted)) return false;
+    }
+    return true;
+  });
 }
 
 function targetPlayerForSpec(playerIndex, targetSpec) {
@@ -462,6 +534,11 @@ function unsupportedResidualText(text, { targetSpec = null, discardRequired = fa
     /\bGain Crest\s*:\s*[^.;\n]+/gi,
     new RegExp(ADD_TO_HAND_SINGLE.source, "gi"),
     /\bdraw\s+(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+cards?\b/gi,
+    /\bdraw\s+(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+followers?\b/gi,
+    /\bdraw\s+all copies of\s+.+?\s+and give them\s+(?:Storm|Rush|Ward|Bane|Drain)\b/gi,
+    /\bbanish all enemy followers with\s+\d+\s+defense or less\b/gi,
+    /\bgive this follower\s+\+\d+\s*\/\s*\+\d+\s+and\s+(?:Storm|Rush|Ward|Bane|Drain)\b/gi,
+    /\bgive them\s+(?:Storm|Rush|Ward|Bane|Drain)\b/gi,
     new RegExp(TRAILING_TYPED_DRAW.source, "gi"),
     new RegExp(TRAILING_NAMED_DRAW.source, "g"),
     /\b(?:restore|recover)\s+(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+defense to your leader\b/gi,
@@ -496,6 +573,14 @@ function stripSupportedTargetText(text) {
   let inspect = String(text ?? "");
   const patterns = [
     /\bselect an allied card on the field and destroy it\b/gi,
+    /\bselect an allied card on the field and return it to hand\b/gi,
+    /\bselect an allied follower(?: on the field)? and destroy it\b/gi,
+    /\bselect an allied follower(?: on the field)? and give it\s+(?:Storm|Rush|Ward|Bane|Drain)\b/gi,
+    /\bselect an enemy follower(?: on the field)? and remove\s+(?:Storm|Rush|Ward|Bane|Drain)\s+from it\b/gi,
+    /\bselect another allied follower(?: on the field)? and give it\s+\+\d+\s*\/\s*\+\d+\b/gi,
+    /\bselect an allied\s+[A-Za-z]+\s+follower(?: on the field)?,?\s+evolve it,?\s+and give it\s+\+\d+\s*\/\s*\+\d+\b/gi,
+    /\bselect an enemy follower(?: on the field)? with\s+\d+\s+defense or less and banish it\b/gi,
+    /\bselect an enemy follower(?: on the field)? and return it to hand\b/gi,
     /\bselect an enemy card on the field and banish it\b/gi,
     /\bselect an allied follower(?: on the field)? and deal it \d+ damage\b/gi,
     /\bselect an enemy follower(?: on the field)? or the enemy leader and deal it \d+ damage\b/gi,
@@ -515,7 +600,7 @@ function stripSupportedTargetText(text) {
   return inspect;
 }
 
-function executeSimpleEffects(session, { text, playerIndex, source, targetSpec = null, target = null, discard = null, returnToDeck = null, notes = [] }) {
+function executeSimpleEffects(session, { text, playerIndex, source, targetSpec = null, target = null, discard = null, returnToDeck = null, notes = [], antecedentInstanceIds = [] }) {
   const enemyIndex = 1 - playerIndex;
   const targetPlayer = targetSpec ? targetPlayerForSpec(playerIndex, targetSpec) : enemyIndex;
   let applied = false;
@@ -592,6 +677,38 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
       });
       if (amount <= 0) destroyWorldsBeyondFollower(session, targetPlayer, target.instanceId, { actor: playerIndex, source, reason: "ability", byAbility: true });
       applied = true;
+    } else if (targetSpec.kind === "stat-buff") {
+      const attack = Math.max(0, Number(targetSpec.attack) || 0);
+      const defense = Math.max(0, Number(targetSpec.defense) || 0);
+      target.attack = Number(target.attack ?? target.card?.attack ?? 0) + attack;
+      target.maxDefense = Number(target.maxDefense ?? target.card?.defense ?? 0) + defense;
+      target.defense = Number(target.defense ?? target.card?.defense ?? 0) + defense;
+      session.emit(BATTLE_EVENT.FOLLOWER_BUFF, {
+        actor: playerIndex,
+        payload: { card: session.cardView(target), attack, defense, reason: "ability", source: session.cardView(source) }
+      });
+      applied = true;
+    } else if (targetSpec.kind === "grant-keyword") {
+      applied = grantWorldsBeyondKeyword(target, targetSpec.keyword) || applied;
+      refreshWorldsBeyondAttackReadiness(session, targetPlayer, target);
+    } else if (targetSpec.kind === "remove-keyword") {
+      applied = removeWorldsBeyondKeyword(target, targetSpec.keyword) || applied;
+      refreshWorldsBeyondAttackReadiness(session, targetPlayer, target);
+    } else if (targetSpec.kind === "evolve-and-buff") {
+      const evolved = Boolean(session.ruleset?.evolveFollowerByAbility?.(session, targetPlayer, target));
+      const live = session.findBoardCard(targetPlayer, target.instanceId);
+      if (evolved && live) {
+        const attack = Math.max(0, Number(targetSpec.attack) || 0);
+        const defense = Math.max(0, Number(targetSpec.defense) || 0);
+        live.attack = Number(live.attack ?? live.card?.attack ?? 0) + attack;
+        live.maxDefense = Number(live.maxDefense ?? live.card?.defense ?? 0) + defense;
+        live.defense = Number(live.defense ?? live.card?.defense ?? 0) + defense;
+        session.emit(BATTLE_EVENT.FOLLOWER_BUFF, {
+          actor: playerIndex,
+          payload: { card: session.cardView(live), attack, defense, reason: "ability", source: session.cardView(source) }
+        });
+      }
+      applied = evolved || applied;
     } else if (targetSpec.kind === "stat-debuff") {
       const beforeAttack = Number(target.attack ?? target.card?.attack ?? 0);
       const beforeDefense = Number(target.defense ?? target.card?.defense ?? 0);
@@ -712,6 +829,31 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
       payload: { card: session.cardView(source), attack, defense, reason: "ability" }
     });
     applied = true;
+  }
+
+  for (const match of text.matchAll(/\bgive this follower\s+\+\d+\s*\/\s*\+\d+\s+and\s+(Storm|Rush|Ward|Bane|Drain)\b/gi)) {
+    if (!session.findBoardCard(playerIndex, source.instanceId)) continue;
+    applied = grantWorldsBeyondKeyword(source, match[1]) || applied;
+    refreshWorldsBeyondAttackReadiness(session, playerIndex, source);
+  }
+
+  for (const match of text.matchAll(/\bgive them\s+(Storm|Rush|Ward|Bane|Drain)\b/gi)) {
+    for (const instanceId of [...new Set(antecedentInstanceIds)]) {
+      const unit = session.findBoardCard(playerIndex, instanceId);
+      if (!unit || cardType(unit) !== "follower") continue;
+      applied = grantWorldsBeyondKeyword(unit, match[1]) || applied;
+      refreshWorldsBeyondAttackReadiness(session, playerIndex, unit);
+    }
+  }
+
+  if (/\bbanish all enemy followers with\s+(\d+)\s+defense or less\b/i.test(text)) {
+    const maxDefense = Number(text.match(/\bbanish all enemy followers with\s+(\d+)\s+defense or less\b/i)?.[1] ?? 0);
+    const targetIds = session.getPlayer(enemyIndex).board
+      .filter(unit => cardType(unit) === "follower" && Number(unit.defense ?? unit.card?.defense ?? 0) <= maxDefense)
+      .map(unit => unit.instanceId);
+    for (const instanceId of targetIds) {
+      applied = Boolean(banishBoardCard(session, enemyIndex, instanceId, { actor: playerIndex, source, reason: "ability" })) || applied;
+    }
   }
 
   for (const match of text.matchAll(/\bgain\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+earth sigils?\b/gi)) {
