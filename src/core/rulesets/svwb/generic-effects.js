@@ -31,7 +31,8 @@ const GENERIC_EFFECT_PATTERNS = Object.freeze([
   LIVE_NEUTRAL_HAND_RANDOM_DAMAGE,
   /\bgive all (?:other )?allied followers(?: on the field)?\s+\+\d+\s*\/\s*\+\d+\b/gi,
   /\bgive all (?:other )?allied [A-Za-z][A-Za-z0-9'’\-]* followers(?: on the field)?\s+\+\d+\s*\/\s*\+\d+\b/gi,
-  /\bgive all allied followers(?: on the field)?\s+Barrier\b/gi,
+  /\bgive all (?:other )?allied followers(?: on the field)?\s+(?:Ward|Bane|Barrier)\b/gi,
+  /\bgive all (?:other )?allied [A-Za-z][A-Za-z0-9'’\-]* followers(?: on the field)?\s+(?:Ward|Bane|Barrier)\b/gi,
   /\bgive all enemy followers(?: on the field)?\s+-\d+\s*\/\s*-\d+\b/gi,
   new RegExp(`\\bdestroy\\s+${NUMBER}\\s+random enemy followers\\b`, "gi"),
   /\bdestroy all other allied cards(?: on the field)?\b/gi,
@@ -101,8 +102,17 @@ export function resolveWorldsBeyondGenericEffects(session, {
     requiredClass: /craft$/i.test(match[2]) ? match[2] : null,
     requiredTrait: /craft$/i.test(match[2]) ? null : match[2]
   }), effects);
-  collect(value, /\bgive all allied followers(?: on the field)?\s+Barrier\b/gi, () => ({
-    kind: "allied-barrier"
+  collect(value, /\bgive all (other )?allied followers(?: on the field)?\s+(Ward|Bane|Barrier)\b/gi, match => ({
+    kind: "allied-keyword",
+    keyword: match[2],
+    excludeSource: Boolean(match[1])
+  }), effects);
+  collect(value, /\bgive all (other )?allied ([A-Za-z][A-Za-z0-9'’\-]*) followers(?: on the field)?\s+(Ward|Bane|Barrier)\b/gi, match => ({
+    kind: "allied-keyword",
+    keyword: match[3],
+    excludeSource: Boolean(match[1]),
+    requiredClass: /craft$/i.test(match[2]) ? match[2] : null,
+    requiredTrait: /craft$/i.test(match[2]) ? null : match[2]
   }), effects);
   collect(value, /\bgive all enemy followers(?: on the field)?\s+-(\d+)\s*\/\s*-(\d+)\b/gi, match => ({
     kind: "enemy-debuff",
@@ -177,8 +187,8 @@ export function resolveWorldsBeyondGenericEffects(session, {
       applied = buffAlliedFollowers(session, playerIndex, source, effect) || applied;
       continue;
     }
-    if (effect.kind === "allied-barrier") {
-      applied = grantAlliedBarrier(session, playerIndex) || applied;
+    if (effect.kind === "allied-keyword") {
+      applied = grantAlliedKeyword(session, playerIndex, source, effect) || applied;
       continue;
     }
     if (effect.kind === "enemy-debuff") {
@@ -439,10 +449,13 @@ function buffAlliedFollowers(session, playerIndex, source, effect) {
   return applied;
 }
 
-function grantAlliedBarrier(session, playerIndex) {
+function grantAlliedKeyword(session, playerIndex, source, effect) {
   let applied = false;
   for (const unit of session.getPlayer(playerIndex).board.filter(card => cardType(card) === "follower")) {
-    applied = grantWorldsBeyondKeyword(unit, "Barrier") || applied;
+    if (effect.excludeSource && unit.instanceId === source?.instanceId) continue;
+    if (effect.requiredTrait && !hasCardTrait(unit, effect.requiredTrait)) continue;
+    if (effect.requiredClass && cardClass(unit) !== String(effect.requiredClass).trim().toLowerCase()) continue;
+    applied = grantWorldsBeyondKeyword(unit, effect.keyword) || applied;
   }
   return applied;
 }
