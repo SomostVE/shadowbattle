@@ -103,6 +103,7 @@ function resetReturnedCard(session, card) {
   delete card.countdown;
   delete card.playedTurn;
   delete card.grantedKeywords;
+  delete card.suppressedKeywords;
   delete card.barrierActive;
   delete card.permanentAttackLock;
   delete card.himekaBanishAtOwnTurnEnd;
