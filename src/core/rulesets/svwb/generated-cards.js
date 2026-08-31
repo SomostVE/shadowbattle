@@ -40,7 +40,7 @@ export function createWorldsBeyondGeneratedInstance(session, playerIndex, card) 
   };
 }
 
-export function createWorldsBeyondExactCopyInstance(session, playerIndex, source) {
+export function createWorldsBeyondExactCopyInstance(session, playerIndex, source, { preserveBoardState = false } = {}) {
   if (!source?.card) return null;
   const copy = createWorldsBeyondGeneratedInstance(session, playerIndex, source.card);
   copy.cardId = source.cardId ?? source.card?.id ?? copy.cardId;
@@ -52,7 +52,28 @@ export function createWorldsBeyondExactCopyInstance(session, playerIndex, source
   if (Array.isArray(source.grantedKeywords)) copy.grantedKeywords = [...source.grantedKeywords];
   if (Array.isArray(source.fusedCards)) copy.fusedCards = source.fusedCards.map(item => ({ ...item }));
   if (Array.isArray(source.fusedNames)) copy.fusedNames = [...source.fusedNames];
+  if (preserveBoardState) copyWorldsBeyondBoardState(copy, source);
   return copy;
+}
+
+function copyWorldsBeyondBoardState(copy, source) {
+  const scalarFields = [
+    "attack",
+    "defense",
+    "maxDefense",
+    "evolved",
+    "superEvolved",
+    "imageOverride",
+    "barrierActive",
+    "permanentAttackLock",
+    "destroyAtOpponentTurnEnd",
+    "attackLimit",
+    "typeOverride"
+  ];
+  for (const field of scalarFields) {
+    if (Object.prototype.hasOwnProperty.call(source, field)) copy[field] = source[field];
+  }
+  if (Array.isArray(source.suppressedKeywords)) copy.suppressedKeywords = [...source.suppressedKeywords];
 }
 
 function hasInstanceId(session, instanceId) {
