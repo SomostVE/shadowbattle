@@ -306,6 +306,85 @@ test("all-other allied keyword grants exclude the source follower", () => {
   assert.equal(Boolean(source.barrierActive), false);
 });
 
+test("group Rush grant refreshes same-turn followers for follower attacks only", () => {
+  const game = readyGame();
+  const ally = follower("rush-refresh-ally", 0, { attack: 2, defense: 3 });
+  ally.playedTurn = game.turn;
+  ally.attacksRemaining = 1;
+  ally.hasAttacked = false;
+  ally.canAttackFollowers = false;
+  ally.canAttackLeader = false;
+  const enemy = follower("rush-refresh-enemy", 1, { attack: 1, defense: 3 });
+  game.players[0].board.push(ally);
+  game.players[1].board.push(enemy);
+  const spell = replaceHandCard(game, {
+    id: "group-rush",
+    name: "Group Rush",
+    type: "Spell",
+    cost: 0,
+    keywords: [],
+    text: "Give all allied followers on the field Rush."
+  });
+
+  game.dispatch({ type: "play-card", player: 0, cardInstanceId: spell.instanceId });
+
+  const attacks = game.listLegalActions(0).filter(action => action.type === "attack" && action.attackerInstanceId === ally.instanceId);
+  assert.equal(attacks.some(action => action.targetInstanceId === enemy.instanceId), true);
+  assert.equal(attacks.some(action => action.target === "leader" || !action.targetInstanceId), false);
+  assert.equal(ally.attacksRemaining, 1);
+});
+
+test("group Storm grant refreshes same-turn followers for leader attacks", () => {
+  const game = readyGame();
+  const ally = follower("storm-refresh-ally", 0, { attack: 2, defense: 3 });
+  ally.playedTurn = game.turn;
+  ally.attacksRemaining = 1;
+  ally.hasAttacked = false;
+  ally.canAttackFollowers = false;
+  ally.canAttackLeader = false;
+  game.players[0].board.push(ally);
+  const spell = replaceHandCard(game, {
+    id: "group-storm",
+    name: "Group Storm",
+    type: "Spell",
+    cost: 0,
+    keywords: [],
+    text: "Give all allied followers on the field Storm."
+  });
+
+  game.dispatch({ type: "play-card", player: 0, cardInstanceId: spell.instanceId });
+
+  const attacks = game.listLegalActions(0).filter(action => action.type === "attack" && action.attackerInstanceId === ally.instanceId);
+  assert.equal(attacks.some(action => action.target === "leader" || !action.targetInstanceId), true);
+  assert.equal(ally.attacksRemaining, 1);
+});
+
+test("group Rush or Storm never restores an already spent attack", () => {
+  for (const keyword of ["Rush", "Storm"]) {
+    const game = readyGame();
+    const ally = follower(`spent-${keyword.toLowerCase()}-ally`, 0, { attack: 2, defense: 3 });
+    ally.playedTurn = game.turn;
+    ally.attacksRemaining = 0;
+    ally.hasAttacked = true;
+    ally.canAttackFollowers = false;
+    ally.canAttackLeader = false;
+    game.players[0].board.push(ally);
+    const spell = replaceHandCard(game, {
+      id: `spent-${keyword.toLowerCase()}-grant`,
+      name: `Spent ${keyword} Grant`,
+      type: "Spell",
+      cost: 0,
+      keywords: [],
+      text: `Give all allied followers on the field ${keyword}.`
+    });
+
+    game.dispatch({ type: "play-card", player: 0, cardInstanceId: spell.instanceId });
+
+    assert.equal(ally.attacksRemaining, 0);
+    assert.equal(game.listLegalActions(0).some(action => action.type === "attack" && action.attackerInstanceId === ally.instanceId), false);
+  }
+});
+
 test("enemy-wide stat reduction clamps attack and destroys followers at zero defense", () => {
   const game = readyGame();
   const small = follower("small-enemy", 1, { attack: 1, defense: 1 });
