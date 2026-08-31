@@ -2,7 +2,7 @@ name: Validate ShadowBattle
 
 on:
   push:
-    branches: [main, engine-v6-0.5.27-target-copy-order]
+    branches: [main]
   pull_request:
 
 permissions:
@@ -14,12 +14,12 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
+          ref: engine-v6-0.5.27-target-copy-order
           fetch-depth: 0
       - uses: actions/setup-node@v6
         with:
           node-version: 24
       - name: Apply staged 0.5.27 patch
-        if: github.ref == 'refs/heads/engine-v6-0.5.27-target-copy-order'
         run: python scripts/apply-0.5.27-target-copy.py
       - name: Check JavaScript syntax
         run: |
@@ -34,7 +34,6 @@ jobs:
       - name: Audit SVWB structural coverage
         run: npm run audit:svwb
       - name: Commit validated 0.5.27 patch
-        if: github.ref == 'refs/heads/engine-v6-0.5.27-target-copy-order'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
