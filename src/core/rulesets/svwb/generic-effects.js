@@ -31,8 +31,10 @@ const GENERIC_EFFECT_PATTERNS = Object.freeze([
   LIVE_NEUTRAL_HAND_RANDOM_DAMAGE,
   /\bgive all (?:other )?allied followers(?: on the field)?\s+\+\d+\s*\/\s*\+\d+\b/gi,
   /\bgive all (?:other )?allied [A-Za-z][A-Za-z0-9'’\-]* followers(?: on the field)?\s+\+\d+\s*\/\s*\+\d+\b/gi,
+  /\bgive all (?:other )?allied copies of .+? on the field\s+\+\d+\s*\/\s*\+\d+\b/gi,
   /\bgive all (?:other )?allied followers(?: on the field)?\s+(?:Ward|Bane|Barrier|Rush|Storm)\b/gi,
   /\bgive all (?:other )?allied [A-Za-z][A-Za-z0-9'’\-]* followers(?: on the field)?\s+(?:Ward|Bane|Barrier|Rush|Storm)\b/gi,
+  /\bgive all (?:other )?allied copies of .+? on the field\s+(?:Ward|Bane|Barrier|Rush|Storm)\b/gi,
   /\bgive all enemy followers(?: on the field)?\s+-\d+\s*\/\s*-\d+\b/gi,
   new RegExp(`\\bdestroy\\s+${NUMBER}\\s+random enemy followers\\b`, "gi"),
   /\bdestroy all other allied cards(?: on the field)?\b/gi,
@@ -102,6 +104,13 @@ export function resolveWorldsBeyondGenericEffects(session, {
     requiredClass: /craft$/i.test(match[2]) ? match[2] : null,
     requiredTrait: /craft$/i.test(match[2]) ? null : match[2]
   }), effects);
+  collect(value, /\bgive all (other )?allied copies of (.+?) on the field\s+\+(\d+)\s*\/\s*\+(\d+)\b/gi, match => ({
+    kind: "allied-buff",
+    attack: Number(match[3]) || 0,
+    defense: Number(match[4]) || 0,
+    excludeSource: Boolean(match[1]),
+    requiredName: match[2].trim()
+  }), effects);
   collect(value, /\bgive all (other )?allied followers(?: on the field)?\s+(Ward|Bane|Barrier|Rush|Storm)\b/gi, match => ({
     kind: "allied-keyword",
     keyword: match[2],
@@ -113,6 +122,12 @@ export function resolveWorldsBeyondGenericEffects(session, {
     excludeSource: Boolean(match[1]),
     requiredClass: /craft$/i.test(match[2]) ? match[2] : null,
     requiredTrait: /craft$/i.test(match[2]) ? null : match[2]
+  }), effects);
+  collect(value, /\bgive all (other )?allied copies of (.+?) on the field\s+(Ward|Bane|Barrier|Rush|Storm)\b/gi, match => ({
+    kind: "allied-keyword",
+    keyword: match[3],
+    excludeSource: Boolean(match[1]),
+    requiredName: match[2].trim()
   }), effects);
   collect(value, /\bgive all enemy followers(?: on the field)?\s+-(\d+)\s*\/\s*-(\d+)\b/gi, match => ({
     kind: "enemy-debuff",
@@ -429,6 +444,7 @@ function buffAlliedFollowers(session, playerIndex, source, effect) {
     if (effect.excludeSource && unit.instanceId === source?.instanceId) continue;
     if (effect.requiredTrait && !hasCardTrait(unit, effect.requiredTrait)) continue;
     if (effect.requiredClass && cardClass(unit) !== String(effect.requiredClass).trim().toLowerCase()) continue;
+    if (effect.requiredName && cardName(unit) !== String(effect.requiredName).trim().toLowerCase()) continue;
     const attack = Math.max(0, Number(effect.attack) || 0);
     const defense = Math.max(0, Number(effect.defense) || 0);
     unit.attack = currentAttack(unit) + attack;
@@ -455,6 +471,7 @@ function grantAlliedKeyword(session, playerIndex, source, effect) {
     if (effect.excludeSource && unit.instanceId === source?.instanceId) continue;
     if (effect.requiredTrait && !hasCardTrait(unit, effect.requiredTrait)) continue;
     if (effect.requiredClass && cardClass(unit) !== String(effect.requiredClass).trim().toLowerCase()) continue;
+    if (effect.requiredName && cardName(unit) !== String(effect.requiredName).trim().toLowerCase()) continue;
     const granted = grantWorldsBeyondKeyword(unit, effect.keyword);
     if (!granted) continue;
     if (/^(?:Rush|Storm)$/i.test(String(effect.keyword ?? ""))) {
@@ -666,6 +683,10 @@ function cardType(instance) {
 
 function cardClass(instance) {
   return String(instance?.card?.class ?? instance?.class ?? "").trim().toLowerCase();
+}
+
+function cardName(instance) {
+  return String(instance?.card?.name ?? instance?.name ?? "").trim().toLowerCase();
 }
 
 function currentAttack(instance) {
