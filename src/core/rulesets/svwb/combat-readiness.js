@@ -12,6 +12,7 @@ export function normalizeWorldsBeyondCombatEvent(session, event) {
   if (!unit || cardType(unit) !== "follower") return null;
 
   if (unit.playedTurn == null) unit.playedTurn = session.turn;
+  if (hasWorldsBeyondPrintedAttackLock(unit)) unit.permanentAttackLock = true;
   unit.attackLimit = getWorldsBeyondAttackLimit(unit);
   unit.attacksRemaining = unit.attackLimit;
   if (unit.hasAttacked == null) unit.hasAttacked = false;
@@ -57,6 +58,10 @@ export function getWorldsBeyondAttackLimit(instance) {
   const match = cleanRulesText(instance?.card).match(/\bCan attack\s+(\d+)\s+times per turn\b/i);
   const amount = Number(match?.[1] ?? 1) || 1;
   return Math.max(1, Math.min(10, amount));
+}
+
+export function hasWorldsBeyondPrintedAttackLock(instance) {
+  return /(?:^|[\r\n])\s*Can['’]?t attack followers or leaders\s*\.?\s*(?=$|[\r\n])/im.test(cleanRulesText(instance?.card));
 }
 
 export function getWorldsBeyondWardFollowers(player) {
