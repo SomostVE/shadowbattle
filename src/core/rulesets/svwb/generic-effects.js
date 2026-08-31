@@ -4,7 +4,7 @@ import {
   LIVE_ALL_FOLLOWER_COUNT_DAMAGE,
   resolveWorldsBeyondAllFollowersCountDamage
 } from "./all-followers-count-x.js";
-import { grantWorldsBeyondKeyword } from "./combat-readiness.js";
+import { grantWorldsBeyondKeyword, refreshWorldsBeyondAttackReadiness } from "./combat-readiness.js";
 import { addWorldsBeyondGeneratedCard } from "./generated-cards.js";
 import { LIVE_HAND_SIZE_LEADER_HEAL } from "./post-draw-hand-x.js";
 import { createWorldsBeyondLeaderHealCommand } from "./v6/effect-commands.js";
@@ -31,8 +31,8 @@ const GENERIC_EFFECT_PATTERNS = Object.freeze([
   LIVE_NEUTRAL_HAND_RANDOM_DAMAGE,
   /\bgive all (?:other )?allied followers(?: on the field)?\s+\+\d+\s*\/\s*\+\d+\b/gi,
   /\bgive all (?:other )?allied [A-Za-z][A-Za-z0-9'’\-]* followers(?: on the field)?\s+\+\d+\s*\/\s*\+\d+\b/gi,
-  /\bgive all (?:other )?allied followers(?: on the field)?\s+(?:Ward|Bane|Barrier)\b/gi,
-  /\bgive all (?:other )?allied [A-Za-z][A-Za-z0-9'’\-]* followers(?: on the field)?\s+(?:Ward|Bane|Barrier)\b/gi,
+  /\bgive all (?:other )?allied followers(?: on the field)?\s+(?:Ward|Bane|Barrier|Rush|Storm)\b/gi,
+  /\bgive all (?:other )?allied [A-Za-z][A-Za-z0-9'’\-]* followers(?: on the field)?\s+(?:Ward|Bane|Barrier|Rush|Storm)\b/gi,
   /\bgive all enemy followers(?: on the field)?\s+-\d+\s*\/\s*-\d+\b/gi,
   new RegExp(`\\bdestroy\\s+${NUMBER}\\s+random enemy followers\\b`, "gi"),
   /\bdestroy all other allied cards(?: on the field)?\b/gi,
@@ -102,12 +102,12 @@ export function resolveWorldsBeyondGenericEffects(session, {
     requiredClass: /craft$/i.test(match[2]) ? match[2] : null,
     requiredTrait: /craft$/i.test(match[2]) ? null : match[2]
   }), effects);
-  collect(value, /\bgive all (other )?allied followers(?: on the field)?\s+(Ward|Bane|Barrier)\b/gi, match => ({
+  collect(value, /\bgive all (other )?allied followers(?: on the field)?\s+(Ward|Bane|Barrier|Rush|Storm)\b/gi, match => ({
     kind: "allied-keyword",
     keyword: match[2],
     excludeSource: Boolean(match[1])
   }), effects);
-  collect(value, /\bgive all (other )?allied ([A-Za-z][A-Za-z0-9'’\-]*) followers(?: on the field)?\s+(Ward|Bane|Barrier)\b/gi, match => ({
+  collect(value, /\bgive all (other )?allied ([A-Za-z][A-Za-z0-9'’\-]*) followers(?: on the field)?\s+(Ward|Bane|Barrier|Rush|Storm)\b/gi, match => ({
     kind: "allied-keyword",
     keyword: match[3],
     excludeSource: Boolean(match[1]),
@@ -455,7 +455,12 @@ function grantAlliedKeyword(session, playerIndex, source, effect) {
     if (effect.excludeSource && unit.instanceId === source?.instanceId) continue;
     if (effect.requiredTrait && !hasCardTrait(unit, effect.requiredTrait)) continue;
     if (effect.requiredClass && cardClass(unit) !== String(effect.requiredClass).trim().toLowerCase()) continue;
-    applied = grantWorldsBeyondKeyword(unit, effect.keyword) || applied;
+    const granted = grantWorldsBeyondKeyword(unit, effect.keyword);
+    if (!granted) continue;
+    if (/^(?:Rush|Storm)$/i.test(String(effect.keyword ?? ""))) {
+      refreshWorldsBeyondAttackReadiness(session, playerIndex, unit);
+    }
+    applied = true;
   }
   return applied;
 }
