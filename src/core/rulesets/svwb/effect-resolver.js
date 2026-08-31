@@ -1,6 +1,7 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
 import { resolveEffectCommands } from "../../effect-commands.js";
 import { banishBoardCard, destroyBoardAmulet, restoreOriginalCardForm, returnBoardCardToHand } from "../../zone-actions.js";
+import { createWorldsBeyondExactCopyInstance } from "./generated-cards.js";
 import { evaluateWorldsBeyondClassCondition } from "./class-conditions.js";
 import { grantWorldsBeyondKeyword, removeWorldsBeyondKeyword, refreshWorldsBeyondAttackReadiness } from "./combat-readiness.js";
 import { spellboostWorldsBeyondHand, worldsBeyondCardX } from "./spellboost.js";
@@ -25,7 +26,7 @@ import {
 } from "./v6/effect-commands.js";
 import { compileWorldsBeyondReanimateCommands } from "./v6/reanimate-command.js";
 
-const SUPPORTED_TARGET_KINDS = new Set(["damage", "destroy", "banish", "return", "set-defense", "stat-debuff", "stat-buff", "grant-keyword", "remove-keyword", "evolve-and-buff"]);
+const SUPPORTED_TARGET_KINDS = new Set(["damage", "destroy", "banish", "banish-exact-copy", "return", "set-defense", "stat-debuff", "stat-buff", "grant-keyword", "remove-keyword", "evolve-and-buff"]);
 const HAND_DISCARD_SELECTION = /\bselect (?:a|an|one) (?:[a-z]+craft )?card in your hand and discard it\b/i;
 const DAMAGE_NUMBER = "(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\\d+)";
 const TRAILING_TYPED_DRAW = /\bdraw\s+(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+[a-z]+craft\s+followers?\s*\.?\s*$/i;
@@ -433,6 +434,9 @@ function worldsBeyondTargetEffectSpec(text, source) {
   match = value.match(/select an allied\s+([A-Za-z]+)\s+follower(?: on the field)?,?\s+evolve it,?\s+and give it\s+\+(\d+)\s*\/\s*\+(\d+)/i);
   if (match) return { kind: "evolve-and-buff", requiredTrait: match[1], attack: Number(match[2]) || 0, defense: Number(match[3]) || 0, selectedGrammar: true, targetSide: "allied", requireUnevolved: true };
 
+  match = value.match(/select an enemy follower(?: on the field)? with\s+(\d+)\s+attack or less,?\s*banish it,?\s*and summon an exact copy of it/i);
+  if (match) return { kind: "banish-exact-copy", selectedGrammar: true, targetSide: "enemy", maxAttack: Number(match[1]) || 0 };
+
   match = value.match(/select an enemy follower(?: on the field)? with\s+(\d+)\s+defense or less and banish it/i);
   if (match) return { kind: "banish", selectedGrammar: true, targetSide: "enemy", maxDefense: Number(match[1]) || 0 };
 
@@ -500,6 +504,7 @@ function targetOptionsForSpec(session, playerIndex, targetSpec) {
 function filterTargetCandidates(candidates, targetSpec) {
   return candidates.filter(unit => {
     if (targetSpec?.excludeInstanceId && unit.instanceId === targetSpec.excludeInstanceId) return false;
+    if (targetSpec?.maxAttack != null && Number(unit.attack ?? unit.card?.attack ?? 0) > Number(targetSpec.maxAttack)) return false;
     if (targetSpec?.maxDefense != null && Number(unit.defense ?? unit.card?.defense ?? 0) > Number(targetSpec.maxDefense)) return false;
     if (targetSpec?.requireUnevolved && unit.evolved) return false;
     if (targetSpec?.requiredTrait) {
@@ -579,6 +584,7 @@ function stripSupportedTargetText(text) {
     /\bselect an enemy follower(?: on the field)? and remove\s+(?:Storm|Rush|Ward|Bane|Drain)\s+from it\b/gi,
     /\bselect another allied follower(?: on the field)? and give it\s+\+\d+\s*\/\s*\+\d+\b/gi,
     /\bselect an allied\s+[A-Za-z]+\s+follower(?: on the field)?,?\s+evolve it,?\s+and give it\s+\+\d+\s*\/\s*\+\d+\b/gi,
+    /\bselect an enemy follower(?: on the field)? with\s+\d+\s+attack or less,?\s*banish it,?\s*and summon an exact copy of it\b/gi,
     /\bselect an enemy follower(?: on the field)? with\s+\d+\s+defense or less and banish it\b/gi,
     /\bselect an enemy follower(?: on the field)? and return it to hand\b/gi,
     /\bselect an enemy card on the field and banish it\b/gi,
@@ -653,6 +659,26 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
         ? Boolean(destroyWorldsBeyondTargetCard(session, targetPlayer, target, { actor: playerIndex, source, reason: "ability", byAbility: true, abilityDestroy: true }))
         : Boolean(destroyWorldsBeyondFollower(session, targetPlayer, target.instanceId, { actor: playerIndex, source, reason: "ability", byAbility: true, abilityDestroy: true }));
       applied = destroyed || applied;
+    } else if (targetSpec.kind === "banish-exact-copy") {
+      const exactCopy = createWorldsBeyondExactCopyInstance(session, playerIndex, target, { preserveBoardState: true });
+      const banished = Boolean(banishBoardCard(session, targetPlayer, target.instanceId, { actor: playerIndex, source, reason: "ability" }));
+      if (banished && exactCopy) {
+        const player = session.getPlayer(playerIndex);
+        if (player.board.length < Number(session.ruleset.maxBoardSize ?? 5)) {
+          exactCopy.playedTurn = session.turn;
+          exactCopy.hasAttacked = false;
+          player.board.push(exactCopy);
+          session.emit(BATTLE_EVENT.FOLLOWER_ENTER, {
+            actor: playerIndex,
+            payload: {
+              card: session.cardView(exactCopy),
+              position: player.board.length - 1,
+              reason: "exact-copy"
+            }
+          });
+        }
+      }
+      applied = banished || applied;
     } else if (targetSpec.kind === "banish") {
       const banished = Boolean(banishBoardCard(session, targetPlayer, target.instanceId, { actor: playerIndex, source, reason: "ability" }));
       applied = banished || applied;
