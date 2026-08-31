@@ -38,6 +38,7 @@ const GENERIC_EFFECT_PATTERNS = Object.freeze([
   new RegExp(`\\bgain\\s+${NUMBER}\\s+shadows?\\b`, "gi"),
   new RegExp(`\\bgain\\s+${NUMBER}\\s+max play points?\\b`, "gi"),
   new RegExp(`\\brecover\\s+${NUMBER}\\s+evolution points?\\b`, "gi"),
+  new RegExp(`\\bdraw\\s+${NUMBER}\\s+(?:Neutral|[a-z]+craft)\\s+followers?\\s*\\.\\s*recover\\s+${NUMBER}\\s+play points?\\b`, "gi"),
   new RegExp(`\\badd\\s+${NUMBER}\\s+copies of\\s+[^.]+?\\s+to your hand\\s*\\.?\\s*$`, "gi"),
   new RegExp(`^\\s*add\\s+(?:a|an|one)\\s+${CARD_NAME}\\s+to your hand\\s*\\.?`, "gi"),
   new RegExp(`[.!?]\\s+add\\s+(?:a|an|one)\\s+${CARD_NAME}\\s+to your hand\\s*\\.?\\s*$`, "gi"),

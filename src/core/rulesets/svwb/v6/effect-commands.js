@@ -8,6 +8,7 @@ export const SVWB_EFFECT_COMMAND = Object.freeze({
   GAIN_CREST: "svwb:gain-crest",
   DRAW: "draw",
   DRAW_FILTERED: "svwb:draw-filtered",
+  RECOVER_PLAY_POINTS: "svwb:recover-play-points",
   ADD_TO_HAND: "svwb:add-to-hand",
   SUMMON: "svwb:summon",
   HEAL_LEADER: "heal-leader",
@@ -80,6 +81,14 @@ export function createWorldsBeyondDrawCommand(playerIndex, amount, options = {})
   return createWorldsBeyondEffectCommand(SVWB_EFFECT_COMMAND.DRAW, {
     playerIndex,
     amount,
+    reason: options.reason ?? "ability"
+  }, options.metadata);
+}
+
+export function createWorldsBeyondRecoverPlayPointsCommand(playerIndex, amount, options = {}) {
+  return createWorldsBeyondEffectCommand(SVWB_EFFECT_COMMAND.RECOVER_PLAY_POINTS, {
+    playerIndex,
+    amount: Math.max(0, Number(amount) || 0),
     reason: options.reason ?? "ability"
   }, options.metadata);
 }
@@ -177,6 +186,24 @@ export function compileWorldsBeyondPostTargetCommands(text, { playerIndex, sourc
   for (const match of value.matchAll(/\bdraw\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+cards?\b/gi)) {
     const amount = numberWord(match[1]);
     if (amount > 0) indexed.push({ index: match.index ?? 0, command: createWorldsBeyondDrawCommand(playerIndex, amount, sourceOptions) });
+  }
+
+  for (const match of value.matchAll(/\bdraw\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+(Neutral|[a-z]+craft)\s+(followers?)\s*\.\s*recover\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+play points?\b/gi)) {
+    const drawAmount = numberWord(match[1]);
+    const recoverAmount = numberWord(match[4]);
+    const baseIndex = match.index ?? 0;
+    if (drawAmount > 0) indexed.push({
+      index: baseIndex,
+      command: createWorldsBeyondFilteredDrawCommand(playerIndex, {
+        amount: drawAmount,
+        cardClass: match[2],
+        cardType: singularType(match[3])
+      }, sourceOptions)
+    });
+    if (recoverAmount > 0) indexed.push({
+      index: baseIndex + Math.max(1, match[0].toLowerCase().lastIndexOf("recover")),
+      command: createWorldsBeyondRecoverPlayPointsCommand(playerIndex, recoverAmount, sourceOptions)
+    });
   }
 
   for (const match of value.matchAll(/\b(?:restore|recover)\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+defense to your leader\b/gi)) {
@@ -306,6 +333,17 @@ export function resolveWorldsBeyondEffectCommand(session, command) {
 
   if (command.type === SVWB_EFFECT_COMMAND.DRAW_FILTERED) {
     return resolveFilteredDraw(session, playerIndex, payload);
+  }
+
+  if (command.type === SVWB_EFFECT_COMMAND.RECOVER_PLAY_POINTS) {
+    const requested = positiveAmount(payload.amount);
+    const player = session.getPlayer(playerIndex);
+    const before = Math.max(0, Number(player?.resources?.pp ?? player?.pp ?? 0) || 0);
+    const maximum = Math.max(0, Number(player?.resources?.maxPp ?? player?.maxPp ?? before) || 0);
+    const after = Math.min(maximum, before + requested);
+    if (player.resources) player.resources.pp = after;
+    else player.pp = after;
+    return { applied: requested > 0, requested, recovered: after - before, pp: after };
   }
 
   if (command.type === SVWB_EFFECT_COMMAND.ADD_TO_HAND) {
