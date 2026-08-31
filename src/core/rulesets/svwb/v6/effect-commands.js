@@ -89,6 +89,7 @@ export function createWorldsBeyondFilteredDrawCommand(playerIndex, {
   cardClass = null,
   cardType = null,
   cardName = null,
+  baseCost = null,
   allMatches = false,
   grantKeyword = null
 } = {}, options = {}) {
@@ -98,6 +99,7 @@ export function createWorldsBeyondFilteredDrawCommand(playerIndex, {
     cardClass,
     cardType,
     cardName,
+    baseCost: baseCost == null ? null : Math.max(0, Number(baseCost) || 0),
     allMatches: Boolean(allMatches),
     grantKeyword: grantKeyword ? String(grantKeyword).trim() : null,
     reason: options.reason ?? "ability"
@@ -262,7 +264,24 @@ export function compileWorldsBeyondTrailingFilteredDrawCommands(text, { playerIn
     }, sourceOptions)];
   }
 
-  const named = value.match(/\bdraw\s+(?:a|an|one)\s+([A-Z][A-Za-z0-9'’&,:\- ]+?)\s*\.?\s*$/);
+  const classOnly = value.match(/\bdraw\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+(Neutral|[a-z]+craft)\s+cards?\s*\.?\s*$/i);
+  if (classOnly) {
+    return [createWorldsBeyondFilteredDrawCommand(playerIndex, {
+      amount: numberWord(classOnly[1]),
+      cardClass: classOnly[2]
+    }, sourceOptions)];
+  }
+
+  const costTyped = value.match(/\bdraw\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+(\d+)-cost\s+(amulets?|spells?|followers?)\s*\.?\s*$/i);
+  if (costTyped) {
+    return [createWorldsBeyondFilteredDrawCommand(playerIndex, {
+      amount: numberWord(costTyped[1]),
+      baseCost: Number(costTyped[2]),
+      cardType: singularType(costTyped[3])
+    }, sourceOptions)];
+  }
+
+  const named = value.match(/\bdraw\s+(?:a|an|one)\s+([A-Z][A-Za-z0-9'’&,:\- ]+?)\s*\.?\s*$/i);
   if (!named) return [];
   return [createWorldsBeyondFilteredDrawCommand(playerIndex, {
     cardName: named[1].trim()
@@ -406,12 +425,14 @@ function resolveFilteredDraw(session, playerIndex, payload) {
   const wantedClass = normalize(payload.cardClass);
   const wantedType = normalize(payload.cardType);
   const wantedName = normalize(payload.cardName);
+  const wantedBaseCost = payload.baseCost == null ? null : Math.max(0, Number(payload.baseCost) || 0);
   const allMatches = Boolean(payload.allMatches);
   const initialMatches = player.deck.filter(item => {
     const card = item?.card ?? item;
     return (!wantedClass || normalize(card?.class) === wantedClass)
       && (!wantedType || normalize(card?.type) === wantedType)
-      && (!wantedName || normalize(card?.name) === wantedName);
+      && (!wantedName || normalize(card?.name) === wantedName)
+      && (wantedBaseCost == null || Math.max(0, Number(card?.cost) || 0) === wantedBaseCost);
   }).length;
   const requested = allMatches ? initialMatches : positiveAmount(payload.amount);
   if (!requested) return { applied: false, requested: 0, drawn: 0, burned: 0, matched: initialMatches };
@@ -427,7 +448,8 @@ function resolveFilteredDraw(session, playerIndex, payload) {
         const card = item?.card ?? item;
         return (!wantedClass || normalize(card?.class) === wantedClass)
           && (!wantedType || normalize(card?.type) === wantedType)
-          && (!wantedName || normalize(card?.name) === wantedName);
+          && (!wantedName || normalize(card?.name) === wantedName)
+          && (wantedBaseCost == null || Math.max(0, Number(card?.cost) || 0) === wantedBaseCost);
       });
     matched = Math.max(matched, candidates.length);
     if (!candidates.length) break;

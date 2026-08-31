@@ -30,7 +30,9 @@ const SUPPORTED_TARGET_KINDS = new Set(["damage", "destroy", "banish", "banish-e
 const HAND_DISCARD_SELECTION = /\bselect (?:a|an|one) (?:[a-z]+craft )?card in your hand and discard it\b/i;
 const DAMAGE_NUMBER = "(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\\d+)";
 const TRAILING_TYPED_DRAW = /\bdraw\s+(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+[a-z]+craft\s+followers?\s*\.?\s*$/i;
-const TRAILING_NAMED_DRAW = /\bdraw\s+(?:a|an|one)\s+[A-Z][A-Za-z0-9'’&,:\- ]+?\s*\.?\s*$/;
+const TRAILING_CLASS_DRAW = /\bdraw\s+(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+(?:Neutral|[a-z]+craft)\s+cards?\s*\.?\s*$/i;
+const TRAILING_COST_TYPED_DRAW = /\bdraw\s+(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+\d+-cost\s+(?:amulets?|spells?|followers?)\s*\.?\s*$/i;
+const TRAILING_NAMED_DRAW = /\bdraw\s+(?:a|an|one)\s+[A-Z][A-Za-z0-9'’&,:\- ]+?\s*\.?\s*$/i;
 const ADD_TO_HAND_SINGLE = /^\s*Add\s+(?:a|an|one)\s+.+?\s+to your hand\s*\.?\s*$/i;
 const SUMMON_COPIES = /\bSummon\s+(?:one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+copies of\s+[^.]+/gi;
 const SUMMON_SINGLE = /\bSummon\s+(?:a|an|one)\s+[^.]+/gi;
@@ -545,7 +547,9 @@ function unsupportedResidualText(text, { targetSpec = null, discardRequired = fa
     /\bgive this follower\s+\+\d+\s*\/\s*\+\d+\s+and\s+(?:Storm|Rush|Ward|Bane|Drain)\b/gi,
     /\bgive them\s+(?:Storm|Rush|Ward|Bane|Drain)\b/gi,
     new RegExp(TRAILING_TYPED_DRAW.source, "gi"),
-    new RegExp(TRAILING_NAMED_DRAW.source, "g"),
+    new RegExp(TRAILING_CLASS_DRAW.source, "gi"),
+    new RegExp(TRAILING_COST_TYPED_DRAW.source, "gi"),
+    new RegExp(TRAILING_NAMED_DRAW.source, "gi"),
     /\b(?:restore|recover)\s+(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+defense to your leader\b/gi,
     /\bdeal\s+(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+damage to (?:the )?enemy leader\b/gi,
     new RegExp(`\\bdeal\\s+${DAMAGE_NUMBER}\\s+damage to (?:all|each) followers? with the highest defense\\b`, "gi"),
