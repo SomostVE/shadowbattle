@@ -19,6 +19,20 @@ export function addWorldsBeyondGeneratedCard(session, playerIndex, card, { reaso
   return { added: true, burned: false, instance, reason: null };
 }
 
+export function addWorldsBeyondGeneratedCardsToDeck(session, playerIndex, card, { count = 1 } = {}) {
+  if (!card || typeof card !== "object") return { added: 0, instances: [] };
+  const player = session.getPlayer(playerIndex);
+  const total = Math.max(0, Number(count) || 0);
+  const instances = [];
+  for (let index = 0; index < total; index += 1) {
+    const instance = createWorldsBeyondGeneratedInstance(session, playerIndex, card);
+    const insertionIndex = Math.floor(session.rng() * (player.deck.length + 1));
+    player.deck.splice(insertionIndex, 0, instance);
+    instances.push(instance);
+  }
+  return { added: instances.length, instances };
+}
+
 export function createWorldsBeyondGeneratedInstance(session, playerIndex, card) {
   const cardId = card.id ?? card.cardId ?? card.sourceCardId ?? card.name ?? "generated";
   const base = `generated:${playerIndex}:${session.eventSequence}:${String(cardId)}`;
