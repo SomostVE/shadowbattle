@@ -78,7 +78,7 @@ test("Ironcrown-style mode can buff all allied followers", () => {
     text: "Select a Mode to activate.\\n1. Summon a Steelclad Knight and Knight.\\n2. Give all allied followers on the field +1/+1."
   });
 
-  const action = game.listLegalActions(0).find(item => item.type === "play-card" && item.cardInstanceId === spell.instanceId && item.mode === 2);
+  const action = game.listLegalActions(0).find(item => item.type === "play-card" && item.cardInstanceId === spell.instanceId && item.playMode?.modeIndex === 2);
   assert.ok(action, "global allied-buff mode should be legal");
   game.dispatch(action);
 
