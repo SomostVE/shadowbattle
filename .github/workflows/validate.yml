@@ -20,7 +20,7 @@ jobs:
         with:
           node-version: 24
       - name: Apply staged 0.5.46 Crest grammar fix
-        run: python scripts/fix-0.5.46-crest-colon.py
+        run: python scripts/fix-0.5.46-crest-colon-v2.py
       - name: Check JavaScript syntax
         run: |
           for file in $(find src tests -type f -name '*.js' | sort); do
