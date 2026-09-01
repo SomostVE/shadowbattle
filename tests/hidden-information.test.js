@@ -86,6 +86,23 @@ test("publicly revealed initial cards are removed once even across repeated publ
   assert.equal(belief.remaining.find(row => row.cardId === "B").qtyRemaining, 2);
 });
 
+test("a publicly known opponent card leaves known hand belief when discarded", () => {
+  const known = { instanceId: "0:2:B", cardId: "B", name: "Late B", cost: 5, type: "Follower" };
+  const game = beliefSession({
+    enemy: hiddenEnemy({ handCount: 2 }),
+    events: [
+      { sequence: 1, type: "card-returned", visibility: "public", actor: 0, payload: { card: known, destination: "hand" } },
+      { sequence: 2, type: "card-discarded", visibility: "public", actor: 0, payload: { card: known, reason: "ability" } }
+    ]
+  });
+
+  const belief = buildOpponentBelief(game, 1);
+  assert.equal(belief.revealedInitialCards, 1);
+  assert.equal(belief.knownPublicHand.length, 0);
+  assert.equal(belief.unknownHandSlots, 2);
+  assert.equal(belief.remaining.find(row => row.cardId === "B").qtyRemaining, 2);
+});
+
 test("generated cards never remove copies from the initial deck manifest", () => {
   const generated = { instanceId: "generated:0:8:A", cardId: "A", name: "Early A", cost: 2, type: "Follower" };
   const game = beliefSession({
