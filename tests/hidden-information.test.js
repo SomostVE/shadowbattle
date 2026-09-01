@@ -201,6 +201,33 @@ test("a known generated opponent hand card leaves hand belief when it is played"
   assert.equal(belief.remaining.find(row => row.cardId === "A").qtyRemaining, 3);
 });
 
+test("generated Fuse materials leave known hand and a generated Fuse target keeps its transformed identity", () => {
+  const targetBefore = { instanceId: "generated:0:10:B", cardId: "B", name: "Generated Fuse Target", cost: 5, type: "Follower" };
+  const material = { instanceId: "generated:0:11:A", cardId: "A", name: "Generated Material", cost: 2, type: "Follower" };
+  const targetAfter = { ...targetBefore, cardId: "X", name: "Transformed X", cost: 4 };
+  const game = beliefSession({
+    enemy: hiddenEnemy({ handCount: 1 }),
+    events: [
+      { sequence: 1, type: "card-returned", visibility: "public", actor: 1, payload: { owner: 0, card: targetBefore, destination: "hand" } },
+      { sequence: 2, type: "card-returned", visibility: "public", actor: 1, payload: { owner: 0, card: material, destination: "hand" } },
+      { sequence: 3, type: "fuse", visibility: "public", actor: 0, payload: { target: targetBefore, materials: [material], materialCount: 1, fusedZoneCount: 1 } },
+      { sequence: 4, type: "card-transform", visibility: "public", actor: 0, payload: { before: targetBefore, after: targetAfter, reason: "fuse" } }
+    ]
+  });
+
+  const belief = buildOpponentBelief(game, 1);
+  assert.equal(belief.revealedInitialCards, 0);
+  assert.equal(belief.knownPublicHand.length, 1);
+  assert.equal(belief.knownPublicHand[0].instanceId, targetBefore.instanceId);
+  assert.equal(belief.knownPublicHand[0].cardId, "X");
+  assert.equal(belief.knownPublicHand[0].name, "Transformed X");
+  assert.equal(belief.knownPublicHand[0].cost, 4);
+  assert.equal(belief.unknownHandSlots, 0);
+  assert.equal(belief.remainingInitialCards, 6);
+  assert.equal(belief.remaining.find(row => row.cardId === "A").qtyRemaining, 3);
+  assert.equal(belief.remaining.find(row => row.cardId === "B").qtyRemaining, 3);
+});
+
 test("opponent hand samples contain only cards still possible from public information", () => {
   const early = { instanceId: "0:1:A", cardId: "A", name: "Early A", cost: 2, type: "Follower" };
   const belief = buildOpponentBelief(beliefSession({
