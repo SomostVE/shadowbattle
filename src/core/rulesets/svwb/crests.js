@@ -118,7 +118,7 @@ export function runWorldsBeyondCrestTurnStart(session, playerIndex, { beforeTick
 
 export function delayWorldsBeyondCrest(session, playerIndex, name, amount = 1) {
   const crest = findCrest(session.getPlayer(playerIndex), name);
-  const value = Math.max(0, Number(amount) || 0);
+  const value = normalizeCountdownAmount(amount);
   if (!crest || !value || !hasFiniteCountdown(crest)) return false;
   crest.countdown = Number(crest.countdown) + value;
   session.emit(BATTLE_EVENT.CREST_ACTIVATE, {
@@ -134,7 +134,7 @@ export function advanceWorldsBeyondCrest(session, playerIndex, name, amount = 1,
 } = {}) {
   const player = session.getPlayer(playerIndex);
   const crest = findCrest(player, name);
-  const value = Math.max(0, Number(amount) || 0);
+  const value = normalizeCountdownAmount(amount);
   if (!crest || !value || !hasFiniteCountdown(crest)) return false;
   crest.countdown = Math.max(0, Number(crest.countdown) - value);
   session.emit(BATTLE_EVENT.CREST_ACTIVATE, {
@@ -175,6 +175,10 @@ function expireCrest(session, playerIndex, crest, { onExpire = null, reason = nu
 
 function hasFiniteCountdown(crest) {
   return crest?.countdown != null && Number.isFinite(Number(crest.countdown));
+}
+
+function normalizeCountdownAmount(amount) {
+  return Math.max(0, Number(amount) || 0);
 }
 
 function findCrest(player, name) {
