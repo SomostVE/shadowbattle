@@ -81,6 +81,8 @@ function copyWorldsBeyondBoardState(copy, source) {
     "barrierActive",
     "permanentAttackLock",
     "destroyAtOpponentTurnEnd",
+    "himekaBanishAtOwnTurnEnd",
+    "himekaBanishActor",
     "attackLimit",
     "attackLimitOverride",
     "typeOverride"
