@@ -42,6 +42,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add src/core/rulesets/svwb/class-conditions.js \
+                  src/core/rulesets/svwb/effect-resolver.js \
                   src/core/rulesets/svwb/generic-effects.js \
                   tests/worlds-beyond-conditional-opposing-strike-v6.test.js \
                   package.json version.json index.html api/index.html test/index.html decks/index.html library/index.html
