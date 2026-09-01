@@ -18,6 +18,15 @@ test("intermediate selection never picks illegal actions", () => {
   assert.equal(chosen.id, "legal");
 });
 
+test("intermediate selection rejects candidates without a real score", () => {
+  const chosen = chooseIntermediateAction([
+    { id: "missing", legal: true },
+    { id: "null", legal: true, score: null },
+    { id: "scored", legal: true, score: -1 }
+  ], { rng: () => 0, profile: AI_SKILL_PROFILES.intermediate });
+  assert.equal(chosen.id, "scored");
+});
+
 test("intermediate selection refuses clearly inferior lines", () => {
   const chosen = chooseIntermediateAction([
     { id: "best", legal: true, score: 10 },
