@@ -88,10 +88,10 @@ test("Azurifrit-style Super-Evolve fully restores before repeated area damage", 
   game.players[0].board.push(source);
   game.players[1].board.push(enemy);
 
-  const support = getWorldsBeyondTriggerSupport(source, "super-evolve");
+  const support = getWorldsBeyondTriggerSupport(source, "super-evolve", null, game.players[0]);
   const result = resolveWorldsBeyondTrigger(game, { trigger: "super-evolve", playerIndex: 0, source });
 
-  assert.equal(support.supported, true);
+  assert.equal(support.supported, true, support.residual || "support blocked");
   assert.equal(result.unresolved, false);
   assert.equal(source.defense, 4, "restore to 10 must happen before the three 2-damage waves");
   assert.equal(enemy.defense, 4);
