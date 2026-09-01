@@ -9,7 +9,7 @@ export function advanceWorldsBeyondAmuletCountdown(session, playerIndex, instanc
 } = {}) {
   const amulet = session.findBoardCard(playerIndex, instanceId);
   const value = Math.max(0, Number(amount) || 0);
-  if (!amulet || cardType(amulet) !== "amulet" || !value || !Number.isFinite(Number(amulet.countdown))) {
+  if (!amulet || cardType(amulet) !== "amulet" || !value || !hasFiniteCountdown(amulet)) {
     return { applied: false, destroyed: false, countdown: amulet?.countdown ?? null };
   }
 
@@ -38,7 +38,7 @@ export function delayWorldsBeyondAmuletCountdown(session, playerIndex, instanceI
 } = {}) {
   const amulet = session.findBoardCard(playerIndex, instanceId);
   const value = Math.max(0, Number(amount) || 0);
-  if (!amulet || cardType(amulet) !== "amulet" || !value || !Number.isFinite(Number(amulet.countdown))) {
+  if (!amulet || cardType(amulet) !== "amulet" || !value || !hasFiniteCountdown(amulet)) {
     return { applied: false, countdown: amulet?.countdown ?? null };
   }
 
@@ -70,6 +70,10 @@ export function destroyWorldsBeyondAmulet(session, playerIndex, instanceId, {
   resolveWorldsBeyondTrigger(session, { trigger: "last-words", playerIndex, source: destroyed });
   restoreOriginalCardForm(destroyed);
   return destroyed;
+}
+
+function hasFiniteCountdown(instance) {
+  return instance?.countdown != null && Number.isFinite(Number(instance.countdown));
 }
 
 function cardType(instance) {
