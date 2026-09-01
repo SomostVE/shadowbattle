@@ -158,10 +158,10 @@ export function grantWorldsBeyondKeyword(instance, keyword) {
   const wanted = normalize(keyword);
   const granted = keywordValues(instance.grantedKeywords);
   const suppressed = keywordValues(instance.suppressedKeywords);
-  const remainingSuppressed = suppressed.filter(value => normalize(keywordName(value)) !== wanted);
+  const remainingSuppressed = withoutKeyword(suppressed, wanted);
   const unsuppressed = remainingSuppressed.length !== suppressed.length;
   if (unsuppressed) instance.suppressedKeywords = remainingSuppressed;
-  const alreadyGranted = granted.some(value => normalize(keywordName(value)) === wanted);
+  const alreadyGranted = includesKeyword(granted, wanted);
   let reactivated = false;
   if (wanted === "barrier" && !instance.barrierActive) {
     instance.barrierActive = true;
@@ -177,10 +177,9 @@ export function removeWorldsBeyondKeyword(instance, keyword) {
   const wanted = normalize(keyword);
   if (!wanted) return false;
   const hadKeyword = hasWorldsBeyondKeyword(instance, keyword);
-  const granted = keywordValues(instance.grantedKeywords);
-  instance.grantedKeywords = granted.filter(value => normalize(keywordName(value)) !== wanted);
+  instance.grantedKeywords = withoutKeyword(instance.grantedKeywords, wanted);
   const suppressed = keywordValues(instance.suppressedKeywords);
-  if (!suppressed.some(value => normalize(keywordName(value)) === wanted)) {
+  if (!includesKeyword(suppressed, wanted)) {
     instance.suppressedKeywords = [...suppressed, String(keyword).trim()];
   }
   if (wanted === "barrier") instance.barrierActive = false;
@@ -190,20 +189,18 @@ export function removeWorldsBeyondKeyword(instance, keyword) {
 export function hasWorldsBeyondKeyword(instance, keyword) {
   const wanted = normalize(keyword);
   if (!wanted) return false;
-  const suppressed = keywordValues(instance?.suppressedKeywords);
-  if (suppressed.some(value => normalize(keywordName(value)) === wanted)) return false;
+  if (includesKeyword(instance?.suppressedKeywords, wanted)) return false;
   if (wanted === "barrier" && Object.prototype.hasOwnProperty.call(instance ?? {}, "barrierActive")) {
     return Boolean(instance.barrierActive);
   }
 
-  const granted = keywordValues(instance?.grantedKeywords);
-  if (granted.some(value => normalize(keywordName(value)) === wanted)) return true;
+  if (includesKeyword(instance?.grantedKeywords, wanted)) return true;
 
   const explicit = [
     ...keywordValues(instance?.card?.keywords),
     ...keywordValues(instance?.card?.keyword)
   ];
-  const explicitlyIndexed = explicit.some(value => normalize(keywordName(value)) === wanted);
+  const explicitlyIndexed = includesKeyword(explicit, wanted);
   const text = cleanRulesText(instance?.card);
   if (!text.trim()) return explicitlyIndexed;
 
@@ -255,6 +252,14 @@ function keywordValues(value) {
   if (Array.isArray(value)) return value;
   if (typeof value === "string") return value.split(/[,|]/).map(item => item.trim()).filter(Boolean);
   return value == null ? [] : [value];
+}
+
+function includesKeyword(values, wanted) {
+  return keywordValues(values).some(value => normalize(keywordName(value)) === wanted);
+}
+
+function withoutKeyword(values, wanted) {
+  return keywordValues(values).filter(value => normalize(keywordName(value)) !== wanted);
 }
 
 function keywordName(value) {

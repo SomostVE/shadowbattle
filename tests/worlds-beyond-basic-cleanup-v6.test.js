@@ -135,6 +135,20 @@ test("printed Ward can be removed and later granted again", () => {
   assert.equal(hasWorldsBeyondKeyword(unit, "Ward"), true);
 });
 
+test("public card views reflect runtime keyword grants and removals", () => {
+  const game = begin();
+  const unit = forceBoardFollower(game, 0, card("public-keywords", { keywords: ["Ward", "Barrier"] }));
+
+  assert.equal(grantWorldsBeyondKeyword(unit, "Storm"), true);
+  assert.equal(removeWorldsBeyondKeyword(unit, "Ward"), true);
+  unit.barrierActive = false;
+
+  const view = game.cardView(unit);
+  assert.equal(view.keywords.includes("Storm"), true, "runtime grants must be visible to snapshots and events");
+  assert.equal(view.keywords.includes("Ward"), false, "suppressed printed keywords must disappear from the public view");
+  assert.equal(view.keywords.includes("Barrier"), false, "a consumed Barrier must not remain visible as active");
+});
+
 test("another-allied and defense-threshold target filters use live board state", () => {
   const sourceCard = card("winged", { text: "Fanfare: Select another allied follower on the field and give it +1/+1." });
   const game = begin(sourceCard);
