@@ -19,8 +19,8 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-      - name: Apply staged 0.5.46 patch
-        run: python scripts/apply-0.5.46-countdown-adjustments-v2.py
+      - name: Apply staged 0.5.46 Crest grammar fix
+        run: python scripts/fix-0.5.46-crest-colon.py
       - name: Check JavaScript syntax
         run: |
           for file in $(find src tests -type f -name '*.js' | sort); do
@@ -33,19 +33,14 @@ jobs:
         run: npm test
       - name: Audit SVWB structural coverage
         run: npm run audit:svwb
-      - name: Commit validated 0.5.46 patch
+      - name: Commit validated 0.5.46 Crest grammar fix
         run: |
           if git diff --quiet; then
-            echo "0.5.46 patch already committed"
+            echo "0.5.46 Crest grammar fix already committed"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/core/rulesets/worlds-beyond.js \
-                  src/core/rulesets/svwb/amulets.js \
-                  src/core/rulesets/svwb/crests.js \
-                  src/core/rulesets/svwb/generic-effects.js \
-                  tests/worlds-beyond-countdown-adjustments-v6.test.js \
-                  package.json version.json index.html api/index.html test/index.html decks/index.html library/index.html
-          git commit -m "ShadowBattle 0.5.46 — support Countdown and Crest adjustments"
+          git add src/core/rulesets/svwb/generic-effects.js
+          git commit -m "ShadowBattle 0.5.46 — support official Crest colon grammar"
           git push origin HEAD:engine-v6-0.5.46-countdown-adjustments
