@@ -4,7 +4,11 @@ import {
   LIVE_ALL_FOLLOWER_COUNT_DAMAGE,
   resolveWorldsBeyondAllFollowersCountDamage
 } from "./all-followers-count-x.js";
-import { grantWorldsBeyondKeyword, refreshWorldsBeyondAttackReadiness } from "./combat-readiness.js";
+import {
+  grantWorldsBeyondAttackLimit,
+  grantWorldsBeyondKeyword,
+  refreshWorldsBeyondAttackReadiness
+} from "./combat-readiness.js";
 import { addWorldsBeyondGeneratedCard, addWorldsBeyondGeneratedCardsToDeck } from "./generated-cards.js";
 import { LIVE_HAND_SIZE_LEADER_HEAL } from "./post-draw-hand-x.js";
 import { createWorldsBeyondLeaderHealCommand } from "./v6/effect-commands.js";
@@ -18,6 +22,8 @@ const RANDOM_ENEMY_FOLLOWER_DAMAGE = new RegExp("\\bdeal\\s+" + NUMBER + "\\s+da
 const LIVE_NEUTRAL_HAND_RANDOM_DAMAGE = /\bdeal damage to (?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+) random enemy followers equal to the number of Neutral cards in your hand\b/gi;
 const ADD_TO_DECK_SINGLE = new RegExp(`\\badd\\s+(?:a|an|one)\\s+${CARD_NAME}\\s+to your deck\\s*\\.?`, "gi");
 const ADD_TO_DECK_COPIES = new RegExp(`\\badd\\s+${NUMBER}\\s+copies of\\s+${CARD_NAME}\\s+to your deck\\s*\\.?`, "gi");
+const SELF_ATTACK_LIMIT_GRANT = /\bgive (?:this follower|it)\s+["“]?Can attack\s+(\d+)\s+times per turn\.?["”]?/gi;
+const LEFTMOST_ALLIED_ATTACK_LIMIT_GRANT = /\bgive the leftmost allied (?:(Neutral|[A-Za-z]+craft)\s+)?follower(?: on the field)?\s+["“]?Can attack\s+(\d+)\s+times per turn\.?["”]?/gi;
 
 const GENERIC_EFFECT_PATTERNS = Object.freeze([
   new RegExp(`\\bdeal\\s+${NUMBER}\\s+damage split between all enemy followers\\b`, "gi"),
@@ -54,7 +60,9 @@ const GENERIC_EFFECT_PATTERNS = Object.freeze([
   new RegExp(`\\bdraw\\s+${NUMBER}\\s+spells?\\s*\\.?\\s*$`, "gi"),
   /\bsuper[- ]evolve this follower\b/gi,
   /(?<!super[- ])\bevolve this follower\b/gi,
-  /\bgive (?:this follower|it)\s+Barrier\b/gi
+  /\bgive (?:this follower|it)\s+Barrier\b/gi,
+  LEFTMOST_ALLIED_ATTACK_LIMIT_GRANT,
+  SELF_ATTACK_LIMIT_GRANT
 ]);
 
 export function hasWorldsBeyondDrawBeforeGeneratedDeckInsertion(text) {
@@ -193,6 +201,15 @@ export function resolveWorldsBeyondGenericEffects(session, {
   collect(value, /(?<!super[- ])\bevolve this follower\b/gi, () => ({
     kind: "ability-evolve"
   }), effects);
+  collect(value, LEFTMOST_ALLIED_ATTACK_LIMIT_GRANT, match => ({
+    kind: "leftmost-allied-attack-limit",
+    requiredClass: match[1] ?? null,
+    amount: Number(match[2]) || 1
+  }), effects);
+  collect(value, SELF_ATTACK_LIMIT_GRANT, match => ({
+    kind: "self-attack-limit",
+    amount: Number(match[1]) || 1
+  }), effects);
   collect(value, /\bgive (?:this follower|it)\s+Barrier\b/gi, () => ({
     kind: "self-barrier"
   }), effects);
@@ -278,6 +295,14 @@ export function resolveWorldsBeyondGenericEffects(session, {
     }
     if (effect.kind === "ability-evolve") {
       applied = Boolean(session.ruleset?.evolveFollowerByAbility?.(session, playerIndex, source)) || applied;
+      continue;
+    }
+    if (effect.kind === "leftmost-allied-attack-limit") {
+      applied = grantLeftmostAlliedAttackLimit(session, playerIndex, effect) || applied;
+      continue;
+    }
+    if (effect.kind === "self-attack-limit") {
+      applied = grantSelfAttackLimit(session, playerIndex, source, effect.amount) || applied;
       continue;
     }
     if (effect.kind === "self-barrier") {
@@ -511,6 +536,21 @@ function grantAlliedKeyword(session, playerIndex, source, effect) {
     applied = true;
   }
   return applied;
+}
+
+function grantSelfAttackLimit(session, playerIndex, source, amount) {
+  const follower = source?.instanceId ? session.findBoardCard(playerIndex, source.instanceId) : null;
+  if (!follower || cardType(follower) !== "follower") return false;
+  return grantWorldsBeyondAttackLimit(session, playerIndex, follower, amount);
+}
+
+function grantLeftmostAlliedAttackLimit(session, playerIndex, effect) {
+  const wantedClass = String(effect.requiredClass ?? "").trim().toLowerCase();
+  const follower = session.getPlayer(playerIndex).board.find(unit =>
+    cardType(unit) === "follower" && (!wantedClass || cardClass(unit) === wantedClass)
+  );
+  if (!follower) return false;
+  return grantWorldsBeyondAttackLimit(session, playerIndex, follower, effect.amount);
 }
 
 function grantSelfBarrier(session, playerIndex, source) {

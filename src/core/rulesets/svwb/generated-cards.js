@@ -82,6 +82,7 @@ function copyWorldsBeyondBoardState(copy, source) {
     "permanentAttackLock",
     "destroyAtOpponentTurnEnd",
     "attackLimit",
+    "attackLimitOverride",
     "typeOverride"
   ];
   for (const field of scalarFields) {
