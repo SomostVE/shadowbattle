@@ -112,6 +112,7 @@ function resetReturnedCard(session, card) {
   delete card.suppressedKeywords;
   delete card.barrierActive;
   delete card.permanentAttackLock;
+  delete card.destroyAtOpponentTurnEnd;
   delete card.himekaBanishAtOwnTurnEnd;
   delete card.himekaBanishActor;
   delete card.engagedThisTurn;
