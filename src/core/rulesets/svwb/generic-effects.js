@@ -20,6 +20,7 @@ const ALLIED_GOLEM_AREA_DAMAGE = /\bdeal damage to all enemy followers equal to 
 const RANDOM_ENEMY_FOLLOWER_AND_LEADER_DAMAGE = new RegExp("\\bdeal\\s+" + NUMBER + "\\s+damage to\\s+" + NUMBER + "\\s+random enemy followers and the enemy leader\\b", "gi");
 const RANDOM_ENEMY_FOLLOWER_AND_SELF_DAMAGE = new RegExp("\\bdeal\\s+" + NUMBER + "\\s+damage to\\s+" + NUMBER + "\\s+random enemy followers and\\s+" + NUMBER + "\\s+damage to your leader\\b", "gi");
 const RANDOM_ENEMY_FOLLOWER_DAMAGE = new RegExp("\\bdeal\\s+" + NUMBER + "\\s+damage to\\s+" + NUMBER + "\\s+random enemy followers\\b", "gi");
+const ALL_OTHER_FOLLOWER_DAMAGE = new RegExp("\\bdeal\\s+" + NUMBER + "\\s+damage to all other followers\\b", "gi");
 const LIVE_NEUTRAL_HAND_RANDOM_DAMAGE = /\bdeal damage to (?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+) random enemy followers equal to the number of Neutral cards in your hand\b/gi;
 const ADD_TO_DECK_SINGLE = new RegExp(`\\badd\\s+(?:a|an|one)\\s+${CARD_NAME}\\s+to your deck\\s*\\.?`, "gi");
 const ADD_TO_DECK_COPIES = new RegExp(`\\badd\\s+${NUMBER}\\s+copies of\\s+${CARD_NAME}\\s+to your deck\\s*\\.?`, "gi");
@@ -42,6 +43,7 @@ const GENERIC_EFFECT_PATTERNS = Object.freeze([
   RANDOM_ENEMY_FOLLOWER_AND_LEADER_DAMAGE,
   RANDOM_ENEMY_FOLLOWER_AND_SELF_DAMAGE,
   RANDOM_ENEMY_FOLLOWER_DAMAGE,
+  ALL_OTHER_FOLLOWER_DAMAGE,
   LIVE_NEUTRAL_HAND_RANDOM_DAMAGE,
   RANDOM_SUPER_EVOLVED_ALLIED_FOLLOWER_BUFF,
   RANDOM_NAMED_ALLIED_FOLLOWER_BUFF,
@@ -115,6 +117,10 @@ export function resolveWorldsBeyondGenericEffects(session, {
   }), effects);
   collect(value, new RegExp(`\\bdeal\\s+${NUMBER}\\s+damage to both leaders\\b`, "gi"), match => ({
     kind: "both-leaders-damage",
+    amount: numberWord(match[1])
+  }), effects);
+  collect(value, ALL_OTHER_FOLLOWER_DAMAGE, match => ({
+    kind: "all-other-follower-damage",
     amount: numberWord(match[1])
   }), effects);
   collect(value, ALLIED_GOLEM_AREA_DAMAGE, () => ({
@@ -280,6 +286,10 @@ export function resolveWorldsBeyondGenericEffects(session, {
     }
     if (effect.kind === "leader-heal-by-live-hand-size") {
       applied = healLeaderByLiveHandSize(session, playerIndex, source) || applied;
+      continue;
+    }
+    if (effect.kind === "all-other-follower-damage") {
+      applied = damageAllOtherFollowers(session, playerIndex, source, effect.amount, destroyFollower) || applied;
       continue;
     }
     if (effect.kind === "random-allied-buff") {
@@ -490,6 +500,44 @@ export function resolveWorldsBeyondSplitAllEnemiesDamage(session, {
       }
     }
     remaining -= 1;
+  }
+  return applied;
+}
+
+function damageAllOtherFollowers(session, playerIndex, source, amount, destroyFollower) {
+  const damage = Math.max(0, Number(amount) || 0);
+  if (!damage) return false;
+  const sourceInstanceId = source?.instanceId ?? null;
+  const targets = [];
+  for (const owner of [0, 1]) {
+    for (const unit of session.getPlayer(owner).board) {
+      if (cardType(unit) !== "follower" || unit.instanceId === sourceInstanceId) continue;
+      targets.push({ owner, instanceId: unit.instanceId });
+    }
+  }
+
+  let applied = false;
+  for (const target of targets) {
+    const live = session.findBoardCard(target.owner, target.instanceId);
+    if (!live) continue;
+    session.damageFollower(target.owner, live.instanceId, damage, {
+      actor: playerIndex,
+      source,
+      reason: "ability",
+      resolveDeath: false
+    });
+    applied = true;
+  }
+
+  for (const target of targets) {
+    const damaged = session.findBoardCard(target.owner, target.instanceId);
+    if (!damaged || currentDefense(damaged) > 0) continue;
+    destroyFollower?.(session, target.owner, damaged.instanceId, {
+      actor: playerIndex,
+      source,
+      reason: "ability",
+      byAbility: true
+    });
   }
   return applied;
 }

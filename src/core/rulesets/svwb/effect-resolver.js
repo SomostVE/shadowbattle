@@ -18,6 +18,7 @@ import {
   returnWorldsBeyondHandCardToDeck,
   stripWorldsBeyondHandReturnSelection
 } from "./hand-return.js";
+import { costOf } from "./v5/battle-engine-v5-state.js";
 import { baseText, section } from "./v5/battle-engine-v5-text.js";
 import { targetEffectSpec } from "./v5/battle-engine-v5-targeting.js";
 import {
@@ -42,7 +43,7 @@ const SUMMON_SINGLE = /\bSummon\s+(?:a|an|one)\s+[^.]+/gi;
 
 export function getWorldsBeyondTargetRequirement(source, trigger = "play", mode = null, player = null) {
   if (!source?.card) return null;
-  const originalText = preprocessWorldsBeyondFuseText(source, triggerText(source, trigger, mode));
+  const originalText = resolveWorldsBeyondSourceCostCondition(preprocessWorldsBeyondFuseText(source, triggerText(source, trigger, mode)), source);
   if (!originalText) return null;
   const evaluationPlayer = prospectiveTargetPlayer(player, source, trigger);
   const conditional = evaluationPlayer ? evaluateWorldsBeyondClassCondition(originalText, evaluationPlayer, source.card, { source }) : { text: originalText, active: true };
@@ -54,7 +55,7 @@ export function getWorldsBeyondTargetRequirement(source, trigger = "play", mode 
 
 export function requiresWorldsBeyondHandDiscard(source, trigger = "play", mode = null, player = null) {
   if (!source?.card) return false;
-  const originalText = preprocessWorldsBeyondFuseText(source, triggerText(source, trigger, mode));
+  const originalText = resolveWorldsBeyondSourceCostCondition(preprocessWorldsBeyondFuseText(source, triggerText(source, trigger, mode)), source);
   if (!originalText) return false;
   const evaluationPlayer = prospectiveTargetPlayer(player, source, trigger);
   const conditional = evaluationPlayer ? evaluateWorldsBeyondClassCondition(originalText, evaluationPlayer, source.card, { source }) : { text: originalText, active: true };
@@ -67,7 +68,7 @@ export function requiresWorldsBeyondHandDiscard(source, trigger = "play", mode =
 
 export function canSkipWorldsBeyondHandDiscard(source, trigger = "play", mode = null, player = null) {
   if (trigger !== "engage" || !source?.card || !player) return false;
-  const originalText = preprocessWorldsBeyondFuseText(source, triggerText(source, trigger, mode));
+  const originalText = resolveWorldsBeyondSourceCostCondition(preprocessWorldsBeyondFuseText(source, triggerText(source, trigger, mode)), source);
   if (!originalText) return false;
   const conditional = evaluateWorldsBeyondClassCondition(originalText, player, source.card, { source });
   if (!conditional.active || !conditional.text) return false;
@@ -83,7 +84,7 @@ export function canSkipWorldsBeyondHandDiscard(source, trigger = "play", mode = 
 
 export function getWorldsBeyondTriggerSupport(source, trigger = "play", mode = null, player = null) {
   if (!source?.card) return { supported: false, text: "", residual: "missing source card", targetSpec: null, discardRequired: false };
-  const originalText = preprocessWorldsBeyondFuseText(source, triggerText(source, trigger, mode));
+  const originalText = resolveWorldsBeyondSourceCostCondition(preprocessWorldsBeyondFuseText(source, triggerText(source, trigger, mode)), source);
   if (!originalText) return { supported: true, text: "", residual: "", targetSpec: null, discardRequired: false, conditionInactive: false };
 
   const evaluationPlayer = prospectiveTargetPlayer(player, source, trigger);
@@ -135,7 +136,7 @@ export function getWorldsBeyondTargetOptions(session, { trigger = "play", player
 
 export function resolveWorldsBeyondTrigger(session, { trigger, playerIndex, source, targetInstanceId = null, discardInstanceId = null, mode = null, antecedentInstanceIds = [] }) {
   if (!source?.card) return { applied: false, unresolved: false, text: "" };
-  const originalText = preprocessWorldsBeyondFuseText(source, triggerText(source, trigger, mode));
+  const originalText = resolveWorldsBeyondSourceCostCondition(preprocessWorldsBeyondFuseText(source, triggerText(source, trigger, mode)), source);
   if (!originalText) return { applied: false, unresolved: false, text: "" };
 
   const player = session.getPlayer(playerIndex);
@@ -356,6 +357,18 @@ function normalizeSuperEvolutionReplacement(fullText, triggerSection) {
   }
 
   return value.replace(/\s+instead\b/gi, "").trim();
+}
+
+function resolveWorldsBeyondSourceCostCondition(textValue, source) {
+  const currentCost = costOf(source);
+  return String(textValue ?? "").replace(
+    /\bIf this card['’]?s cost (is|isn['’]?t) (\d+),\s*(draw\s+(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+cards?)\s*\.?/gi,
+    (full, operator, threshold, effect) => {
+      const equal = currentCost === Number(threshold);
+      const active = /^is$/i.test(operator) ? equal : !equal;
+      return active ? `${effect}.` : " ";
+    }
+  );
 }
 
 function resolveWorldsBeyondVariables(textValue, source, { session = null, playerIndex = null } = {}) {
