@@ -5,22 +5,14 @@ on:
     branches: [main]
   pull_request:
 
-permissions:
-  contents: write
-
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          ref: engine-v6-0.5.40-all-enemies-damage
-          fetch-depth: 0
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-      - name: Apply staged 0.5.40 patch
-        run: python scripts/apply-0.5.40-all-enemies-damage.py
       - name: Check JavaScript syntax
         run: |
           for file in $(find src tests -type f -name '*.js' | sort); do
@@ -33,17 +25,3 @@ jobs:
         run: npm test
       - name: Audit SVWB structural coverage
         run: npm run audit:svwb
-      - name: Commit validated 0.5.40 patch
-        run: |
-          if git diff --quiet; then
-            echo "0.5.40 patch already committed"
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/core/rulesets/svwb/effect-resolver.js \
-                  src/core/rulesets/svwb/class-conditions.js \
-                  tests/worlds-beyond-all-enemies-damage-v6.test.js \
-                  package.json version.json index.html api/index.html test/index.html decks/index.html library/index.html
-          git commit -m "ShadowBattle 0.5.40 — support all-enemies damage"
-          git push origin HEAD:engine-v6-0.5.40-all-enemies-damage
