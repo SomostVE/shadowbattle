@@ -471,8 +471,23 @@ function publicCard(instance) {
     canAttackLeader: Boolean(instance.canAttackLeader),
     countdown: instance.countdown ?? null,
     fusedCount: Array.isArray(instance.fusedCards) ? instance.fusedCards.length : 0,
-    keywords: [...(instance.card?.keywords ?? [])]
+    keywords: publicKeywords(instance)
   };
+}
+
+function publicKeywords(instance) {
+  const suppressed = new Set((instance.suppressedKeywords ?? []).map(normalizeCardName));
+  if (instance.barrierActive === false) suppressed.add("barrier");
+
+  const keywords = [...(instance.card?.keywords ?? [])].filter(keyword => !suppressed.has(normalizeCardName(keyword)));
+  const visible = new Set(keywords.map(normalizeCardName));
+  for (const keyword of instance.grantedKeywords ?? []) {
+    const normalized = normalizeCardName(keyword);
+    if (!normalized || suppressed.has(normalized) || visible.has(normalized)) continue;
+    keywords.push(keyword);
+    visible.add(normalized);
+  }
+  return keywords;
 }
 
 function eventVisibleTo(event, viewer, revealHands) {
