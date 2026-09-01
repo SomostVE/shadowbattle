@@ -82,6 +82,14 @@ export function evaluateWorldsBeyondClassCondition(textValue, player, card, { co
     notes.push(active ? "Super Evolution unlocked" : "Super Evolution not unlocked");
   }
 
+  const sourceEvolved = findThresholdMechanic(text, /\bif this follower is evolved\s*,?\s*(.*)$/i);
+  if (sourceEvolved) {
+    const active = Boolean(source?.evolved);
+    text = resolveConditionalSegments(sourceEvolved.prefix, sourceEvolved.match[1], active);
+    mechanic = mechanic ?? "sourceEvolved";
+    notes.push(active ? "Source follower evolved" : "Source follower not evolved");
+  }
+
   const noDuplicates = findThresholdMechanic(text, /\bif there are no duplicates in your deck\s*,?\s*(.*)$/i);
   if (noDuplicates) {
     const active = deckHasNoDuplicates(player);

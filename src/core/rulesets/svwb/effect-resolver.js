@@ -554,6 +554,7 @@ function hasUnsupportedChoiceOrCondition(text, { targetSpec = null, discardRequi
   if (handReturnSelection) inspect = stripWorldsBeyondHandReturnSelection(inspect);
   if (targetSpec) inspect = stripSupportedTargetText(inspect);
   inspect = inspect.replace(/\bGain Crest\s*:\s*[^.;\n]+[.;]?/gi, "");
+  inspect = stripWorldsBeyondGenericEffectText(inspect);
   return /\b(?:select|choose)\b|\bif\b|\bunless\b|\bfor each\b|\bwhenever\b|\bwhen(?:ever)?\b|\brandomly select\b|\bX\b|\b(?:Earth Rite|Engage|Fuse|Transmute|Crest|Faith)\b/i.test(inspect);
 }
 
