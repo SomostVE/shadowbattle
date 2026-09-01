@@ -31,7 +31,7 @@ function weightedChoice(entries, rng) {
 
 export function chooseIntermediateAction(candidates, { rng = Math.random, profile = AI_SKILL_PROFILES.intermediate } = {}) {
   const legal = (candidates ?? [])
-    .filter(candidate => candidate?.legal !== false && Number.isFinite(Number(candidate?.score)))
+    .filter(candidate => candidate?.legal !== false && candidate?.score != null && Number.isFinite(Number(candidate.score)))
     .map(candidate => ({ ...candidate, score: Number(candidate.score) }))
     .sort((a, b) => b.score - a.score);
 
