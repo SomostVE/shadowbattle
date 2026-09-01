@@ -32,9 +32,18 @@ export function buildOpponentBelief(session, playerIndex) {
   }
 
   const revealedCounts = new Map();
+  const transformedInitialDeck = [];
   for (const [instanceId, cardId] of revealedByInstance) {
-    if (zoneByInstance.get(instanceId) === "deck") continue;
+    const zone = zoneByInstance.get(instanceId);
+    const current = publicByInstance.get(instanceId);
+    const transformedInDeck = zone === "deck"
+      && current
+      && String(current.cardId ?? "") !== String(cardId);
+    if (zone === "deck" && !transformedInDeck) continue;
     revealedCounts.set(cardId, (revealedCounts.get(cardId) ?? 0) + 1);
+    if (transformedInDeck) {
+      transformedInitialDeck.push({ ...current, transformed: true, qty: 1, revealed: 0, qtyRemaining: 1 });
+    }
   }
 
   const remaining = manifest.map(row => {
@@ -46,11 +55,11 @@ export function buildOpponentBelief(session, playerIndex) {
       qtyRemaining: Math.max(0, Number(row.qty ?? 0) - revealed)
     };
   });
-  const remainingTotal = remaining.reduce((sum, row) => sum + row.qtyRemaining, 0);
+  const remainingManifestTotal = remaining.reduce((sum, row) => sum + row.qtyRemaining, 0);
   const generatedDeck = [...publicByInstance.entries()]
     .filter(([instanceId]) => zoneByInstance.get(instanceId) === "deck" && !revealedByInstance.has(instanceId))
     .map(([, card]) => ({ ...card, generated: true, qty: 1, revealed: 0, qtyRemaining: 1 }));
-  const possibleRemaining = [...remaining, ...generatedDeck];
+  const possibleRemaining = [...remaining, ...transformedInitialDeck, ...generatedDeck];
   const possibleTotal = possibleRemaining.reduce((sum, row) => sum + row.qtyRemaining, 0);
   const knownPublicHand = [...publicByInstance.entries()]
     .filter(([instanceId]) => zoneByInstance.get(instanceId) === "hand")
@@ -71,7 +80,7 @@ export function buildOpponentBelief(session, playerIndex) {
     knownPublicHand: Object.freeze(knownPublicHand.map(row => Object.freeze({ ...row }))),
     unknownHandSlots,
     revealedInitialCards: revealedByInstance.size,
-    remainingInitialCards: remainingTotal,
+    remainingInitialCards: remainingManifestTotal + transformedInitialDeck.length,
     nextTurnPp,
     playableRemaining,
     playableProbability,
