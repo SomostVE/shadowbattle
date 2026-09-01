@@ -10,6 +10,11 @@ const PUBLIC_ZONE_BY_EVENT = Object.freeze({
   "card-returned": "returned"
 });
 
+const ORIGINAL_INSTANCE_BY_OWNER = Object.freeze([
+  /^0:\d+:/,
+  /^1:\d+:/
+]);
+
 export function buildOpponentBelief(session, playerIndex) {
   if (!session || (playerIndex !== 0 && playerIndex !== 1)) return emptyBelief(playerIndex);
   const enemyIndex = 1 - playerIndex;
@@ -230,7 +235,7 @@ function isCardView(value) {
 }
 
 function isOriginalInstance(instanceId, owner) {
-  return typeof instanceId === "string" && new RegExp(`^${owner}:\\d+:`).test(instanceId);
+  return typeof instanceId === "string" && Boolean(ORIGINAL_INSTANCE_BY_OWNER[owner]?.test(instanceId));
 }
 
 function projectedNextTurnPp(enemy, maxPp) {
