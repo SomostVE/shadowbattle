@@ -63,7 +63,12 @@ function playText(game, text, id = "countdown-spell") {
 }
 
 function boardAmulet(game, id, name, countdown) {
-  const definition = card(id, { name, type: "Amulet", cost: 1, text: `Countdown (${countdown})` });
+  const definition = card(id, {
+    name,
+    type: "Amulet",
+    cost: 1,
+    text: countdown == null ? "" : `Countdown (${countdown})`
+  });
   game.registerCardDefinitions([definition]);
   const unit = {
     instanceId: `0:manual:${id}`,
@@ -145,6 +150,19 @@ test("random named allied amulet delay chooses exactly one exact-name copy", () 
   assert.equal(matching.reduce((sum, value) => sum + value, 0), 4);
   assert.deepEqual([...matching].sort((a, b) => a - b), [1, 3]);
   assert.equal(game.findBoardCard(0, other.instanceId)?.countdown, 1);
+});
+
+test("Countdown adjustments ignore amulets without a finite Countdown", () => {
+  const game = readyGame("persistent-amulet-adjustment");
+  const persistent = boardAmulet(game, "persistent-relic", "Persistent Relic", null);
+
+  playText(game, "Advance the counts of all allied copies of Persistent Relic on the field by 2.", "advance-persistent");
+  assert.equal(game.findBoardCard(0, persistent.instanceId), persistent);
+  assert.equal(persistent.countdown, null);
+
+  playText(game, "Delay the count of a random allied Persistent Relic on the field by 2.", "delay-persistent");
+  assert.equal(game.findBoardCard(0, persistent.instanceId), persistent);
+  assert.equal(persistent.countdown, null);
 });
 
 test("Engage can delay the source amulet Countdown through the generic adjustment grammar", () => {
