@@ -139,12 +139,11 @@ function recordEventCards(event, enemyIndex, manifestById, revealedByInstance, z
   const defaultZone = PUBLIC_ZONE_BY_EVENT[event.type] ?? null;
   collectCardViews(payload, card => recordPublicCard(card, enemyIndex, manifestById, revealedByInstance, zoneByInstance, null));
 
-  if (event.type === "card-play") markZone(payload.card, enemyIndex, zoneByInstance, "played");
-  else if (event.type === "follower-enter" || event.type === "amulet-enter") markZone(payload.card, enemyIndex, zoneByInstance, "board");
-  else if (event.type === "spell-cast" || event.type === "follower-destroyed" || event.type === "amulet-destroyed") markZone(payload.card, enemyIndex, zoneByInstance, "cemetery");
-  else if (event.type === "card-banished") markZone(payload.card, enemyIndex, zoneByInstance, "banished");
-  else if (event.type === "card-returned") markZone(payload.card, enemyIndex, zoneByInstance, payload.destination === "hand" ? "hand" : (payload.destination ?? defaultZone));
-  else if (event.type === "fuse") {
+  if (event.type === "card-returned") {
+    markZone(payload.card, enemyIndex, zoneByInstance, payload.destination === "hand" ? "hand" : (payload.destination ?? defaultZone));
+  } else if (defaultZone) {
+    markZone(payload.card, enemyIndex, zoneByInstance, defaultZone);
+  } else if (event.type === "fuse") {
     markZone(payload.target, enemyIndex, zoneByInstance, "hand");
     for (const material of payload.materials ?? []) markZone(material, enemyIndex, zoneByInstance, "fused");
   } else if (event.type === "card-transform") {
