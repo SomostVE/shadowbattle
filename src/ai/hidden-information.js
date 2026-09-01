@@ -21,7 +21,10 @@ export function buildOpponentBelief(session, playerIndex) {
   const publicByInstance = new Map();
   const zoneByInstance = new Map();
 
-  for (const card of enemy.board ?? []) recordPublicCard(card, enemyIndex, manifestById, revealedByInstance, publicByInstance, zoneByInstance, "board");
+  for (const card of enemy.board ?? []) {
+    recordPublicCard(card, enemyIndex, manifestById, revealedByInstance, publicByInstance, zoneByInstance, "board");
+    recordKnownOpponentCard(card, publicByInstance, zoneByInstance, "board");
+  }
 
   const events = typeof session.getEvents === "function" ? session.getEvents({ since: 0, viewer: playerIndex }) : [];
   for (const event of events) {
@@ -44,9 +47,9 @@ export function buildOpponentBelief(session, playerIndex) {
     };
   });
   const remainingTotal = remaining.reduce((sum, row) => sum + row.qtyRemaining, 0);
-  const knownPublicHand = [...revealedByInstance.entries()]
+  const knownPublicHand = [...publicByInstance.entries()]
     .filter(([instanceId]) => zoneByInstance.get(instanceId) === "hand")
-    .map(([instanceId, cardId]) => publicByInstance.get(instanceId) ?? { instanceId, ...(manifestById.get(cardId) ?? { cardId }) });
+    .map(([, card]) => ({ ...card }));
   const hiddenHandCount = Math.max(0, Number(enemy.handCount ?? 0));
   const unknownHandSlots = Math.min(remainingTotal, Math.max(0, hiddenHandCount - knownPublicHand.length));
   const nextTurnPp = projectedNextTurnPp(enemy, session.ruleset?.maxPp ?? 10);
@@ -144,6 +147,13 @@ function recordEventCards(event, enemyIndex, manifestById, revealedByInstance, p
   const defaultZone = PUBLIC_ZONE_BY_EVENT[event.type] ?? null;
   collectCardViews(payload, card => recordPublicCard(card, enemyIndex, manifestById, revealedByInstance, publicByInstance, zoneByInstance, null));
 
+  if (payload.owner === enemyIndex) {
+    const knownZone = event.type === "card-returned"
+      ? (payload.destination === "hand" ? "hand" : (payload.destination ?? defaultZone))
+      : defaultZone;
+    recordKnownOpponentCard(payload.card, publicByInstance, zoneByInstance, knownZone);
+  }
+
   if (event.type === "card-returned") {
     markZone(payload.card, enemyIndex, zoneByInstance, payload.destination === "hand" ? "hand" : (payload.destination ?? defaultZone));
   } else if (defaultZone) {
@@ -164,6 +174,12 @@ function recordPublicCard(card, enemyIndex, manifestById, revealedByInstance, pu
     if (!manifestById.has(cardId)) return;
     revealedByInstance.set(card.instanceId, cardId);
   }
+  publicByInstance.set(card.instanceId, { ...card });
+  if (zone) zoneByInstance.set(card.instanceId, zone);
+}
+
+function recordKnownOpponentCard(card, publicByInstance, zoneByInstance, zone) {
+  if (!isCardView(card)) return;
   publicByInstance.set(card.instanceId, { ...card });
   if (zone) zoneByInstance.set(card.instanceId, zone);
 }
