@@ -56,7 +56,7 @@ function boardFollower(card, owner = 0, suffix = "board") {
   };
 }
 
-test("Azurifrit-style Super-Evolve fully restores before repeated area damage", () => {
+test("Azurifrit-style Super-Evolve restores first and repeated area damage respects Super-Evo protection", () => {
   const game = readyGame();
   const definition = {
     id: "azurifrit-style",
@@ -93,8 +93,35 @@ test("Azurifrit-style Super-Evolve fully restores before repeated area damage", 
 
   assert.equal(support.supported, true, support.residual || "support blocked");
   assert.equal(result.unresolved, false);
-  assert.equal(source.defense, 4, "restore to 10 must happen before the three 2-damage waves");
-  assert.equal(enemy.defense, 4);
+  assert.equal(source.defense, 10, "Super-Evo protection prevents its own three area-damage waves after the restore");
+  assert.equal(enemy.defense, 4, "the repeated area damage still resolves three times against other followers");
+});
+
+test("leading full restore resolves before a following area-damage clause", () => {
+  const game = readyGame();
+  const definition = {
+    id: "restore-order-style",
+    name: "Restore Order Style",
+    class: "Dragoncraft",
+    type: "Follower",
+    cost: 3,
+    attack: 3,
+    defense: 10,
+    keywords: [],
+    text: "At the end of your turn, fully restore the defense of this follower. Deal 2 damage to all followers."
+  };
+  game.registerCardDefinitions([definition]);
+  const source = boardFollower(definition);
+  source.defense = 3;
+  source.maxDefense = 10;
+  game.players[0].board.push(source);
+
+  const support = getWorldsBeyondTriggerSupport(source, "turn-end");
+  const result = resolveWorldsBeyondTrigger(game, { trigger: "turn-end", playerIndex: 0, source });
+
+  assert.equal(support.supported, true, support.residual || "support blocked");
+  assert.equal(result.unresolved, false);
+  assert.equal(source.defense, 8, "restore to 10 must occur before the later 2-damage effect");
 });
 
 test("Supplicant-style turn-end restores the leader by the follower's actual restored amount", () => {
