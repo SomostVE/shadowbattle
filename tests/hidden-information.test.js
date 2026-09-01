@@ -121,6 +121,28 @@ test("a revealed initial card returned to deck becomes possible hidden hand info
   assert.equal(belief.unknownHandSlots, 2);
 });
 
+test("a transformed known hand card keeps its latest public identity while deck accounting uses the original card", () => {
+  const before = { instanceId: "0:1:A", cardId: "A", name: "Early A", cost: 2, type: "Follower" };
+  const after = { instanceId: "0:1:A", cardId: "X", name: "Transformed X", cost: 4, type: "Follower" };
+  const game = beliefSession({
+    enemy: hiddenEnemy({ handCount: 2 }),
+    events: [
+      { sequence: 1, type: "card-returned", visibility: "public", actor: 0, payload: { card: before, destination: "hand" } },
+      { sequence: 2, type: "card-transform", visibility: "public", actor: 0, payload: { before, after, reason: "fuse" } }
+    ]
+  });
+
+  const belief = buildOpponentBelief(game, 1);
+  assert.equal(belief.revealedInitialCards, 1);
+  assert.equal(belief.knownPublicHand.length, 1);
+  assert.equal(belief.knownPublicHand[0].instanceId, before.instanceId);
+  assert.equal(belief.knownPublicHand[0].cardId, "X");
+  assert.equal(belief.knownPublicHand[0].name, "Transformed X");
+  assert.equal(belief.knownPublicHand[0].cost, 4);
+  assert.equal(belief.remaining.find(row => row.cardId === "A").qtyRemaining, 2);
+  assert.equal(belief.unknownHandSlots, 1);
+});
+
 test("generated cards never remove copies from the initial deck manifest", () => {
   const generated = { instanceId: "generated:0:8:A", cardId: "A", name: "Early A", cost: 2, type: "Follower" };
   const game = beliefSession({
