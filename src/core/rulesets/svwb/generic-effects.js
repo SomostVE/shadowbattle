@@ -7,6 +7,7 @@ import {
 import {
   grantWorldsBeyondAttackLimit,
   grantWorldsBeyondKeyword,
+  hasWorldsBeyondKeyword,
   refreshWorldsBeyondAttackReadiness
 } from "./combat-readiness.js";
 import { addWorldsBeyondGeneratedCard, addWorldsBeyondGeneratedCardsToDeck } from "./generated-cards.js";
@@ -27,6 +28,8 @@ const LEFTMOST_ALLIED_ATTACK_LIMIT_GRANT = /\bgive the leftmost allied (?:(Neutr
 const RANDOM_ALLIED_FOLLOWER_BUFF = /\bgive a random allied follower(?: on the field)?\s+\+(\d+)\s*\/\s*\+(\d+)\b/gi;
 const RANDOM_NAMED_ALLIED_FOLLOWER_BUFF = /\bgive a random allied ([A-Z][A-Za-z0-9'’&,: \-]+?) on the field\s+\+(\d+)\s*\/\s*\+(\d+)\b/gi;
 const RANDOM_SUPER_EVOLVED_ALLIED_FOLLOWER_BUFF = /\bgive a random super-evolved allied follower(?: on the field)?\s+\+(\d+)\s*\/\s*\+(\d+)\b/gi;
+const EVOLVE_ALL_UNEVOLVED_ALLIED = /\bevolve all unevolved allied followers(?: on the field)?\b/gi;
+const EVOLVE_RANDOM_UNEVOLVED_ALLIED = /\bevolve\s+(another|a|an)\s+random unevolved allied follower(?: on the field)?(?: with Ward)?(?: with a base cost of (\d+) or more)?(?: that didn['’]t attack this turn)?(?:\s+and give it\s+\+(\d+)\s*\/\s*\+(\d+))?\b/gi;
 
 const GENERIC_EFFECT_PATTERNS = Object.freeze([
   new RegExp(`\\bdeal\\s+${NUMBER}\\s+damage split between all enemy followers\\b`, "gi"),
@@ -64,6 +67,8 @@ const GENERIC_EFFECT_PATTERNS = Object.freeze([
   new RegExp(`[.!?]\\s+add\\s+(?:a|an|one)\\s+${CARD_NAME}\\s+to your hand\\s*\\.?\\s*$`, "gi"),
   new RegExp(`\\bdraw\\s+${NUMBER}\\s+amulets?\\s*\\.?\\s*$`, "gi"),
   new RegExp(`\\bdraw\\s+${NUMBER}\\s+spells?\\s*\\.?\\s*$`, "gi"),
+  EVOLVE_ALL_UNEVOLVED_ALLIED,
+  EVOLVE_RANDOM_UNEVOLVED_ALLIED,
   /\bsuper[- ]evolve this follower\b/gi,
   /(?<!super[- ])\bevolve this follower\b/gi,
   /\bgive (?:this follower|it)\s+Barrier\b/gi,
@@ -218,6 +223,18 @@ export function resolveWorldsBeyondGenericEffects(session, {
     kind: "add-to-hand",
     cardName: match[1].trim()
   }), effects);
+  collect(value, EVOLVE_ALL_UNEVOLVED_ALLIED, () => ({
+    kind: "ability-evolve-all-allied"
+  }), effects);
+  collect(value, EVOLVE_RANDOM_UNEVOLVED_ALLIED, match => ({
+    kind: "ability-evolve-random-allied",
+    excludeSource: /^evolve\s+another\b/i.test(match[0]),
+    requireWard: /\bwith Ward\b/i.test(match[0]),
+    minBaseCost: match[2] == null ? null : Math.max(0, Number(match[2]) || 0),
+    requireNotAttacked: /didn['’]t attack this turn/i.test(match[0]),
+    attack: Number(match[3]) || 0,
+    defense: Number(match[4]) || 0
+  }), effects);
   collect(value, /\bsuper[- ]evolve this follower\b/gi, () => ({
     kind: "ability-super-evolve"
   }), effects);
@@ -314,6 +331,14 @@ export function resolveWorldsBeyondGenericEffects(session, {
     }
     if (effect.kind === "add-to-hand") {
       applied = addGeneratedCardToHand(session, playerIndex, effect.cardName) || applied;
+      continue;
+    }
+    if (effect.kind === "ability-evolve-all-allied") {
+      applied = evolveAllAlliedFollowersByAbility(session, playerIndex) || applied;
+      continue;
+    }
+    if (effect.kind === "ability-evolve-random-allied") {
+      applied = evolveRandomAlliedFollowerByAbility(session, playerIndex, source, effect) || applied;
       continue;
     }
     if (effect.kind === "ability-super-evolve") {
@@ -518,6 +543,58 @@ function healLeaderByLiveHandSize(session, playerIndex, source) {
     })
   ]);
   return Boolean(result?.applied);
+}
+
+function evolveAllAlliedFollowersByAbility(session, playerIndex) {
+  const instanceIds = session.getPlayer(playerIndex).board
+    .filter(unit => cardType(unit) === "follower" && !unit.evolved)
+    .map(unit => unit.instanceId);
+  let applied = false;
+  for (const instanceId of instanceIds) {
+    const unit = session.findBoardCard(playerIndex, instanceId);
+    if (!unit || unit.evolved) continue;
+    applied = Boolean(session.ruleset?.evolveFollowerByAbility?.(session, playerIndex, unit)) || applied;
+  }
+  return applied;
+}
+
+function evolveRandomAlliedFollowerByAbility(session, playerIndex, source, effect) {
+  const candidates = session.getPlayer(playerIndex).board.filter(unit => {
+    if (cardType(unit) !== "follower" || unit.evolved) return false;
+    if (effect.excludeSource && unit.instanceId === source?.instanceId) return false;
+    if (effect.requireWard && !hasWorldsBeyondKeyword(unit, "Ward")) return false;
+    if (effect.minBaseCost != null && Number(unit.card?.cost ?? unit.cost ?? 0) < Number(effect.minBaseCost)) return false;
+    if (effect.requireNotAttacked && Boolean(unit.hasAttacked)) return false;
+    return true;
+  });
+  if (!candidates.length) return false;
+
+  const roll = Math.max(0, Math.min(0.999999999999, Number(session.rng()) || 0));
+  const selected = candidates[Math.min(candidates.length - 1, Math.floor(roll * candidates.length))];
+  const evolved = Boolean(session.ruleset?.evolveFollowerByAbility?.(session, playerIndex, selected));
+  if (!evolved) return false;
+
+  const attack = Math.max(0, Number(effect.attack) || 0);
+  const defense = Math.max(0, Number(effect.defense) || 0);
+  if (attack || defense) {
+    const live = session.findBoardCard(playerIndex, selected.instanceId);
+    if (live) {
+      live.attack = currentAttack(live) + attack;
+      live.maxDefense = currentMaxDefense(live) + defense;
+      live.defense = currentDefense(live) + defense;
+      session.emit(BATTLE_EVENT.FOLLOWER_BUFF, {
+        actor: playerIndex,
+        payload: {
+          card: session.cardView(live),
+          attack,
+          defense,
+          reason: "ability",
+          source: source ? session.cardView(source) : null
+        }
+      });
+    }
+  }
+  return true;
 }
 
 function buffRandomAlliedFollower(session, playerIndex, source, effect) {
