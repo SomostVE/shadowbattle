@@ -93,6 +93,8 @@ function resetReturnedCard(session, card) {
   delete card.attack;
   delete card.defense;
   delete card.maxDefense;
+  delete card.attackLimit;
+  delete card.attackLimitOverride;
   delete card.evolved;
   delete card.superEvolved;
   delete card.imageOverride;

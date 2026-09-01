@@ -55,9 +55,29 @@ export function refreshWorldsBeyondAttackReadiness(session, playerIndex, unit) {
 }
 
 export function getWorldsBeyondAttackLimit(instance) {
+  const override = Number(instance?.attackLimitOverride);
+  if (Number.isFinite(override) && override > 0) return Math.max(1, Math.min(10, override));
   const match = cleanRulesText(instance?.card).match(/\bCan attack\s+(\d+)\s+times per turn\b/i);
   const amount = Number(match?.[1] ?? 1) || 1;
   return Math.max(1, Math.min(10, amount));
+}
+
+export function grantWorldsBeyondAttackLimit(session, playerIndex, unit, amount) {
+  if (!unit || cardType(unit) !== "follower") return false;
+  const nextLimit = Math.max(1, Math.min(10, Number(amount) || 1));
+  const previousLimit = Math.max(1, Number(unit.attackLimit ?? getWorldsBeyondAttackLimit(unit)) || 1);
+  const rawRemaining = Number(unit.attacksRemaining);
+  const previousRemaining = Number.isFinite(rawRemaining)
+    ? Math.max(0, Math.min(previousLimit, rawRemaining))
+    : previousLimit;
+  const attacksSpent = Math.max(0, previousLimit - previousRemaining);
+  const changed = Number(unit.attackLimitOverride) !== nextLimit || previousLimit !== nextLimit;
+
+  unit.attackLimitOverride = nextLimit;
+  unit.attackLimit = nextLimit;
+  unit.attacksRemaining = Math.max(0, nextLimit - attacksSpent);
+  refreshWorldsBeyondAttackReadiness(session, playerIndex, unit);
+  return changed;
 }
 
 export function hasWorldsBeyondPrintedAttackLock(instance) {
