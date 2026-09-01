@@ -143,3 +143,36 @@ test("Achim preserves Super Evo state and its same-turn protections on the exact
   assert.equal(game.destroyFollower(0, copy.instanceId, { actor: 1, reason: "test", byAbility: true }), null);
   assert.ok(game.findBoardCard(0, copy.instanceId));
 });
+
+test("Achim exact copies preserve Himeka's delayed banish together with its attack lock", () => {
+  const achimCard = card("achim-himeka", { name: "Achim, Lord of Despair", attack: 3, defense: 3, text: ACHIM_TEXT });
+  const game = begin(achimCard);
+  const achim = forceBoardFollower(game, 0, achimCard);
+  const target = forceBoardFollower(game, 1, card("himeka-target", { attack: 4, defense: 4 }), { attack: 4 });
+  target.permanentAttackLock = true;
+  target.canAttackFollowers = false;
+  target.canAttackLeader = false;
+  target.himekaBanishAtOwnTurnEnd = true;
+  target.himekaBanishActor = 0;
+
+  const action = game.listLegalActions(0).find(item =>
+    item.type === "evolve"
+    && item.followerInstanceId === achim.instanceId
+    && item.targetInstanceId === target.instanceId
+  );
+  assert.ok(action);
+  game.dispatch(action);
+
+  const copy = game.players[0].board.find(item => item.instanceId !== achim.instanceId);
+  assert.ok(copy);
+  assert.equal(copy.permanentAttackLock, true);
+  assert.equal(copy.himekaBanishAtOwnTurnEnd, true);
+  assert.equal(copy.himekaBanishActor, 0);
+  assert.equal(copy.canAttackFollowers, false);
+  assert.equal(copy.canAttackLeader, false);
+
+  game.endTurn(0);
+
+  assert.equal(game.findBoardCard(0, copy.instanceId), null);
+  assert.ok(game.players[0].banished.some(item => item.instanceId === copy.instanceId));
+});
