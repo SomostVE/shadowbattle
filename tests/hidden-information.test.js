@@ -153,6 +153,18 @@ test("generated cards never remove copies from the initial deck manifest", () =>
   assert.equal(belief.remaining.find(row => row.cardId === "A").qtyRemaining, 3);
 });
 
+test("owner-prefixed summoned copies never consume initial deck belief", () => {
+  const summoned = { instanceId: "0:summon:8:0:A", cardId: "A", name: "Early A", cost: 2, type: "Follower" };
+  const game = beliefSession({
+    events: [{ sequence: 1, type: "follower-enter", visibility: "public", actor: 0, payload: { card: summoned } }]
+  });
+
+  const belief = buildOpponentBelief(game, 1);
+  assert.equal(belief.revealedInitialCards, 0);
+  assert.equal(belief.remainingInitialCards, 6);
+  assert.equal(belief.remaining.find(row => row.cardId === "A").qtyRemaining, 3);
+});
+
 test("opponent hand samples contain only cards still possible from public information", () => {
   const early = { instanceId: "0:1:A", cardId: "A", name: "Early A", cost: 2, type: "Follower" };
   const belief = buildOpponentBelief(beliefSession({
