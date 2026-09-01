@@ -134,8 +134,11 @@ export function getWorldsBeyondTargetOptions(session, { trigger = "play", player
   return targetOptionsForSpec(session, playerIndex, requirement);
 }
 
-export function resolveWorldsBeyondTrigger(session, { trigger, playerIndex, source, targetInstanceId = null, discardInstanceId = null, mode = null, antecedentInstanceIds = [] }) {
+export function resolveWorldsBeyondTrigger(session, { trigger, playerIndex, source, targetInstanceId = null, discardInstanceId = null, mode = null, antecedentInstanceIds = [], opposingFollowerInstanceId = null }) {
   if (!source?.card) return { applied: false, unresolved: false, text: "" };
+  if (trigger === "strike" && !opposingFollowerInstanceId && hasFollowerStrikeOnly(source)) {
+    return { applied: false, unresolved: false, text: "", followerStrikeSkipped: true };
+  }
   const originalText = resolveWorldsBeyondSourceCostCondition(preprocessWorldsBeyondFuseText(source, triggerText(source, trigger, mode)), source);
   if (!originalText) return { applied: false, unresolved: false, text: "" };
 
@@ -252,7 +255,8 @@ export function resolveWorldsBeyondTrigger(session, { trigger, playerIndex, sour
     discard: discardRequired ? selectedHandCard : null,
     returnToDeck: handReturnSelection ? selectedHandCard : null,
     notes: conditional.notes,
-    antecedentInstanceIds
+    antecedentInstanceIds,
+    opposingFollowerInstanceId
   });
 }
 
@@ -308,6 +312,12 @@ function prospectiveTargetPlayer(player, source, trigger) {
     ...player,
     cardsPlayedThisTurn: Number(player.cardsPlayedThisTurn ?? 0) + 1
   };
+}
+
+function hasFollowerStrikeOnly(source) {
+  const text = String(source?.activeText ?? source?.card?.text ?? "");
+  if (!/\bfollower\s+strike\s*:/i.test(text)) return false;
+  return !/(?:^|[\r\n])\s*Strike\s*:/im.test(text);
 }
 
 function triggerText(source, trigger, mode) {
@@ -632,7 +642,7 @@ function stripSupportedTargetText(text) {
   return inspect;
 }
 
-function executeSimpleEffects(session, { text, playerIndex, source, targetSpec = null, target = null, discard = null, returnToDeck = null, notes = [], antecedentInstanceIds = [] }) {
+function executeSimpleEffects(session, { text, playerIndex, source, targetSpec = null, target = null, discard = null, returnToDeck = null, notes = [], antecedentInstanceIds = [], opposingFollowerInstanceId = null }) {
   const enemyIndex = 1 - playerIndex;
   const targetPlayer = targetSpec ? targetPlayerForSpec(playerIndex, targetSpec) : enemyIndex;
   let applied = false;
@@ -953,7 +963,8 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
     source,
     destroyFollower: destroyWorldsBeyondFollower,
     destroyCard: destroyWorldsBeyondTargetCard,
-    gainShadows: gainWorldsBeyondShadows
+    gainShadows: gainWorldsBeyondShadows,
+    opposingFollowerInstanceId
   }) || applied;
 
   const trailingApplied = commandsApplied(resolveEffectCommands(
