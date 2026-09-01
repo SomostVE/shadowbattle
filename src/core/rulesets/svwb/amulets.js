@@ -7,24 +7,13 @@ export function advanceWorldsBeyondAmuletCountdown(session, playerIndex, instanc
   source = null,
   reason = "ability"
 } = {}) {
-  const amulet = session.findBoardCard(playerIndex, instanceId);
-  const value = Math.max(0, Number(amount) || 0);
-  if (!amulet || cardType(amulet) !== "amulet" || !value || !hasFiniteCountdown(amulet)) {
+  const { amulet, value } = getCountdownAdjustment(session, playerIndex, instanceId, amount);
+  if (!amulet || !value) {
     return { applied: false, destroyed: false, countdown: amulet?.countdown ?? null };
   }
 
   amulet.countdown = Math.max(0, Number(amulet.countdown) - value);
-  session.emit(BATTLE_EVENT.COUNTDOWN_TICK, {
-    actor,
-    payload: {
-      card: session.cardView(amulet),
-      countdown: amulet.countdown,
-      amount: value,
-      source: source ? session.cardView(source) : null,
-      reason,
-      advanced: reason !== "turn-start"
-    }
-  });
+  emitCountdownAdjustment(session, amulet, { actor, source, reason, amount: value, advanced: reason !== "turn-start" });
 
   if (amulet.countdown > 0) return { applied: true, destroyed: false, countdown: amulet.countdown };
   const destroyed = destroyWorldsBeyondAmulet(session, playerIndex, amulet.instanceId, { actor, source, reason });
@@ -36,25 +25,11 @@ export function delayWorldsBeyondAmuletCountdown(session, playerIndex, instanceI
   source = null,
   reason = "ability"
 } = {}) {
-  const amulet = session.findBoardCard(playerIndex, instanceId);
-  const value = Math.max(0, Number(amount) || 0);
-  if (!amulet || cardType(amulet) !== "amulet" || !value || !hasFiniteCountdown(amulet)) {
-    return { applied: false, countdown: amulet?.countdown ?? null };
-  }
+  const { amulet, value } = getCountdownAdjustment(session, playerIndex, instanceId, amount);
+  if (!amulet || !value) return { applied: false, countdown: amulet?.countdown ?? null };
 
   amulet.countdown = Number(amulet.countdown) + value;
-  session.emit(BATTLE_EVENT.COUNTDOWN_TICK, {
-    actor,
-    payload: {
-      card: session.cardView(amulet),
-      countdown: amulet.countdown,
-      amount: value,
-      source: source ? session.cardView(source) : null,
-      reason,
-      advanced: false,
-      delayed: true
-    }
-  });
+  emitCountdownAdjustment(session, amulet, { actor, source, reason, amount: value, advanced: false, delayed: true });
   return { applied: true, countdown: amulet.countdown };
 }
 
@@ -70,6 +45,33 @@ export function destroyWorldsBeyondAmulet(session, playerIndex, instanceId, {
   resolveWorldsBeyondTrigger(session, { trigger: "last-words", playerIndex, source: destroyed });
   restoreOriginalCardForm(destroyed);
   return destroyed;
+}
+
+function getCountdownAdjustment(session, playerIndex, instanceId, amount) {
+  const amulet = session.findBoardCard(playerIndex, instanceId);
+  const value = Math.max(0, Number(amount) || 0);
+  if (!amulet || cardType(amulet) !== "amulet" || !hasFiniteCountdown(amulet)) return { amulet: null, value: 0 };
+  return { amulet, value };
+}
+
+function emitCountdownAdjustment(session, amulet, {
+  actor,
+  source,
+  reason,
+  amount,
+  advanced,
+  delayed = false
+}) {
+  const payload = {
+    card: session.cardView(amulet),
+    countdown: amulet.countdown,
+    amount,
+    source: source ? session.cardView(source) : null,
+    reason,
+    advanced
+  };
+  if (delayed) payload.delayed = true;
+  session.emit(BATTLE_EVENT.COUNTDOWN_TICK, { actor, payload });
 }
 
 function hasFiniteCountdown(instance) {
