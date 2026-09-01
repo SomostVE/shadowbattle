@@ -5,7 +5,7 @@ import {
   resolveWorldsBeyondAllFollowersCountDamage
 } from "./all-followers-count-x.js";
 import { grantWorldsBeyondKeyword, refreshWorldsBeyondAttackReadiness } from "./combat-readiness.js";
-import { addWorldsBeyondGeneratedCard } from "./generated-cards.js";
+import { addWorldsBeyondGeneratedCard, addWorldsBeyondGeneratedCardsToDeck } from "./generated-cards.js";
 import { LIVE_HAND_SIZE_LEADER_HEAL } from "./post-draw-hand-x.js";
 import { createWorldsBeyondLeaderHealCommand } from "./v6/effect-commands.js";
 
@@ -16,6 +16,8 @@ const RANDOM_ENEMY_FOLLOWER_AND_LEADER_DAMAGE = new RegExp("\\bdeal\\s+" + NUMBE
 const RANDOM_ENEMY_FOLLOWER_AND_SELF_DAMAGE = new RegExp("\\bdeal\\s+" + NUMBER + "\\s+damage to\\s+" + NUMBER + "\\s+random enemy followers and\\s+" + NUMBER + "\\s+damage to your leader\\b", "gi");
 const RANDOM_ENEMY_FOLLOWER_DAMAGE = new RegExp("\\bdeal\\s+" + NUMBER + "\\s+damage to\\s+" + NUMBER + "\\s+random enemy followers\\b", "gi");
 const LIVE_NEUTRAL_HAND_RANDOM_DAMAGE = /\bdeal damage to (?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+) random enemy followers equal to the number of Neutral cards in your hand\b/gi;
+const ADD_TO_DECK_SINGLE = new RegExp(`\\badd\\s+(?:a|an|one)\\s+${CARD_NAME}\\s+to your deck\\s*\\.?`, "gi");
+const ADD_TO_DECK_COPIES = new RegExp(`\\badd\\s+${NUMBER}\\s+copies of\\s+${CARD_NAME}\\s+to your deck\\s*\\.?`, "gi");
 
 const GENERIC_EFFECT_PATTERNS = Object.freeze([
   new RegExp(`\\bdeal\\s+${NUMBER}\\s+damage split between all enemy followers\\b`, "gi"),
@@ -43,6 +45,8 @@ const GENERIC_EFFECT_PATTERNS = Object.freeze([
   new RegExp(`\\bgain\\s+${NUMBER}\\s+max play points?\\b`, "gi"),
   new RegExp(`\\brecover\\s+${NUMBER}\\s+evolution points?\\b`, "gi"),
   new RegExp(`\\bdraw\\s+${NUMBER}\\s+(?:Neutral|[a-z]+craft)\\s+followers?\\s*\\.\\s*recover\\s+${NUMBER}\\s+play points?\\b`, "gi"),
+  ADD_TO_DECK_COPIES,
+  ADD_TO_DECK_SINGLE,
   new RegExp(`\\badd\\s+${NUMBER}\\s+copies of\\s+[^.]+?\\s+to your hand\\s*\\.?\\s*$`, "gi"),
   new RegExp(`^\\s*add\\s+(?:a|an|one)\\s+${CARD_NAME}\\s+to your hand\\s*\\.?`, "gi"),
   new RegExp(`[.!?]\\s+add\\s+(?:a|an|one)\\s+${CARD_NAME}\\s+to your hand\\s*\\.?\\s*$`, "gi"),
@@ -52,6 +56,19 @@ const GENERIC_EFFECT_PATTERNS = Object.freeze([
   /(?<!super[- ])\bevolve this follower\b/gi,
   /\bgive (?:this follower|it)\s+Barrier\b/gi
 ]);
+
+export function hasWorldsBeyondDrawBeforeGeneratedDeckInsertion(text) {
+  const value = String(text ?? "");
+  const drawIndex = value.search(/\bdraw\b/i);
+  if (drawIndex < 0) return false;
+  for (const pattern of [ADD_TO_DECK_COPIES, ADD_TO_DECK_SINGLE]) {
+    pattern.lastIndex = 0;
+    for (const match of value.matchAll(pattern)) {
+      if ((match.index ?? -1) > drawIndex) return true;
+    }
+  }
+  return false;
+}
 
 export function stripWorldsBeyondGenericEffectText(text) {
   let inspect = String(text ?? "");
@@ -156,6 +173,16 @@ export function resolveWorldsBeyondGenericEffects(session, {
     kind: "recover-evolution-points",
     amount: numberWord(match[1])
   }), effects);
+  collect(value, ADD_TO_DECK_COPIES, match => ({
+    kind: "add-to-deck",
+    count: numberWord(match[1]),
+    cardName: match[2].trim()
+  }), effects);
+  collect(value, ADD_TO_DECK_SINGLE, match => ({
+    kind: "add-to-deck",
+    count: 1,
+    cardName: match[1].trim()
+  }), effects);
   collect(value, new RegExp(`[.!?]\\s+add\\s+(?:a|an|one)\\s+${CARD_NAME}\\s+to your hand\\s*\\.?\\s*$`, "gi"), match => ({
     kind: "add-to-hand",
     cardName: match[1].trim()
@@ -235,6 +262,10 @@ export function resolveWorldsBeyondGenericEffects(session, {
     }
     if (effect.kind === "recover-evolution-points") {
       applied = recoverEvolutionPoints(session, playerIndex, effect.amount) || applied;
+      continue;
+    }
+    if (effect.kind === "add-to-deck") {
+      applied = addGeneratedCardsToDeck(session, playerIndex, effect.cardName, effect.count) || applied;
       continue;
     }
     if (effect.kind === "add-to-hand") {
@@ -523,6 +554,13 @@ function recoverEvolutionPoints(session, playerIndex, amount) {
   const after = Math.min(cap, before + value);
   player.resources.evolutionPoints = after;
   return after > before;
+}
+
+function addGeneratedCardsToDeck(session, playerIndex, cardName, count) {
+  const definition = session.findCardDefinition({ name: cardName });
+  if (!definition) return false;
+  const result = addWorldsBeyondGeneratedCardsToDeck(session, playerIndex, definition, { count });
+  return result.added > 0;
 }
 
 function addGeneratedCardToHand(session, playerIndex, cardName) {

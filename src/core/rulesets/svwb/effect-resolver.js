@@ -8,6 +8,7 @@ import { spellboostWorldsBeyondHand, worldsBeyondCardX } from "./spellboost.js";
 import { getWorldsBeyondEngageInfo } from "./engage.js";
 import { preprocessWorldsBeyondFuseText } from "./fuse.js";
 import {
+  hasWorldsBeyondDrawBeforeGeneratedDeckInsertion,
   resolveWorldsBeyondGenericEffects,
   stripWorldsBeyondGenericEffectText
 } from "./generic-effects.js";
@@ -533,6 +534,7 @@ function hasUnsupportedChoiceOrCondition(text, { targetSpec = null, discardRequi
 
 function unsupportedResidualText(text, { targetSpec = null, discardRequired = false, handReturnSelection = false } = {}) {
   let inspect = String(text ?? "");
+  const orderedDeckInsertionBlocked = hasWorldsBeyondDrawBeforeGeneratedDeckInsertion(inspect);
   if (discardRequired) inspect = inspect.replace(new RegExp(HAND_DISCARD_SELECTION.source, "gi"), " ");
   if (handReturnSelection) inspect = stripWorldsBeyondHandReturnSelection(inspect);
   if (targetSpec) inspect = stripSupportedTargetText(inspect);
@@ -570,6 +572,7 @@ function unsupportedResidualText(text, { targetSpec = null, discardRequired = fa
   if (!targetSpec) patterns.push(new RegExp(SUMMON_COPIES.source, "gi"), new RegExp(SUMMON_SINGLE.source, "gi"));
   for (const pattern of patterns) inspect = inspect.replace(pattern, " ");
   inspect = stripWorldsBeyondGenericEffectText(inspect);
+  if (orderedDeckInsertionBlocked) inspect = `${inspect} ordered deck insertion`;
 
   return inspect
     .replace(/[.;,:!?()[\]{}"“”]/g, " ")
