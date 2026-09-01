@@ -24,7 +24,8 @@ import {
   compileWorldsBeyondPostTargetCommands,
   compileWorldsBeyondPreTargetCommands,
   compileWorldsBeyondTrailingFilteredDrawCommands,
-  createWorldsBeyondLeaderHealCommand
+  createWorldsBeyondLeaderHealCommand,
+  stripWorldsBeyondDestroyedHistoryCopyText
 } from "./v6/effect-commands.js";
 import { compileWorldsBeyondReanimateCommands } from "./v6/reanimate-command.js";
 
@@ -575,6 +576,7 @@ function unsupportedResidualText(text, { targetSpec = null, discardRequired = fa
   ];
   if (!targetSpec) patterns.push(new RegExp(SUMMON_COPIES.source, "gi"), new RegExp(SUMMON_SINGLE.source, "gi"));
   for (const pattern of patterns) inspect = inspect.replace(pattern, " ");
+  inspect = stripWorldsBeyondDestroyedHistoryCopyText(inspect);
   inspect = stripWorldsBeyondGenericEffectText(inspect);
   if (orderedDeckInsertionBlocked) inspect = `${inspect} ordered deck insertion`;
 

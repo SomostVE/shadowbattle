@@ -28,6 +28,27 @@ export function accountWorldsBeyondFollowerEntryHistory(session, event) {
   return true;
 }
 
+export function getWorldsBeyondDestroyedFollowerOccurrences(session, playerIndex) {
+  const owner = Number(playerIndex);
+  if (owner !== 0 && owner !== 1) return [];
+  const occurrences = [];
+  for (const event of session?.events ?? []) {
+    if (event?.type !== BATTLE_EVENT.FOLLOWER_DESTROYED) continue;
+    if (Number(event.payload?.owner) !== owner) continue;
+    const view = event.payload?.card ?? {};
+    const definition = session.findCardDefinition({ id: view.cardId ?? null })
+      ?? session.findCardDefinition({ name: view.name ?? null });
+    if (!definition || normalize(definition.type) !== "follower") continue;
+    occurrences.push({
+      event,
+      definition,
+      baseCost: Math.max(0, Number(definition.cost) || 0),
+      name: String(definition.name ?? view.name ?? "").trim()
+    });
+  }
+  return occurrences;
+}
+
 export function countWorldsBeyondDifferentlyNamedArtifactEntries(player) {
   const names = Array.isArray(player?.resources?.artifactFollowerNamesEntered)
     ? player.resources.artifactFollowerNamesEntered

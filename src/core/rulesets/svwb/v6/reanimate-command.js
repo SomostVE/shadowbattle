@@ -1,5 +1,6 @@
 import { BATTLE_EVENT } from "../../../battle-events.js";
 import { createEffectCommand } from "../../../effect-commands.js";
+import { getWorldsBeyondDestroyedFollowerOccurrences } from "../match-history.js";
 
 export const SVWB_REANIMATE_EFFECT_COMMAND = "svwb:reanimate";
 
@@ -38,7 +39,8 @@ export function resolveWorldsBeyondReanimateCommand(session, command) {
   const slots = Math.max(0, Number(session.ruleset?.maxBoardSize ?? 5) - player.board.length);
   if (!slots) return { applied: false, maxCost, eligible: 0, summoned: 0, boardFull: true };
 
-  const occurrences = destroyedFollowerOccurrences(session, playerIndex, maxCost);
+  const occurrences = getWorldsBeyondDestroyedFollowerOccurrences(session, playerIndex)
+    .filter(item => item.baseCost <= maxCost);
   if (!occurrences.length) return { applied: false, maxCost, eligible: 0, summoned: 0, boardFull: false };
 
   const highestBaseCost = Math.max(...occurrences.map(item => item.baseCost));
