@@ -1,5 +1,22 @@
 import { BATTLE_EVENT, BATTLE_VISIBILITY } from "../../battle-events.js";
 
+const EXACT_COPY_BOARD_STATE_FIELDS = Object.freeze([
+  "attack",
+  "defense",
+  "maxDefense",
+  "evolved",
+  "superEvolved",
+  "imageOverride",
+  "barrierActive",
+  "permanentAttackLock",
+  "destroyAtOpponentTurnEnd",
+  "himekaBanishAtOwnTurnEnd",
+  "himekaBanishActor",
+  "attackLimit",
+  "attackLimitOverride",
+  "typeOverride"
+]);
+
 export function addWorldsBeyondGeneratedCard(session, playerIndex, card, { reason = "ability" } = {}) {
   if (!card || typeof card !== "object") return { added: false, burned: false, instance: null, reason: "missing-card" };
   const player = session.getPlayer(playerIndex);
@@ -71,23 +88,7 @@ export function createWorldsBeyondExactCopyInstance(session, playerIndex, source
 }
 
 function copyWorldsBeyondBoardState(copy, source) {
-  const scalarFields = [
-    "attack",
-    "defense",
-    "maxDefense",
-    "evolved",
-    "superEvolved",
-    "imageOverride",
-    "barrierActive",
-    "permanentAttackLock",
-    "destroyAtOpponentTurnEnd",
-    "himekaBanishAtOwnTurnEnd",
-    "himekaBanishActor",
-    "attackLimit",
-    "attackLimitOverride",
-    "typeOverride"
-  ];
-  for (const field of scalarFields) {
+  for (const field of EXACT_COPY_BOARD_STATE_FIELDS) {
     if (Object.prototype.hasOwnProperty.call(source, field)) copy[field] = source[field];
   }
   if (Array.isArray(source.suppressedKeywords)) copy.suppressedKeywords = [...source.suppressedKeywords];
