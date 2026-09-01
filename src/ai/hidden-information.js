@@ -1,5 +1,6 @@
 const PUBLIC_ZONE_BY_EVENT = Object.freeze({
   "card-play": "played",
+  "card-discarded": "cemetery",
   "follower-enter": "board",
   "amulet-enter": "board",
   "spell-cast": "cemetery",
