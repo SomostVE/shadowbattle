@@ -28,7 +28,10 @@ export function buildOpponentBelief(session, playerIndex) {
   }
 
   const revealedCounts = new Map();
-  for (const cardId of revealedByInstance.values()) revealedCounts.set(cardId, (revealedCounts.get(cardId) ?? 0) + 1);
+  for (const [instanceId, cardId] of revealedByInstance) {
+    if (zoneByInstance.get(instanceId) === "deck") continue;
+    revealedCounts.set(cardId, (revealedCounts.get(cardId) ?? 0) + 1);
+  }
 
   const remaining = manifest.map(row => {
     const cardId = String(row.cardId);
