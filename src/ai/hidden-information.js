@@ -47,15 +47,20 @@ export function buildOpponentBelief(session, playerIndex) {
     };
   });
   const remainingTotal = remaining.reduce((sum, row) => sum + row.qtyRemaining, 0);
+  const generatedDeck = [...publicByInstance.entries()]
+    .filter(([instanceId]) => zoneByInstance.get(instanceId) === "deck" && !revealedByInstance.has(instanceId))
+    .map(([, card]) => ({ ...card, generated: true, qty: 1, revealed: 0, qtyRemaining: 1 }));
+  const possibleRemaining = [...remaining, ...generatedDeck];
+  const possibleTotal = possibleRemaining.reduce((sum, row) => sum + row.qtyRemaining, 0);
   const knownPublicHand = [...publicByInstance.entries()]
     .filter(([instanceId]) => zoneByInstance.get(instanceId) === "hand")
     .map(([, card]) => ({ ...card }));
   const hiddenHandCount = Math.max(0, Number(enemy.handCount ?? 0));
-  const unknownHandSlots = Math.min(remainingTotal, Math.max(0, hiddenHandCount - knownPublicHand.length));
+  const unknownHandSlots = Math.min(possibleTotal, Math.max(0, hiddenHandCount - knownPublicHand.length));
   const nextTurnPp = projectedNextTurnPp(enemy, session.ruleset?.maxPp ?? 10);
-  const playableRemaining = remaining.reduce((sum, row) => sum + (Number(row.cost ?? 0) <= nextTurnPp ? row.qtyRemaining : 0), 0);
-  const playableProbability = probabilityAtLeastOne(remainingTotal, playableRemaining, unknownHandSlots);
-  const expectedPlayableCopies = remainingTotal > 0 ? unknownHandSlots * playableRemaining / remainingTotal : 0;
+  const playableRemaining = possibleRemaining.reduce((sum, row) => sum + (Number(row.cost ?? 0) <= nextTurnPp ? row.qtyRemaining : 0), 0);
+  const playableProbability = probabilityAtLeastOne(possibleTotal, playableRemaining, unknownHandSlots);
+  const expectedPlayableCopies = possibleTotal > 0 ? unknownHandSlots * playableRemaining / possibleTotal : 0;
   const pressure = clamp01(playableProbability * Math.min(1, 0.35 + unknownHandSlots / 7));
 
   return Object.freeze({
@@ -72,9 +77,9 @@ export function buildOpponentBelief(session, playerIndex) {
     playableProbability,
     expectedPlayableCopies,
     pressure,
-    remaining: Object.freeze(remaining.map(row => Object.freeze({
+    remaining: Object.freeze(possibleRemaining.map(row => Object.freeze({
       ...row,
-      probabilityInUnknownHand: probabilityAtLeastOne(remainingTotal, row.qtyRemaining, unknownHandSlots)
+      probabilityInUnknownHand: probabilityAtLeastOne(possibleTotal, row.qtyRemaining, unknownHandSlots)
     })))
   });
 }
