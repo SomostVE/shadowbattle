@@ -535,6 +535,10 @@ function resolveConditionalSegments(prefix, conditionalEffect, branchActive) {
 
 function replaceConditionalInstead(prefix, conditionalEffect) {
   const effect = normalizeResolvedText(conditionalEffect);
+  const damageInstead = effect.match(/^deal\s+(\d+)\s+damage instead\.?$/i);
+  if (damageInstead && /\bdeal\s+\d+\s+damage to all enemies\b/i.test(prefix)) {
+    return replaceLastDamageAmount(prefix, Number(damageInstead[1]) || 0);
+  }
   if (!/^deal damage to all enemy followers instead\.?$/i.test(effect)) return null;
 
   const value = String(prefix ?? "");
