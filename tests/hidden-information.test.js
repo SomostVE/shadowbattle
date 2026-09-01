@@ -184,6 +184,23 @@ test("a public generated card returned to the opponent hand stays known without 
   assert.equal(belief.remaining.find(row => row.cardId === "A").qtyRemaining, 3);
 });
 
+test("a known generated opponent hand card leaves hand belief when it is played", () => {
+  const generated = { instanceId: "generated:0:8:A", cardId: "A", name: "Early A", cost: 2, type: "Follower" };
+  const game = beliefSession({
+    enemy: hiddenEnemy({ handCount: 1 }),
+    events: [
+      { sequence: 1, type: "card-returned", visibility: "public", actor: 1, payload: { owner: 0, card: generated, destination: "hand" } },
+      { sequence: 2, type: "card-play", visibility: "public", actor: 0, payload: { card: generated, cost: 2, ppRemaining: 0, type: "follower" } }
+    ]
+  });
+
+  const belief = buildOpponentBelief(game, 1);
+  assert.equal(belief.revealedInitialCards, 0);
+  assert.equal(belief.knownPublicHand.length, 0);
+  assert.equal(belief.unknownHandSlots, 1);
+  assert.equal(belief.remaining.find(row => row.cardId === "A").qtyRemaining, 3);
+});
+
 test("opponent hand samples contain only cards still possible from public information", () => {
   const early = { instanceId: "0:1:A", cardId: "A", name: "Early A", cost: 2, type: "Follower" };
   const belief = buildOpponentBelief(beliefSession({
