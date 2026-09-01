@@ -111,14 +111,7 @@ export function runWorldsBeyondCrestTurnStart(session, playerIndex, { beforeTick
   }
 
   for (const crest of expired) {
-    const index = crests.indexOf(crest);
-    if (index < 0) continue;
-    crests.splice(index, 1);
-    session.emit(BATTLE_EVENT.CREST_EXPIRED, {
-      actor: playerIndex,
-      payload: { crest: crestView(crest), activeCount: crests.length }
-    });
-    if (typeof onExpire === "function") onExpire(crest);
+    if (!expireCrest(session, playerIndex, crest, { onExpire })) continue;
     if (session.phase === "ended") return;
   }
 }
@@ -140,7 +133,6 @@ export function advanceWorldsBeyondCrest(session, playerIndex, name, amount = 1,
   reason = "ability"
 } = {}) {
   const player = session.getPlayer(playerIndex);
-  const crests = getWorldsBeyondCrests(player);
   const crest = findCrest(player, name);
   const value = Math.max(0, Number(amount) || 0);
   if (!crest || !value || !hasFiniteCountdown(crest)) return false;
@@ -149,29 +141,13 @@ export function advanceWorldsBeyondCrest(session, playerIndex, name, amount = 1,
     actor: playerIndex,
     payload: { action: "advance", crest: crestView(crest), amount: value, countdown: crest.countdown }
   });
-  if (crest.countdown > 0) return true;
-
-  const index = crests.indexOf(crest);
-  if (index >= 0) crests.splice(index, 1);
-  session.emit(BATTLE_EVENT.CREST_EXPIRED, {
-    actor: playerIndex,
-    payload: { crest: crestView(crest), activeCount: crests.length, reason }
-  });
-  if (typeof onExpire === "function") onExpire(crest);
+  if (crest.countdown <= 0) expireCrest(session, playerIndex, crest, { onExpire, reason });
   return true;
 }
 
 export function destroyWorldsBeyondCrest(session, playerIndex, name, { reason = "ability" } = {}) {
-  const player = session.getPlayer(playerIndex);
-  const crests = getWorldsBeyondCrests(player);
-  const index = crests.findIndex(crest => normalize(crest.name) === normalize(name));
-  if (index < 0) return null;
-  const [crest] = crests.splice(index, 1);
-  session.emit(BATTLE_EVENT.CREST_EXPIRED, {
-    actor: playerIndex,
-    payload: { crest: crestView(crest), activeCount: crests.length, reason }
-  });
-  return crest;
+  const crest = findCrest(session.getPlayer(playerIndex), name);
+  return crest ? expireCrest(session, playerIndex, crest, { reason }) : null;
 }
 
 export function crestView(crest) {
@@ -182,6 +158,19 @@ export function crestView(crest) {
     countdown: hasFiniteCountdown(crest) ? Number(crest.countdown) : null,
     gainedTurn: Number(crest?.gainedTurn ?? 0)
   };
+}
+
+function expireCrest(session, playerIndex, crest, { onExpire = null, reason = null } = {}) {
+  const crests = getWorldsBeyondCrests(session.getPlayer(playerIndex));
+  const index = crests.indexOf(crest);
+  if (index < 0) return null;
+
+  crests.splice(index, 1);
+  const payload = { crest: crestView(crest), activeCount: crests.length };
+  if (reason != null) payload.reason = reason;
+  session.emit(BATTLE_EVENT.CREST_EXPIRED, { actor: playerIndex, payload });
+  if (typeof onExpire === "function") onExpire(crest);
+  return crest;
 }
 
 function hasFiniteCountdown(crest) {
