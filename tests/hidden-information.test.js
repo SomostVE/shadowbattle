@@ -165,6 +165,25 @@ test("owner-prefixed summoned copies never consume initial deck belief", () => {
   assert.equal(belief.remaining.find(row => row.cardId === "A").qtyRemaining, 3);
 });
 
+test("a public generated card returned to the opponent hand stays known without consuming deck belief", () => {
+  const generated = { instanceId: "generated:0:8:A", cardId: "A", name: "Early A", cost: 2, type: "Follower" };
+  const game = beliefSession({
+    enemy: hiddenEnemy({ handCount: 2 }),
+    events: [
+      { sequence: 1, type: "follower-enter", visibility: "public", actor: 0, payload: { owner: 0, card: generated } },
+      { sequence: 2, type: "card-returned", visibility: "public", actor: 1, payload: { owner: 0, card: generated, destination: "hand" } }
+    ]
+  });
+
+  const belief = buildOpponentBelief(game, 1);
+  assert.equal(belief.revealedInitialCards, 0);
+  assert.equal(belief.knownPublicHand.length, 1);
+  assert.equal(belief.knownPublicHand[0].instanceId, generated.instanceId);
+  assert.equal(belief.knownPublicHand[0].cardId, "A");
+  assert.equal(belief.unknownHandSlots, 1);
+  assert.equal(belief.remaining.find(row => row.cardId === "A").qtyRemaining, 3);
+});
+
 test("opponent hand samples contain only cards still possible from public information", () => {
   const early = { instanceId: "0:1:A", cardId: "A", name: "Early A", cost: 2, type: "Follower" };
   const belief = buildOpponentBelief(beliefSession({
