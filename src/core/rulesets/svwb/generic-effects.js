@@ -717,7 +717,6 @@ function damageEnemyFollowersByAlliedGolemCount(session, playerIndex, source, de
   }
   return applied;
 }
-
 function healLeaderByLiveHandSize(session, playerIndex, source) {
   const amount = session.getPlayer(playerIndex).hand.filter(Boolean).length;
   const sourceCardId = source?.cardId ?? source?.card?.id ?? null;
@@ -1012,7 +1011,7 @@ function advanceNamedAlliedCountdowns(session, playerIndex, source, effect) {
   const amount = Math.max(0, Number(effect.amount) || 0);
   if (!wanted || !amount) return false;
   const targetIds = session.getPlayer(playerIndex).board
-    .filter(unit => cardName(unit) === wanted && cardType(unit) === "amulet" && Number.isFinite(Number(unit.countdown)))
+    .filter(unit => cardName(unit) === wanted && cardType(unit) === "amulet" && unit.countdown != null && Number.isFinite(Number(unit.countdown)))
     .map(unit => unit.instanceId);
   let applied = false;
   for (const instanceId of targetIds) {
@@ -1028,7 +1027,7 @@ function delayRandomNamedAlliedCountdown(session, playerIndex, source, effect) {
   const amount = Math.max(0, Number(effect.amount) || 0);
   if (!wanted || !amount) return false;
   const candidates = session.getPlayer(playerIndex).board
-    .filter(unit => cardName(unit) === wanted && cardType(unit) === "amulet" && Number.isFinite(Number(unit.countdown)));
+    .filter(unit => cardName(unit) === wanted && cardType(unit) === "amulet" && unit.countdown != null && Number.isFinite(Number(unit.countdown)));
   if (!candidates.length) return false;
   const target = candidates[Math.floor(session.rng() * candidates.length)] ?? candidates[0];
   const result = session.ruleset?.delayAmuletCountdown?.(session, { playerIndex, instanceId: target.instanceId, amount, source });
