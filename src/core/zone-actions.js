@@ -90,6 +90,10 @@ function resetReturnedCard(session, card) {
   card.attackBonus = 0;
   card.defenseBonus = 0;
   card.spellboost = Number(card.spellboost ?? 0);
+  card.fusedThisTurn = false;
+  card.fusedCards = [];
+  card.fusedNames = [];
+  delete card.x;
   delete card.attack;
   delete card.defense;
   delete card.maxDefense;
