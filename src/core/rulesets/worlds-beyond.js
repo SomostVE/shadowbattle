@@ -6,11 +6,14 @@ import {
   superEvolveWorldsBeyondFollowerByAbility
 } from "./svwb/ability-evolution.js";
 import { applyWorldsBeyondCombatAction, listWorldsBeyondCombatActions } from "./svwb/combat-actions.js";
+import { advanceWorldsBeyondAmuletCountdown, delayWorldsBeyondAmuletCountdown } from "./svwb/amulets.js";
 import {
   modifyWorldsBeyondFollowerDamage,
   normalizeWorldsBeyondCombatEvent,
   normalizeWorldsBeyondTurnCombatReadiness
 } from "./svwb/combat-readiness.js";
+import { resolveWorldsBeyondCrestLastWords } from "./svwb/crest-effects.js";
+import { advanceWorldsBeyondCrest, delayWorldsBeyondCrest } from "./svwb/crests.js";
 import { resolveWorldsBeyondEventReaction } from "./svwb/event-reactions.js";
 import { destroyWorldsBeyondFollower, gainWorldsBeyondShadows } from "./svwb/effect-resolver.js";
 import { applyWorldsBeyondEvolutionAction, listWorldsBeyondEvolutionActions } from "./svwb/evolution-actions.js";
@@ -87,6 +90,29 @@ export const WORLDS_BEYOND_RULESET = Object.freeze({
   },
   superEvolveFollowerByAbility(session, playerIndex, source) {
     return superEvolveWorldsBeyondFollowerByAbility(session, playerIndex, source);
+  },
+  advanceAmuletCountdown(session, { playerIndex, instanceId, amount, source = null }) {
+    return advanceWorldsBeyondAmuletCountdown(session, playerIndex, instanceId, amount, {
+      actor: playerIndex,
+      source,
+      reason: "ability"
+    });
+  },
+  delayAmuletCountdown(session, { playerIndex, instanceId, amount, source = null }) {
+    return delayWorldsBeyondAmuletCountdown(session, playerIndex, instanceId, amount, {
+      actor: playerIndex,
+      source,
+      reason: "ability"
+    });
+  },
+  advanceCrestCountdown(session, { playerIndex, name, amount }) {
+    return advanceWorldsBeyondCrest(session, playerIndex, name, amount, {
+      reason: "ability",
+      onExpire: crest => resolveWorldsBeyondCrestLastWords(session, playerIndex, crest)
+    });
+  },
+  delayCrestCountdown(session, { playerIndex, name, amount }) {
+    return delayWorldsBeyondCrest(session, playerIndex, name, amount);
   },
   resolveRandomEnemyFollowerDamage(session, { playerIndex, source, amount, count }) {
     return resolveWorldsBeyondRandomEnemyFollowerDamage(session, {

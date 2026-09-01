@@ -34,6 +34,12 @@ const RANDOM_NAMED_ALLIED_FOLLOWER_BUFF = /\bgive a random allied ([A-Z][A-Za-z0
 const RANDOM_SUPER_EVOLVED_ALLIED_FOLLOWER_BUFF = /\bgive a random super-evolved allied follower(?: on the field)?\s+\+(\d+)\s*\/\s*\+(\d+)\b/gi;
 const EVOLVE_ALL_UNEVOLVED_ALLIED = /\bevolve all unevolved allied followers(?: on the field)?\b/gi;
 const EVOLVE_RANDOM_UNEVOLVED_ALLIED = /\bevolve\s+(another|a|an)\s+random unevolved allied follower(?: on the field)?(?: with Ward)?(?: with a base cost of (\d+) or more)?(?: that didn['’]t attack this turn)?(?:\s+and give it\s+\+(\d+)\s*\/\s*\+(\d+))?\b/gi;
+const ADVANCE_SPECIFIC_CREST = new RegExp(`\\badvance the count of your Crest\\s*:?\\s*${CARD_NAME}\\s+by\\s+${NUMBER}\\b`, "gi");
+const DELAY_SPECIFIC_CREST = new RegExp(`\\bdelay the count of your Crest\\s*:?\\s*${CARD_NAME}\\s+by\\s+${NUMBER}\\b`, "gi");
+const DELAY_ALL_CRESTS = new RegExp(`\\bdelay the counts of all your crests by\\s+${NUMBER}\\b`, "gi");
+const ADVANCE_NAMED_ALLIED_COUNTDOWNS = new RegExp(`\\badvance the counts of all allied copies of\\s+${CARD_NAME}\\s+on the field by\\s+${NUMBER}\\b`, "gi");
+const DELAY_RANDOM_NAMED_ALLIED_COUNTDOWN = new RegExp(`\\bdelay the count of a random allied\\s+${CARD_NAME}\\s+on the field by\\s+${NUMBER}\\b`, "gi");
+const DELAY_SELF_AMULET_COUNTDOWN = new RegExp(`\\bdelay the count of this amulet by\\s+${NUMBER}\\b`, "gi");
 
 const GENERIC_EFFECT_PATTERNS = Object.freeze([
   new RegExp(`\\bdeal\\s+${NUMBER}\\s+damage split between all enemy followers\\b`, "gi"),
@@ -51,6 +57,12 @@ const GENERIC_EFFECT_PATTERNS = Object.freeze([
   DAMAGED_OPPOSING_FOLLOWER_DESTROY,
   OPPOSING_FOLLOWER_DESTROY,
   LIVE_NEUTRAL_HAND_RANDOM_DAMAGE,
+  ADVANCE_SPECIFIC_CREST,
+  DELAY_SPECIFIC_CREST,
+  DELAY_ALL_CRESTS,
+  ADVANCE_NAMED_ALLIED_COUNTDOWNS,
+  DELAY_RANDOM_NAMED_ALLIED_COUNTDOWN,
+  DELAY_SELF_AMULET_COUNTDOWN,
   RANDOM_SUPER_EVOLVED_ALLIED_FOLLOWER_BUFF,
   RANDOM_NAMED_ALLIED_FOLLOWER_BUFF,
   RANDOM_ALLIED_FOLLOWER_BUFF,
@@ -148,6 +160,36 @@ export function resolveWorldsBeyondGenericEffects(session, {
   }), effects);
   collect(value, LIVE_HAND_SIZE_LEADER_HEAL, () => ({
     kind: "leader-heal-by-live-hand-size"
+  }), effects);
+  collect(value, ADVANCE_SPECIFIC_CREST, match => ({
+    kind: "crest-countdown",
+    direction: "advance",
+    crestName: match[1].trim(),
+    amount: numberWord(match[2])
+  }), effects);
+  collect(value, DELAY_SPECIFIC_CREST, match => ({
+    kind: "crest-countdown",
+    direction: "delay",
+    crestName: match[1].trim(),
+    amount: numberWord(match[2])
+  }), effects);
+  collect(value, DELAY_ALL_CRESTS, match => ({
+    kind: "delay-all-crests",
+    amount: numberWord(match[1])
+  }), effects);
+  collect(value, ADVANCE_NAMED_ALLIED_COUNTDOWNS, match => ({
+    kind: "advance-named-allied-countdowns",
+    cardName: match[1].trim(),
+    amount: numberWord(match[2])
+  }), effects);
+  collect(value, DELAY_RANDOM_NAMED_ALLIED_COUNTDOWN, match => ({
+    kind: "delay-random-named-allied-countdown",
+    cardName: match[1].trim(),
+    amount: numberWord(match[2])
+  }), effects);
+  collect(value, DELAY_SELF_AMULET_COUNTDOWN, match => ({
+    kind: "delay-self-amulet-countdown",
+    amount: numberWord(match[1])
   }), effects);
   collect(value, RANDOM_SUPER_EVOLVED_ALLIED_FOLLOWER_BUFF, match => ({
     kind: "random-allied-buff",
@@ -347,6 +389,26 @@ export function resolveWorldsBeyondGenericEffects(session, {
     }
     if (effect.kind === "destroy-damaged-enemies") {
       applied = destroyDamagedEnemyFollowers(session, playerIndex, source, destroyFollower) || applied;
+      continue;
+    }
+    if (effect.kind === "crest-countdown") {
+      applied = adjustSpecificCrestCountdown(session, playerIndex, effect) || applied;
+      continue;
+    }
+    if (effect.kind === "delay-all-crests") {
+      applied = delayAllCrestCountdowns(session, playerIndex, effect.amount) || applied;
+      continue;
+    }
+    if (effect.kind === "advance-named-allied-countdowns") {
+      applied = advanceNamedAlliedCountdowns(session, playerIndex, source, effect) || applied;
+      continue;
+    }
+    if (effect.kind === "delay-random-named-allied-countdown") {
+      applied = delayRandomNamedAlliedCountdown(session, playerIndex, source, effect) || applied;
+      continue;
+    }
+    if (effect.kind === "delay-self-amulet-countdown") {
+      applied = delaySelfAmuletCountdown(session, playerIndex, source, effect.amount) || applied;
       continue;
     }
     if (effect.kind === "gain-shadows") {
@@ -923,6 +985,61 @@ function destroyOtherAlliedCards(session, playerIndex, source, destroyCard) {
     applied = Boolean(destroyed) || applied;
   }
   return applied;
+}
+
+function adjustSpecificCrestCountdown(session, playerIndex, effect) {
+  const amount = Math.max(0, Number(effect.amount) || 0);
+  if (!amount || !effect.crestName) return false;
+  if (effect.direction === "advance") {
+    return Boolean(session.ruleset?.advanceCrestCountdown?.(session, { playerIndex, name: effect.crestName, amount }));
+  }
+  return Boolean(session.ruleset?.delayCrestCountdown?.(session, { playerIndex, name: effect.crestName, amount }));
+}
+
+function delayAllCrestCountdowns(session, playerIndex, amount) {
+  const value = Math.max(0, Number(amount) || 0);
+  if (!value) return false;
+  const names = [...(session.getPlayer(playerIndex).resources?.crests ?? [])].map(crest => crest?.name).filter(Boolean);
+  let applied = false;
+  for (const name of names) {
+    applied = Boolean(session.ruleset?.delayCrestCountdown?.(session, { playerIndex, name, amount: value })) || applied;
+  }
+  return applied;
+}
+
+function advanceNamedAlliedCountdowns(session, playerIndex, source, effect) {
+  const wanted = String(effect.cardName ?? "").trim().toLowerCase();
+  const amount = Math.max(0, Number(effect.amount) || 0);
+  if (!wanted || !amount) return false;
+  const targetIds = session.getPlayer(playerIndex).board
+    .filter(unit => cardName(unit) === wanted && cardType(unit) === "amulet" && Number.isFinite(Number(unit.countdown)))
+    .map(unit => unit.instanceId);
+  let applied = false;
+  for (const instanceId of targetIds) {
+    const result = session.ruleset?.advanceAmuletCountdown?.(session, { playerIndex, instanceId, amount, source });
+    applied = Boolean(result?.applied) || applied;
+    if (session.phase === "ended") break;
+  }
+  return applied;
+}
+
+function delayRandomNamedAlliedCountdown(session, playerIndex, source, effect) {
+  const wanted = String(effect.cardName ?? "").trim().toLowerCase();
+  const amount = Math.max(0, Number(effect.amount) || 0);
+  if (!wanted || !amount) return false;
+  const candidates = session.getPlayer(playerIndex).board
+    .filter(unit => cardName(unit) === wanted && cardType(unit) === "amulet" && Number.isFinite(Number(unit.countdown)));
+  if (!candidates.length) return false;
+  const target = candidates[Math.floor(session.rng() * candidates.length)] ?? candidates[0];
+  const result = session.ruleset?.delayAmuletCountdown?.(session, { playerIndex, instanceId: target.instanceId, amount, source });
+  return Boolean(result?.applied);
+}
+
+function delaySelfAmuletCountdown(session, playerIndex, source, amount) {
+  const value = Math.max(0, Number(amount) || 0);
+  if (!source?.instanceId || cardType(source) !== "amulet" || !value) return false;
+  const result = session.ruleset?.delayAmuletCountdown?.(session, { playerIndex, instanceId: source.instanceId, amount: value, source });
+  return Boolean(result?.applied);
 }
 
 function destroyDamagedEnemyFollowers(session, playerIndex, source, destroyFollower) {

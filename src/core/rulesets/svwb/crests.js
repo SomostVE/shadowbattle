@@ -135,8 +135,13 @@ export function delayWorldsBeyondCrest(session, playerIndex, name, amount = 1) {
   return true;
 }
 
-export function advanceWorldsBeyondCrest(session, playerIndex, name, amount = 1) {
-  const crest = findCrest(session.getPlayer(playerIndex), name);
+export function advanceWorldsBeyondCrest(session, playerIndex, name, amount = 1, {
+  onExpire = null,
+  reason = "ability"
+} = {}) {
+  const player = session.getPlayer(playerIndex);
+  const crests = getWorldsBeyondCrests(player);
+  const crest = findCrest(player, name);
   const value = Math.max(0, Number(amount) || 0);
   if (!crest || !value || !hasFiniteCountdown(crest)) return false;
   crest.countdown = Math.max(0, Number(crest.countdown) - value);
@@ -144,6 +149,15 @@ export function advanceWorldsBeyondCrest(session, playerIndex, name, amount = 1)
     actor: playerIndex,
     payload: { action: "advance", crest: crestView(crest), amount: value, countdown: crest.countdown }
   });
+  if (crest.countdown > 0) return true;
+
+  const index = crests.indexOf(crest);
+  if (index >= 0) crests.splice(index, 1);
+  session.emit(BATTLE_EVENT.CREST_EXPIRED, {
+    actor: playerIndex,
+    payload: { crest: crestView(crest), activeCount: crests.length, reason }
+  });
+  if (typeof onExpire === "function") onExpire(crest);
   return true;
 }
 
