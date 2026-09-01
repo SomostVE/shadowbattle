@@ -189,7 +189,7 @@ function isCardView(value) {
 }
 
 function isOriginalInstance(instanceId, owner) {
-  return typeof instanceId === "string" && instanceId.startsWith(`${owner}:`);
+  return typeof instanceId === "string" && new RegExp(`^${owner}:\\d+:`).test(instanceId);
 }
 
 function projectedNextTurnPp(enemy, maxPp) {
