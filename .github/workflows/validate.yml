@@ -21,6 +21,20 @@ jobs:
           node-version: 24
       - name: Apply staged 0.5.41 patch
         run: python scripts/apply-0.5.41-destroyed-history-copies.py
+      - name: Guard generic draw from named tutor compiler
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path("src/core/rulesets/svwb/v6/effect-commands.js")
+          text = p.read_text()
+          old = '''  const named = value.match(/\\bdraw\\s+(?:a|an|one)\\s+([A-Z][A-Za-z0-9'’&,:\\- ]+?)\\s*\\.?\\s*$/i);'''
+          new = '''  if (/\\bdraw\\s+(?:a|an|one)\\s+cards?\\s*\\.?\\s*$/i.test(value)) return [];
+          const named = value.match(/\\bdraw\\s+(?:a|an|one)\\s+([A-Z][A-Za-z0-9'’&,:\\- ]+?)\\s*\\.?\\s*$/i);'''
+          if new not in text:
+              if old not in text:
+                  raise SystemExit("missing named-draw anchor")
+              p.write_text(text.replace(old, new, 1))
+          PY
       - name: Check JavaScript syntax
         run: |
           for file in $(find src tests -type f -name '*.js' | sort); do
