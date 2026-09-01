@@ -50,7 +50,7 @@ export function destroyWorldsBeyondAmulet(session, playerIndex, instanceId, {
 function getCountdownAdjustment(session, playerIndex, instanceId, amount) {
   const amulet = session.findBoardCard(playerIndex, instanceId);
   const value = Math.max(0, Number(amount) || 0);
-  if (!amulet || cardType(amulet) !== "amulet" || !hasFiniteCountdown(amulet)) return { amulet: null, value: 0 };
+  if (!amulet || cardType(amulet) !== "amulet" || !hasFiniteCountdown(amulet)) return { amulet, value: 0 };
   return { amulet, value };
 }
 
