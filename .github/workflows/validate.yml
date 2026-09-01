@@ -20,7 +20,7 @@ jobs:
         with:
           node-version: 24
       - name: Apply staged 0.5.46 patch
-        run: python scripts/apply-0.5.46-countdown-adjustments.py
+        run: python scripts/apply-0.5.46-countdown-adjustments-v2.py
       - name: Check JavaScript syntax
         run: |
           for file in $(find src tests -type f -name '*.js' | sort); do
