@@ -557,6 +557,7 @@ function unsupportedResidualText(text, { targetSpec = null, discardRequired = fa
     /^\s*fully restore the defense of this follower\b/gi,
     /\b(?:restore|recover)\s+(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+defense to your leader\b/gi,
     /\bdeal\s+(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+damage to (?:the )?enemy leader\b/gi,
+    new RegExp(`\\bdeal\\s+${DAMAGE_NUMBER}\\s+damage to all enemies\\b`, "gi"),
     new RegExp(`\\bdeal\\s+${DAMAGE_NUMBER}\\s+damage to (?:all|each) followers? with the highest defense\\b`, "gi"),
     new RegExp(`\\bdeal\\s+${DAMAGE_NUMBER}\\s+damage to (?:all|each) leaders? with the highest defense\\b`, "gi"),
     new RegExp(`\\bdeal\\s+${DAMAGE_NUMBER}\\s+damage to (?:all|each) enemy followers?\\b(?!\\s+with\\b)`, "gi"),
@@ -827,6 +828,11 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
     applied = resolveLeaderAreaDamage(session, targets, amount, { actor: playerIndex, source }) || applied;
   }
 
+  for (const match of text.matchAll(new RegExp(`\\bdeal\\s+${DAMAGE_NUMBER}\\s+damage to all enemies\\b`, "gi"))) {
+    const amount = numberWord(match[1]);
+    applied = resolveAllEnemiesDamage(session, enemyIndex, amount, { actor: playerIndex, source }) || applied;
+  }
+
   for (const match of text.matchAll(new RegExp(`\\bdeal\\s+${DAMAGE_NUMBER}\\s+damage to (?:all|each) enemy followers?\\b(?!\\s+with\\b)`, "gi"))) {
     const amount = numberWord(match[1]);
     const targets = session.players[enemyIndex].board
@@ -980,6 +986,29 @@ function resolveLeadingFullDefenseRestore(session, { text, playerIndex, source }
     restored,
     leaderHealed
   };
+}
+
+function resolveAllEnemiesDamage(session, enemyIndex, amount, { actor, source } = {}) {
+  const targets = session.getPlayer(enemyIndex).board
+    .filter(unit => cardType(unit) === "follower")
+    .map(unit => ({ owner: enemyIndex, unit }));
+  const damage = Math.max(0, Number(amount) || 0);
+  if (!damage || session.phase === "ended") return false;
+
+  for (const { owner, unit } of targets) {
+    if (!session.findBoardCard(owner, unit.instanceId)) continue;
+    session.damageFollower(owner, unit.instanceId, damage, { actor, source, reason: "ability", resolveDeath: false });
+  }
+
+  const leaderDamaged = resolveLeaderAreaDamage(session, [enemyIndex], damage, { actor, source });
+  if (session.phase === "ended") return leaderDamaged || targets.length > 0;
+
+  for (const { owner, unit } of targets) {
+    const live = session.findBoardCard(owner, unit.instanceId);
+    if (!live || Number(live.defense ?? 0) > 0) continue;
+    destroyWorldsBeyondFollower(session, owner, live.instanceId, { actor, source, reason: "ability", byAbility: true });
+  }
+  return leaderDamaged || targets.length > 0;
 }
 
 function resolveFollowerAreaDamage(session, targets, amount, { actor, source } = {}) {
