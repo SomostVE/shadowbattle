@@ -18,13 +18,14 @@ export function buildOpponentBelief(session, playerIndex) {
   const manifest = typeof session.getDeckManifest === "function" ? session.getDeckManifest(enemyIndex) : [];
   const manifestById = new Map(manifest.map(row => [String(row.cardId), { ...row }]));
   const revealedByInstance = new Map();
+  const publicByInstance = new Map();
   const zoneByInstance = new Map();
 
-  for (const card of enemy.board ?? []) recordPublicCard(card, enemyIndex, manifestById, revealedByInstance, zoneByInstance, "board");
+  for (const card of enemy.board ?? []) recordPublicCard(card, enemyIndex, manifestById, revealedByInstance, publicByInstance, zoneByInstance, "board");
 
   const events = typeof session.getEvents === "function" ? session.getEvents({ since: 0, viewer: playerIndex }) : [];
   for (const event of events) {
-    recordEventCards(event, enemyIndex, manifestById, revealedByInstance, zoneByInstance);
+    recordEventCards(event, enemyIndex, manifestById, revealedByInstance, publicByInstance, zoneByInstance);
   }
 
   const revealedCounts = new Map();
@@ -45,7 +46,7 @@ export function buildOpponentBelief(session, playerIndex) {
   const remainingTotal = remaining.reduce((sum, row) => sum + row.qtyRemaining, 0);
   const knownPublicHand = [...revealedByInstance.entries()]
     .filter(([instanceId]) => zoneByInstance.get(instanceId) === "hand")
-    .map(([instanceId, cardId]) => ({ instanceId, ...(manifestById.get(cardId) ?? { cardId }) }));
+    .map(([instanceId, cardId]) => publicByInstance.get(instanceId) ?? { instanceId, ...(manifestById.get(cardId) ?? { cardId }) });
   const hiddenHandCount = Math.max(0, Number(enemy.handCount ?? 0));
   const unknownHandSlots = Math.min(remainingTotal, Math.max(0, hiddenHandCount - knownPublicHand.length));
   const nextTurnPp = projectedNextTurnPp(enemy, session.ruleset?.maxPp ?? 10);
@@ -137,11 +138,11 @@ export function summarizeOpponentBelief(belief) {
   });
 }
 
-function recordEventCards(event, enemyIndex, manifestById, revealedByInstance, zoneByInstance) {
+function recordEventCards(event, enemyIndex, manifestById, revealedByInstance, publicByInstance, zoneByInstance) {
   if (!event || typeof event !== "object") return;
   const payload = event.payload ?? {};
   const defaultZone = PUBLIC_ZONE_BY_EVENT[event.type] ?? null;
-  collectCardViews(payload, card => recordPublicCard(card, enemyIndex, manifestById, revealedByInstance, zoneByInstance, null));
+  collectCardViews(payload, card => recordPublicCard(card, enemyIndex, manifestById, revealedByInstance, publicByInstance, zoneByInstance, null));
 
   if (event.type === "card-returned") {
     markZone(payload.card, enemyIndex, zoneByInstance, payload.destination === "hand" ? "hand" : (payload.destination ?? defaultZone));
@@ -156,11 +157,14 @@ function recordEventCards(event, enemyIndex, manifestById, revealedByInstance, z
   }
 }
 
-function recordPublicCard(card, enemyIndex, manifestById, revealedByInstance, zoneByInstance, zone) {
+function recordPublicCard(card, enemyIndex, manifestById, revealedByInstance, publicByInstance, zoneByInstance, zone) {
   if (!isCardView(card) || !isOriginalInstance(card.instanceId, enemyIndex)) return;
   const cardId = String(card.cardId ?? "");
-  if (!manifestById.has(cardId)) return;
-  if (!revealedByInstance.has(card.instanceId)) revealedByInstance.set(card.instanceId, cardId);
+  if (!revealedByInstance.has(card.instanceId)) {
+    if (!manifestById.has(cardId)) return;
+    revealedByInstance.set(card.instanceId, cardId);
+  }
+  publicByInstance.set(card.instanceId, { ...card });
   if (zone) zoneByInstance.set(card.instanceId, zone);
 }
 
