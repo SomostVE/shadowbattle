@@ -147,7 +147,8 @@ function recordEventCards(event, enemyIndex, manifestById, revealedByInstance, p
   const defaultZone = PUBLIC_ZONE_BY_EVENT[event.type] ?? null;
   collectCardViews(payload, card => recordPublicCard(card, enemyIndex, manifestById, revealedByInstance, publicByInstance, zoneByInstance, null));
 
-  if (payload.owner === enemyIndex) {
+  const knownOpponentCard = payload.owner === enemyIndex || (event.type === "card-play" && event.actor === enemyIndex);
+  if (knownOpponentCard) {
     const knownZone = event.type === "card-returned"
       ? (payload.destination === "hand" ? "hand" : (payload.destination ?? defaultZone))
       : defaultZone;
