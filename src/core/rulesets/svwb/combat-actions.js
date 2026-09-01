@@ -67,7 +67,12 @@ export function applyWorldsBeyondCombatAction(session, action) {
     }
   });
 
-  resolveWorldsBeyondTrigger(session, { trigger: "strike", playerIndex, source: attacker });
+  resolveWorldsBeyondTrigger(session, {
+    trigger: "strike",
+    playerIndex,
+    source: attacker,
+    opposingFollowerInstanceId: target?.instanceId ?? null
+  });
   if (session.phase === "ended") return session.getSnapshot(playerIndex);
 
   const liveAttacker = session.findBoardCard(playerIndex, attacker.instanceId);

@@ -21,6 +21,8 @@ const RANDOM_ENEMY_FOLLOWER_AND_LEADER_DAMAGE = new RegExp("\\bdeal\\s+" + NUMBE
 const RANDOM_ENEMY_FOLLOWER_AND_SELF_DAMAGE = new RegExp("\\bdeal\\s+" + NUMBER + "\\s+damage to\\s+" + NUMBER + "\\s+random enemy followers and\\s+" + NUMBER + "\\s+damage to your leader\\b", "gi");
 const RANDOM_ENEMY_FOLLOWER_DAMAGE = new RegExp("\\bdeal\\s+" + NUMBER + "\\s+damage to\\s+" + NUMBER + "\\s+random enemy followers\\b", "gi");
 const ALL_OTHER_FOLLOWER_DAMAGE = new RegExp("\\bdeal\\s+" + NUMBER + "\\s+damage to all other followers\\b", "gi");
+const OPPOSING_FOLLOWER_DAMAGE = new RegExp("\\bdeal\\s+" + NUMBER + "\\s+damage to the opposing follower\\b", "gi");
+const OPPOSING_FOLLOWER_DESTROY = /\bdestroy the opposing follower\b/gi;
 const LIVE_NEUTRAL_HAND_RANDOM_DAMAGE = /\bdeal damage to (?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+) random enemy followers equal to the number of Neutral cards in your hand\b/gi;
 const ADD_TO_DECK_SINGLE = new RegExp(`\\badd\\s+(?:a|an|one)\\s+${CARD_NAME}\\s+to your deck\\s*\\.?`, "gi");
 const ADD_TO_DECK_COPIES = new RegExp(`\\badd\\s+${NUMBER}\\s+copies of\\s+${CARD_NAME}\\s+to your deck\\s*\\.?`, "gi");
@@ -44,6 +46,8 @@ const GENERIC_EFFECT_PATTERNS = Object.freeze([
   RANDOM_ENEMY_FOLLOWER_AND_SELF_DAMAGE,
   RANDOM_ENEMY_FOLLOWER_DAMAGE,
   ALL_OTHER_FOLLOWER_DAMAGE,
+  OPPOSING_FOLLOWER_DAMAGE,
+  OPPOSING_FOLLOWER_DESTROY,
   LIVE_NEUTRAL_HAND_RANDOM_DAMAGE,
   RANDOM_SUPER_EVOLVED_ALLIED_FOLLOWER_BUFF,
   RANDOM_NAMED_ALLIED_FOLLOWER_BUFF,
@@ -106,7 +110,8 @@ export function resolveWorldsBeyondGenericEffects(session, {
   source,
   destroyFollower,
   destroyCard,
-  gainShadows
+  gainShadows,
+  opposingFollowerInstanceId = null
 } = {}) {
   const value = String(text ?? "");
   const effects = [];
@@ -122,6 +127,13 @@ export function resolveWorldsBeyondGenericEffects(session, {
   collect(value, ALL_OTHER_FOLLOWER_DAMAGE, match => ({
     kind: "all-other-follower-damage",
     amount: numberWord(match[1])
+  }), effects);
+  collect(value, OPPOSING_FOLLOWER_DAMAGE, match => ({
+    kind: "opposing-follower-damage",
+    amount: numberWord(match[1])
+  }), effects);
+  collect(value, OPPOSING_FOLLOWER_DESTROY, () => ({
+    kind: "opposing-follower-destroy"
   }), effects);
   collect(value, ALLIED_GOLEM_AREA_DAMAGE, () => ({
     kind: "enemy-area-damage-by-allied-golem-count"
@@ -290,6 +302,14 @@ export function resolveWorldsBeyondGenericEffects(session, {
     }
     if (effect.kind === "all-other-follower-damage") {
       applied = damageAllOtherFollowers(session, playerIndex, source, effect.amount, destroyFollower) || applied;
+      continue;
+    }
+    if (effect.kind === "opposing-follower-damage") {
+      applied = damageOpposingFollower(session, playerIndex, source, opposingFollowerInstanceId, effect.amount, destroyFollower) || applied;
+      continue;
+    }
+    if (effect.kind === "opposing-follower-destroy") {
+      applied = destroyOpposingFollower(session, playerIndex, source, opposingFollowerInstanceId, destroyFollower) || applied;
       continue;
     }
     if (effect.kind === "random-allied-buff") {
@@ -502,6 +522,44 @@ export function resolveWorldsBeyondSplitAllEnemiesDamage(session, {
     remaining -= 1;
   }
   return applied;
+}
+
+function damageOpposingFollower(session, playerIndex, source, instanceId, amount, destroyFollower) {
+  if (!instanceId) return false;
+  const enemyIndex = 1 - playerIndex;
+  const target = session.findBoardCard(enemyIndex, instanceId);
+  if (!target || cardType(target) !== "follower") return false;
+  const damage = Math.max(0, Number(amount) || 0);
+  session.damageFollower(enemyIndex, target.instanceId, damage, {
+    actor: playerIndex,
+    source,
+    reason: "ability",
+    resolveDeath: false
+  });
+  const live = session.findBoardCard(enemyIndex, target.instanceId);
+  if (live && currentDefense(live) <= 0) {
+    destroyFollower?.(session, enemyIndex, live.instanceId, {
+      actor: playerIndex,
+      source,
+      reason: "ability",
+      byAbility: true
+    });
+  }
+  return true;
+}
+
+function destroyOpposingFollower(session, playerIndex, source, instanceId, destroyFollower) {
+  if (!instanceId) return false;
+  const enemyIndex = 1 - playerIndex;
+  const target = session.findBoardCard(enemyIndex, instanceId);
+  if (!target || cardType(target) !== "follower") return false;
+  return Boolean(destroyFollower?.(session, enemyIndex, target.instanceId, {
+    actor: playerIndex,
+    source,
+    reason: "ability",
+    byAbility: true,
+    abilityDestroy: true
+  }));
 }
 
 function damageAllOtherFollowers(session, playerIndex, source, amount, destroyFollower) {
