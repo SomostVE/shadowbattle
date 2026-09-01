@@ -152,6 +152,18 @@ test("random named allied amulet delay chooses exactly one exact-name copy", () 
   assert.equal(game.findBoardCard(0, other.instanceId)?.countdown, 1);
 });
 
+test("random named Countdown excludes persistent same-name amulets from selection", () => {
+  const game = readyGame("random-amulet-delay-persistent-copy");
+  const persistent = boardAmulet(game, "clock-persistent", "Shared Clock", null);
+  const countdown = boardAmulet(game, "clock-countdown", "Shared Clock", 2);
+  game.rng = () => 0;
+
+  playText(game, "Delay the count of a random allied Shared Clock on the field by 2.", "delay-shared-clock");
+
+  assert.equal(game.findBoardCard(0, persistent.instanceId)?.countdown, null);
+  assert.equal(game.findBoardCard(0, countdown.instanceId)?.countdown, 4);
+});
+
 test("Countdown adjustments ignore amulets without a finite Countdown", () => {
   const game = readyGame("persistent-amulet-adjustment");
   const persistent = boardAmulet(game, "persistent-relic", "Persistent Relic", null);
