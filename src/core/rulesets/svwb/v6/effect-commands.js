@@ -2,7 +2,8 @@ import { BATTLE_EVENT, BATTLE_VISIBILITY } from "../../../battle-events.js";
 import { createEffectCommand } from "../../../effect-commands.js";
 import { grantWorldsBeyondKeyword } from "../combat-readiness.js";
 import { gainWorldsBeyondCrest } from "../crests.js";
-import { addWorldsBeyondGeneratedCard } from "../generated-cards.js";
+import { addWorldsBeyondGeneratedCard, addWorldsBeyondGeneratedCardsToDeck } from "../generated-cards.js";
+import { getWorldsBeyondDestroyedFollowerOccurrences } from "../match-history.js";
 
 export const SVWB_EFFECT_COMMAND = Object.freeze({
   GAIN_CREST: "svwb:gain-crest",
@@ -10,6 +11,7 @@ export const SVWB_EFFECT_COMMAND = Object.freeze({
   DRAW_FILTERED: "svwb:draw-filtered",
   RECOVER_PLAY_POINTS: "svwb:recover-play-points",
   ADD_TO_HAND: "svwb:add-to-hand",
+  COPY_DESTROYED_FOLLOWERS: "svwb:copy-destroyed-followers",
   SUMMON: "svwb:summon",
   HEAL_LEADER: "heal-leader",
   DAMAGE_LEADER: "damage-leader",
@@ -126,6 +128,19 @@ export function createWorldsBeyondAddToHandCommand(playerIndex, cardName, option
   }, options.metadata);
 }
 
+export function createWorldsBeyondDestroyedHistoryCopyCommand(playerIndex, options = {}) {
+  return createWorldsBeyondEffectCommand(SVWB_EFFECT_COMMAND.COPY_DESTROYED_FOLLOWERS, {
+    playerIndex,
+    count: Math.max(1, Number(options.count) || 1),
+    destination: options.destination === "deck" ? "deck" : "hand",
+    highestBaseCostOnly: Boolean(options.highestBaseCostOnly),
+    differentlyNamed: Boolean(options.differentlyNamed),
+    reason: options.reason ?? "ability",
+    sourceCardId: options.sourceCardId ?? null,
+    sourceCardName: options.sourceCardName ?? null
+  }, options.metadata);
+}
+
 export function createWorldsBeyondSummonCommand(playerIndex, cardName, count = 1, options = {}) {
   return createWorldsBeyondEffectCommand(SVWB_EFFECT_COMMAND.SUMMON, {
     playerIndex,
@@ -162,7 +177,7 @@ export function compileWorldsBeyondPreTargetCommands(text, { playerIndex, source
   }
 
   const addToHand = value.match(/^\s*Add\s+(?:a|an|one)\s+([^\n.]+?)\s+to your hand\s*\.?/i);
-  if (addToHand) {
+  if (addToHand && !/\bdestroyed this match\b/i.test(addToHand[1])) {
     indexed.push({ index: addToHand.index ?? 0, command: createWorldsBeyondAddToHandCommand(playerIndex, addToHand[1].trim(), sourceOptions) });
   }
   for (const match of value.matchAll(/\bGain Crest\s*:\s*([^.;\n]+)/gi)) {
@@ -182,6 +197,39 @@ export function compileWorldsBeyondPostTargetCommands(text, { playerIndex, sourc
   const indexed = [];
   const sourceOptions = cardSourceOptions(source, "post-target");
   const value = String(text ?? "");
+
+  for (const match of value.matchAll(/\badd a copy of a random allied follower destroyed this match with the highest base cost to your deck without revealing it\b/gi)) {
+    indexed.push({
+      index: match.index ?? 0,
+      command: createWorldsBeyondDestroyedHistoryCopyCommand(playerIndex, {
+        ...sourceOptions,
+        destination: "deck",
+        highestBaseCostOnly: true
+      })
+    });
+  }
+
+  for (const match of value.matchAll(/\badd a copy each of (a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+) random differently named allied followers destroyed this match to your hand without revealing them\b/gi)) {
+    indexed.push({
+      index: match.index ?? 0,
+      command: createWorldsBeyondDestroyedHistoryCopyCommand(playerIndex, {
+        ...sourceOptions,
+        count: numberWord(match[1]),
+        destination: "hand",
+        differentlyNamed: true
+      })
+    });
+  }
+
+  for (const match of value.matchAll(/\badd a copy of a random allied follower destroyed this match to your hand without revealing it\b/gi)) {
+    indexed.push({
+      index: match.index ?? 0,
+      command: createWorldsBeyondDestroyedHistoryCopyCommand(playerIndex, {
+        ...sourceOptions,
+        destination: "hand"
+      })
+    });
+  }
 
   for (const match of value.matchAll(/\bdraw\s+(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+cards?\b/gi)) {
     const amount = numberWord(match[1]);
@@ -308,11 +356,19 @@ export function compileWorldsBeyondTrailingFilteredDrawCommands(text, { playerIn
     }, sourceOptions)];
   }
 
-  const named = value.match(/\bdraw\s+(?:a|an|one)\s+([A-Z][A-Za-z0-9'’&,:\- ]+?)\s*\.?\s*$/i);
+  if (/\bdraw\s+(?:a|an|one)\s+cards?\s*\.?\s*$/i.test(value)) return [];
+const named = value.match(/\bdraw\s+(?:a|an|one)\s+([A-Z][A-Za-z0-9'’&,:\- ]+?)\s*\.?\s*$/i);
   if (!named) return [];
   return [createWorldsBeyondFilteredDrawCommand(playerIndex, {
     cardName: named[1].trim()
   }, sourceOptions)];
+}
+
+export function stripWorldsBeyondDestroyedHistoryCopyText(text) {
+  return String(text ?? "")
+    .replace(/\badd a copy of a random allied follower destroyed this match with the highest base cost to your deck without revealing it\b/gi, " ")
+    .replace(/\badd a copy each of (?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+) random differently named allied followers destroyed this match to your hand without revealing them\b/gi, " ")
+    .replace(/\badd a copy of a random allied follower destroyed this match to your hand without revealing it\b/gi, " ");
 }
 
 export function resolveWorldsBeyondEffectCommand(session, command) {
@@ -348,6 +404,10 @@ export function resolveWorldsBeyondEffectCommand(session, command) {
 
   if (command.type === SVWB_EFFECT_COMMAND.ADD_TO_HAND) {
     return resolveAddToHand(session, playerIndex, payload);
+  }
+
+  if (command.type === SVWB_EFFECT_COMMAND.COPY_DESTROYED_FOLLOWERS) {
+    return resolveDestroyedHistoryCopy(session, playerIndex, payload);
   }
 
   if (command.type === SVWB_EFFECT_COMMAND.SUMMON) {
@@ -455,6 +515,53 @@ function resolveAddToHand(session, playerIndex, payload) {
     burned,
     missingCard: false,
     cardName: definition.name ?? payload.cardName ?? null
+  };
+}
+
+function resolveDestroyedHistoryCopy(session, playerIndex, payload) {
+  let pool = getWorldsBeyondDestroyedFollowerOccurrences(session, playerIndex);
+  if (payload.highestBaseCostOnly && pool.length) {
+    const highest = Math.max(...pool.map(item => item.baseCost));
+    pool = pool.filter(item => item.baseCost === highest);
+  }
+
+  const requested = Math.max(1, Number(payload.count) || 1);
+  const selected = [];
+  const remaining = [...pool];
+  while (selected.length < requested && remaining.length) {
+    const index = Math.floor(session.rng() * remaining.length);
+    const [choice] = remaining.splice(index, 1);
+    if (!choice) break;
+    selected.push(choice);
+    if (payload.differentlyNamed) {
+      const wanted = normalize(choice.name);
+      for (let cursor = remaining.length - 1; cursor >= 0; cursor -= 1) {
+        if (normalize(remaining[cursor]?.name) === wanted) remaining.splice(cursor, 1);
+      }
+    }
+  }
+
+  let added = 0;
+  let burned = 0;
+  for (const choice of selected) {
+    if (payload.destination === "deck") {
+      const result = addWorldsBeyondGeneratedCardsToDeck(session, playerIndex, choice.definition, { count: 1 });
+      added += result.added;
+      continue;
+    }
+    const result = addWorldsBeyondGeneratedCard(session, playerIndex, choice.definition, { reason: payload.reason ?? "ability" });
+    if (result.added) added += 1;
+    if (result.burned) burned += 1;
+  }
+
+  return {
+    applied: added > 0 || burned > 0,
+    requested,
+    eligible: pool.length,
+    selected: selected.length,
+    added,
+    burned,
+    destination: payload.destination === "deck" ? "deck" : "hand"
   };
 }
 
