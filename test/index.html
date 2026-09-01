@@ -118,7 +118,14 @@
                   <div id="battle-card-inspector-keywords" class="sb-card-inspector-keywords"></div>
                 </div>
               </div>
-              <div class="db-assistant-effect">${formatEffect(evolved && card.evolvedText ? card.evolvedText : card.text)}</div>
+              <div class="sb-card-inspector-effect">
+                <div class="sb-card-inspector-label">Codex effect</div>
+                <p id="battle-card-inspector-text" class="sb-card-inspector-text"></p>
+              </div>
+              <div id="battle-card-inspector-evolved-block" class="sb-card-inspector-effect sb-card-inspector-evolved" hidden>
+                <div class="sb-card-inspector-label">Evolved text</div>
+                <p id="battle-card-inspector-evolved-text" class="sb-card-inspector-text"></p>
+              </div>
             </div>
           </section>
 
