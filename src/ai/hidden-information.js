@@ -160,11 +160,21 @@ function recordEventCards(event, enemyIndex, manifestById, revealedByInstance, p
   } else if (defaultZone) {
     markZone(payload.card, enemyIndex, zoneByInstance, defaultZone);
   } else if (event.type === "fuse") {
-    markZone(payload.target, enemyIndex, zoneByInstance, "hand");
-    for (const material of payload.materials ?? []) markZone(material, enemyIndex, zoneByInstance, "fused");
+    if (event.actor === enemyIndex) {
+      recordKnownOpponentCard(payload.target, publicByInstance, zoneByInstance, "hand");
+      for (const material of payload.materials ?? []) recordKnownOpponentCard(material, publicByInstance, zoneByInstance, "fused");
+    } else {
+      markZone(payload.target, enemyIndex, zoneByInstance, "hand");
+      for (const material of payload.materials ?? []) markZone(material, enemyIndex, zoneByInstance, "fused");
+    }
   } else if (event.type === "card-transform") {
-    const instanceId = payload.after?.instanceId ?? payload.before?.instanceId;
-    if (isOriginalInstance(instanceId, enemyIndex) && zoneByInstance.get(instanceId) === "hand") zoneByInstance.set(instanceId, "hand");
+    const transformed = payload.after ?? payload.before;
+    const instanceId = transformed?.instanceId;
+    if (event.actor === enemyIndex && zoneByInstance.get(instanceId) === "hand") {
+      recordKnownOpponentCard(transformed, publicByInstance, zoneByInstance, "hand");
+    } else if (isOriginalInstance(instanceId, enemyIndex) && zoneByInstance.get(instanceId) === "hand") {
+      zoneByInstance.set(instanceId, "hand");
+    }
   }
 }
 
