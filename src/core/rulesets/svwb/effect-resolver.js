@@ -23,7 +23,8 @@ import { targetEffectSpec } from "./v5/battle-engine-v5-targeting.js";
 import {
   compileWorldsBeyondPostTargetCommands,
   compileWorldsBeyondPreTargetCommands,
-  compileWorldsBeyondTrailingFilteredDrawCommands
+  compileWorldsBeyondTrailingFilteredDrawCommands,
+  createWorldsBeyondLeaderHealCommand
 } from "./v6/effect-commands.js";
 import { compileWorldsBeyondReanimateCommands } from "./v6/reanimate-command.js";
 
@@ -552,6 +553,8 @@ function unsupportedResidualText(text, { targetSpec = null, discardRequired = fa
     new RegExp(TRAILING_CLASS_DRAW.source, "gi"),
     new RegExp(TRAILING_COST_TYPED_DRAW.source, "gi"),
     new RegExp(TRAILING_NAMED_DRAW.source, "gi"),
+    /^\s*fully restore the defense of this follower and restore the same amount to your leader\b/gi,
+    /^\s*fully restore the defense of this follower\b/gi,
     /\b(?:restore|recover)\s+(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+defense to your leader\b/gi,
     /\bdeal\s+(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+damage to (?:the )?enemy leader\b/gi,
     new RegExp(`\\bdeal\\s+${DAMAGE_NUMBER}\\s+damage to (?:all|each) followers? with the highest defense\\b`, "gi"),
@@ -617,6 +620,13 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
   const enemyIndex = 1 - playerIndex;
   const targetPlayer = targetSpec ? targetPlayerForSpec(playerIndex, targetSpec) : enemyIndex;
   let applied = false;
+
+  const leadingRestore = resolveLeadingFullDefenseRestore(session, {
+    text,
+    playerIndex,
+    source
+  });
+  applied = leadingRestore.applied || applied;
 
   if (returnToDeck) {
     applied = Boolean(returnWorldsBeyondHandCardToDeck(session, playerIndex, returnToDeck.instanceId, {
@@ -932,6 +942,44 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
   applied = trailingApplied || applied;
 
   return { applied, unresolved: false, text, targetSpec, target, discard, returnToDeck, notes };
+}
+
+function resolveLeadingFullDefenseRestore(session, { text, playerIndex, source } = {}) {
+  const value = String(text ?? "");
+  const compound = /^\s*fully restore the defense of this follower and restore the same amount to your leader\b/i.test(value);
+  const standalone = /^\s*fully restore the defense of this follower\b/i.test(value);
+  if (!compound && !standalone) return { applied: false, restored: 0, leaderHealed: 0 };
+
+  const follower = source?.instanceId ? session.findBoardCard(playerIndex, source.instanceId) : null;
+  if (!follower || cardType(follower) !== "follower") return { applied: false, restored: 0, leaderHealed: 0 };
+
+  const before = Math.max(0, Number(follower.defense ?? follower.card?.defense ?? 0));
+  const maximum = Math.max(before, Number(follower.maxDefense ?? follower.card?.defense ?? before));
+  follower.defense = maximum;
+  const restored = Math.max(0, maximum - before);
+  let leaderHealed = 0;
+
+  if (compound && restored > 0) {
+    const [result] = resolveEffectCommands(session, [
+      createWorldsBeyondLeaderHealCommand(playerIndex, restored, {
+        reason: "ability",
+        sourceCardId: source?.cardId ?? source?.card?.id ?? null,
+        sourceCardName: source?.card?.name ?? null,
+        metadata: {
+          source: "card-text",
+          stage: "leading-full-defense-restore",
+          sourceInstanceId: source?.instanceId ?? null
+        }
+      })
+    ]);
+    leaderHealed = Math.max(0, Number(result?.healed ?? 0));
+  }
+
+  return {
+    applied: restored > 0 || leaderHealed > 0,
+    restored,
+    leaderHealed
+  };
 }
 
 function resolveFollowerAreaDamage(session, targets, amount, { actor, source } = {}) {
