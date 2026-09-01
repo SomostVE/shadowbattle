@@ -41,6 +41,12 @@ replace_once(
     '''function destroyDamagedOpposingFollower(session, playerIndex, source, instanceId, destroyFollower) {\n  if (!instanceId) return false;\n  const enemyIndex = 1 - playerIndex;\n  const target = session.findBoardCard(enemyIndex, instanceId);\n  if (!target || cardType(target) !== "follower") return false;\n  if (currentDefense(target) >= currentMaxDefense(target)) return false;\n  return Boolean(destroyFollower?.(session, enemyIndex, target.instanceId, {\n    actor: playerIndex,\n    source,\n    reason: "ability",\n    byAbility: true,\n    abilityDestroy: true\n  }));\n}\n\nfunction destroyOpposingFollower(session, playerIndex, source, instanceId, destroyFollower) {\n'''
 )
 
+replace_once(
+    "src/core/rulesets/svwb/effect-resolver.js",
+    '''  if (targetSpec) inspect = stripSupportedTargetText(inspect);\n  inspect = inspect.replace(/\\bGain Crest\\s*:\\s*[^.;\\n]+[.;]?/gi, "");\n  return /\\b(?:select|choose)\\b|\\bif\\b|\\bunless\\b|\\bfor each\\b|\\bwhenever\\b|\\bwhen(?:ever)?\\b|\\brandomly select\\b|\\bX\\b|\\b(?:Earth Rite|Engage|Fuse|Transmute|Crest|Faith)\\b/i.test(inspect);\n''',
+    '''  if (targetSpec) inspect = stripSupportedTargetText(inspect);\n  inspect = inspect.replace(/\\bGain Crest\\s*:\\s*[^.;\\n]+[.;]?/gi, "");\n  inspect = stripWorldsBeyondGenericEffectText(inspect);\n  return /\\b(?:select|choose)\\b|\\bif\\b|\\bunless\\b|\\bfor each\\b|\\bwhenever\\b|\\bwhen(?:ever)?\\b|\\brandomly select\\b|\\bX\\b|\\b(?:Earth Rite|Engage|Fuse|Transmute|Crest|Faith)\\b/i.test(inspect);\n'''
+)
+
 for path in [
     "package.json",
     "version.json",
