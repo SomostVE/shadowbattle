@@ -1,6 +1,7 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
 import { hasWorldsBeyondKeyword } from "./combat-readiness.js";
 import { createWorldsBeyondExactCopyInstance } from "./generated-cards.js";
+import { cardType } from "./runtime-card-state.js";
 import { costOf } from "./v5/battle-engine-v5-state.js";
 
 const CORE_SELECTION = /Select\s+(\d+)\s+Artifact followers in your hand that cost\s+(\d+)\s+or less(?:,\s*|\s+and\s+)summon an exact copy of each/i;
@@ -169,10 +170,6 @@ function prepareSummonedFollower(instance, turn) {
 
 function hasTrait(card, trait) {
   return (card?.traits ?? []).some(value => normalize(value) === normalize(trait));
-}
-
-function cardType(instance) {
-  return String(instance?.card?.type ?? instance?.type ?? "").trim().toLowerCase();
 }
 
 function normalize(value) {
