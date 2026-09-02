@@ -34,10 +34,12 @@ test("all main pages load the automatic version guard", () => {
   assert.match(versionGuard, /\.hub-version/);
 });
 
-test("version refresh snapshots deck data and never changes the deck storage namespace", () => {
+test("version refresh snapshots only structurally valid deck data and never changes the deck storage namespace", () => {
   assert.match(versionGuard, /shadowbattle:decks:v1/);
   assert.match(versionGuard, /shadowbattle:decks:backup:v1/);
   assert.match(versionGuard, /snapshotDeckData/);
+  assert.match(versionGuard, /isValidDeckLibraryJson/);
+  assert.match(versionGuard, /schemaVersion\s*===\s*1/);
   assert.doesNotMatch(versionGuard, /removeItem\(DECK_KEY\)/);
   assert.match(deckSession, /shadowbattle:deck-drafts:v1/);
   assert.match(deckSession, /activeDeckId/);
