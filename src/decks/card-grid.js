@@ -26,18 +26,19 @@ export function renderCardGrid(root, cards, handlers = {}, options = {}) {
   }
 
   let cursor = 0;
+  const template = document.createElement("template");
 
   const appendBatch = limit => {
     if (root.dataset.renderId !== renderId) return false;
     const end = Math.min(visibleCards.length, cursor + limit);
-    const template = document.createElement("template");
     const markup = [];
     for (let index = cursor; index < end; index += 1) markup.push(cardMarkup(visibleCards[index], handlers));
     template.innerHTML = markup.join("");
 
+    let cardIndex = cursor;
     for (const image of template.content.querySelectorAll("img[data-card-art]")) {
-      const card = handlers.getCardById?.(Number(image.dataset.cardArt));
-      if (card) handlers.setImageArt?.(image, card, false);
+      handlers.setImageArt?.(image, visibleCards[cardIndex], false);
+      cardIndex += 1;
     }
     root.appendChild(template.content);
 
