@@ -143,18 +143,23 @@ function resolveHealCrestReactions(session, event) {
   const player = session.getPlayer(playerIndex);
   const turn = Number(player.personalTurn) || 0;
   const healed = Math.max(0, Number(event.payload?.amount) || 0);
-  const crests = getWorldsBeyondCrests(player);
 
-  // V5 behavior retained during the V6 migration: Flame reacts to the first
-  // healing action even for 0 restored defense; Ash requires a real heal.
-  if (!applyBurniteHealReaction(session, playerIndex, crests, "burnite, anathema of flame", turn, "healing-action")) return;
-  if (session.phase !== "main" || healed <= 0) return;
-  applyBurniteHealReaction(session, playerIndex, crests, "burnite, anathema of ash", turn, "healing-restored");
+  // Crests with the same activation timing resolve in acquisition order.
+  // Flame reacts to a healing action even for 0 restored defense; Ash requires
+  // a real restoration, but neither may jump ahead of an earlier Crest.
+  for (const crest of [...getWorldsBeyondCrests(player)]) {
+    if (session.phase !== "main") return;
+    const name = normalize(crest.name);
+    if (name === "burnite, anathema of flame") {
+      if (!applyBurniteHealReaction(session, playerIndex, crest, turn, "healing-action")) return;
+    } else if (name === "burnite, anathema of ash" && healed > 0) {
+      if (!applyBurniteHealReaction(session, playerIndex, crest, turn, "healing-restored")) return;
+    }
+  }
 }
 
-function applyBurniteHealReaction(session, playerIndex, crests, name, turn, trigger) {
-  const crest = crests.find(item => normalize(item.name) === name) ?? null;
-  if (!crest || Number(crest.healTriggerTurn) === turn) return true;
+function applyBurniteHealReaction(session, playerIndex, crest, turn, trigger) {
+  if (Number(crest?.healTriggerTurn) === turn) return true;
   crest.healTriggerTurn = turn;
   session.emit(BATTLE_EVENT.CREST_ACTIVATE, {
     actor: playerIndex,

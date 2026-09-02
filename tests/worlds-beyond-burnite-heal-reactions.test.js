@@ -89,6 +89,25 @@ test("Burnite Flame reacts to a zero-value heal while Ash waits for actual resto
   ]);
 });
 
+test("Burnite heal reactions follow Crest acquisition order", () => {
+  const game = readyGame();
+  game.players[0].hp = 19;
+  gainWorldsBeyondCrest(game, 0, "Burnite, Anathema of Ash", { id: 8961, name: "Burnite, Anathema of Ash" });
+  gainWorldsBeyondCrest(game, 0, "Burnite, Anathema of Flame", { id: 8962, name: "Burnite, Anathema of Flame" });
+  const heal = putInHand(game, 0, healingSpell(8963));
+  const cursor = game.eventSequence;
+
+  play(game, heal);
+
+  const activations = game.getEvents({ since: cursor, viewer: 0 })
+    .filter(event => event.type === BATTLE_EVENT.CREST_ACTIVATE && event.payload.action === "after-heal");
+  assert.deepEqual(activations.map(event => event.payload.crest.name), [
+    "Burnite, Anathema of Ash",
+    "Burnite, Anathema of Flame"
+  ]);
+  assert.equal(game.players[0].hp, 18, "the restored defense is followed by both one-damage Crest reactions");
+});
+
 test("Burnite heal reaction limits reset naturally on the next personal turn", () => {
   const game = readyGame();
   gainWorldsBeyondCrest(game, 0, "Burnite, Anathema of Flame", { id: 8941, name: "Burnite, Anathema of Flame" });
