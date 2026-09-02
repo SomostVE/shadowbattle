@@ -1,5 +1,6 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
 import { restoreOriginalCardForm } from "../../zone-actions.js";
+import { assertWorldsBeyondMainActor } from "./action-guards.js";
 import { advanceWorldsBeyondAmuletCountdown, destroyWorldsBeyondAmulet } from "./amulets.js";
 import {
   getWorldsBeyondArtifactHandCopySelections,
@@ -32,6 +33,7 @@ import {
   validateWorldsBeyondOptionalAlliedCardSelection
 } from "./optional-allied-card.js";
 import { gainWorldsBeyondRally } from "./rally.js";
+import { cardType, currentAttack, currentMaxDefenseIgnoringDamage } from "./runtime-card-state.js";
 import {
   hasWorldsBeyondSelectedCardCostX,
   resolveWorldsBeyondSelectedCardCostX
@@ -207,7 +209,7 @@ export function listWorldsBeyondActions(session, playerIndex) {
 }
 
 function playCard(session, action) {
-  const playerIndex = assertMainActor(session, action.player);
+  const playerIndex = assertWorldsBeyondMainActor(session, action.player);
   const player = session.getPlayer(playerIndex);
   const index = player.hand.findIndex(card => card.instanceId === action.cardInstanceId);
   if (index < 0) throw new Error("Card is not in the active player's hand");
@@ -355,7 +357,7 @@ function applyFuseReactiveEffects(session, playerIndex, materials) {
 }
 
 function engage(session, action) {
-  const playerIndex = assertMainActor(session, action.player);
+  const playerIndex = assertWorldsBeyondMainActor(session, action.player);
   const player = session.getPlayer(playerIndex);
   const amulet = player.board.find(item => item.instanceId === action.amuletInstanceId);
   if (!amulet || cardType(amulet) !== "amulet") throw new Error("Engage source is not an allied amulet");
@@ -420,7 +422,7 @@ function engage(session, action) {
 }
 
 function evolve(session, action, superEvolution) {
-  const playerIndex = assertMainActor(session, action.player);
+  const playerIndex = assertWorldsBeyondMainActor(session, action.player);
   const player = session.getPlayer(playerIndex);
   const follower = player.board.find(unit => unit.instanceId === action.followerInstanceId);
   if (!follower || cardType(follower) !== "follower") throw new Error("Evolution target is not an allied follower");
@@ -432,8 +434,8 @@ function evolve(session, action, superEvolution) {
   if (Number(player.resources[pointsKey] ?? 0) <= 0) throw new Error(superEvolution ? "No Super Evolution points remain" : "No Evolution points remain");
   const bonus = superEvolution ? 3 : 2;
   follower.attack = currentAttack(follower) + bonus;
-  follower.maxDefense = currentMaxDefense(follower) + bonus;
-  follower.defense = Number(follower.defense ?? currentMaxDefense(follower)) + bonus;
+  follower.maxDefense = currentMaxDefenseIgnoringDamage(follower) + bonus;
+  follower.defense = Number(follower.defense ?? currentMaxDefenseIgnoringDamage(follower)) + bonus;
   follower.evolved = true;
   follower.superEvolved = superEvolution;
   follower.imageOverride = follower.card?.evolved?.image ?? follower.imageOverride ?? null;
@@ -573,15 +575,5 @@ function randomEnemyFollower(session, playerIndex) {
   return targets[Math.floor(session.rng() * targets.length)] ?? targets[0];
 }
 
-function assertMainActor(session, playerIndex) {
-  if (session.phase !== "main") throw new Error(`Expected phase main, got ${session.phase}`);
-  if (session.winner != null) throw new Error("The match has ended");
-  if (playerIndex !== 0 && playerIndex !== 1) throw new Error(`Invalid player index: ${playerIndex}`);
-  if (session.activePlayer !== playerIndex) throw new Error(`It is not player ${playerIndex}'s turn`);
-  return playerIndex;
-}
-function currentAttack(instance) { return Number(instance.attack ?? (Number(instance.card?.attack ?? 0) + Number(instance.attackBonus ?? 0))); }
-function currentMaxDefense(instance) { return Number(instance.maxDefense ?? (Number(instance.card?.defense ?? 0) + Number(instance.defenseBonus ?? 0))); }
-function cardType(instance) { return String(instance?.card?.type ?? instance?.type ?? "").trim().toLowerCase(); }
 function normalizeName(value) { return String(value ?? "").trim().toLowerCase(); }
 function readCountdown(text) { const value = String(text ?? "").match(/Countdown\s*\(?\s*(\d+)\s*\)?/i)?.[1]; return value == null ? null : Number(value); }

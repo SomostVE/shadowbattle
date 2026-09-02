@@ -21,7 +21,8 @@ const sharedCardTypeModules = [
   "src/core/rulesets/svwb/forest-crest-effects.js",
   "src/core/rulesets/svwb/combat-readiness.js",
   "src/core/rulesets/svwb/crest-effects.js",
-  "src/core/rulesets/svwb/discard-reactions.js"
+  "src/core/rulesets/svwb/discard-reactions.js",
+  "src/core/rulesets/svwb/action-resolver.js"
 ];
 
 const effectiveCardTypeModules = [
@@ -52,13 +53,15 @@ test("shared live stat helpers replace only identical fallbacks", async () => {
   const crestEffects = await read("src/core/rulesets/svwb/crest-effects.js");
   const discardReactions = await read("src/core/rulesets/svwb/discard-reactions.js");
   const evolutionActions = await read("src/core/rulesets/svwb/evolution-actions.js");
+  const actionResolver = await read("src/core/rulesets/svwb/action-resolver.js");
 
   assert.match(crestEffects, /from "\.\/runtime-card-state\.js"/);
   assert.doesNotMatch(crestEffects, /function\s+currentAttack\s*\(/);
 
   for (const [path, source] of [
     ["discard-reactions", discardReactions],
-    ["evolution-actions", evolutionActions]
+    ["evolution-actions", evolutionActions],
+    ["action-resolver", actionResolver]
   ]) {
     assert.match(source, /currentMaxDefenseIgnoringDamage/, path);
     assert.match(source, /from "\.\/runtime-card-state\.js"/, path);
@@ -82,11 +85,16 @@ test("max-defense helpers keep live-defense and undamaged fallbacks distinct", (
   assert.equal(currentMaxDefenseIgnoringDamage(damaged), 8);
 });
 
-test("Fuse and natural evolution share the main-phase actor guard", async () => {
+test("Fuse, natural evolution and the action resolver share the main-phase actor guard", async () => {
   const fuse = await read("src/core/rulesets/svwb/fuse.js");
   const evolutionActions = await read("src/core/rulesets/svwb/evolution-actions.js");
+  const actionResolver = await read("src/core/rulesets/svwb/action-resolver.js");
 
-  for (const [path, source] of [["fuse", fuse], ["evolution-actions", evolutionActions]]) {
+  for (const [path, source] of [
+    ["fuse", fuse],
+    ["evolution-actions", evolutionActions],
+    ["action-resolver", actionResolver]
+  ]) {
     assert.match(source, /assertWorldsBeyondMainActor/, path);
     assert.match(source, /from "\.\/action-guards\.js"/, path);
     assert.doesNotMatch(source, /function\s+assertMainActor\s*\(/, path);
