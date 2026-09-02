@@ -25,15 +25,24 @@
 
   // The deckbuilder now edits only original Shadowverse and Champion's Battle.
   // Preserve old svwb records in localStorage, but do not surface them here.
-  const hideWorldsBeyondRows = () => {
-    for (const row of saved?.querySelectorAll(".db-saved-row") ?? []) {
-      const meta = row.querySelector("small")?.textContent ?? "";
-      if (/Worlds Beyond/i.test(meta)) row.hidden = true;
-    }
+  const hideWorldsBeyondRow = row => {
+    if (!(row instanceof Element) || !row.matches(".db-saved-row")) return;
+    const meta = row.querySelector("small")?.textContent ?? "";
+    if (/Worlds Beyond/i.test(meta)) row.hidden = true;
+  };
+
+  const inspectAddedNode = node => {
+    if (!(node instanceof Element)) return;
+    hideWorldsBeyondRow(node);
+    for (const row of node.querySelectorAll(".db-saved-row")) hideWorldsBeyondRow(row);
   };
 
   if (saved) {
-    new MutationObserver(hideWorldsBeyondRows).observe(saved, { childList: true, subtree: true });
-    hideWorldsBeyondRows();
+    for (const row of saved.querySelectorAll(".db-saved-row")) hideWorldsBeyondRow(row);
+    new MutationObserver(mutations => {
+      for (const mutation of mutations) {
+        for (const node of mutation.addedNodes) inspectAddedNode(node);
+      }
+    }).observe(saved, { childList: true });
   }
 })();
