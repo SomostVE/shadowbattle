@@ -23,7 +23,11 @@ self.addEventListener("fetch", event => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  const alwaysFresh = request.mode === "navigate" || url.pathname.endsWith("/version.json");
+  const mutableApiJson = url.pathname.includes("/api/") && url.pathname.endsWith(".json");
+  const alwaysFresh = request.mode === "navigate"
+    || request.cache === "no-store"
+    || url.pathname.endsWith("/version.json")
+    || mutableApiJson;
   event.respondWith(alwaysFresh ? networkFirst(request, url) : cacheFirst(request));
 });
 
