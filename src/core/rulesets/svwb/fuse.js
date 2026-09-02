@@ -1,4 +1,5 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
+import { assertWorldsBeyondMainActor } from "./action-guards.js";
 
 const MAX_FUSE_MATERIALS = 4;
 
@@ -29,7 +30,7 @@ export function getWorldsBeyondFuseActions(session, playerIndex) {
 }
 
 export function resolveWorldsBeyondFuse(session, action, { afterMaterials = null } = {}) {
-  const playerIndex = assertMainActor(session, action.player);
+  const playerIndex = assertWorldsBeyondMainActor(session, action.player);
   const player = session.getPlayer(playerIndex);
   const target = player.hand.find(item => item.instanceId === action.targetInstanceId);
   if (!target) throw new Error("Fuse target is not in the active player's hand");
@@ -253,14 +254,6 @@ function initialX(card) {
 function hasTrait(card, trait) {
   const wanted = normalize(trait);
   return (card?.traits ?? []).some(value => normalize(value) === wanted);
-}
-
-function assertMainActor(session, playerIndex) {
-  if (session.phase !== "main") throw new Error(`Expected phase main, got ${session.phase}`);
-  if (session.winner != null) throw new Error("The match has ended");
-  if (playerIndex !== 0 && playerIndex !== 1) throw new Error(`Invalid player index: ${playerIndex}`);
-  if (session.activePlayer !== playerIndex) throw new Error(`It is not player ${playerIndex}'s turn`);
-  return playerIndex;
 }
 
 function normalize(value) {

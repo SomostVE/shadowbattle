@@ -1,4 +1,5 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
+import { assertWorldsBeyondMainActor } from "./action-guards.js";
 import { destroyWorldsBeyondAmulet } from "./amulets.js";
 import {
   destroyWorldsBeyondFollower,
@@ -17,6 +18,11 @@ import {
   resolveWorldsBeyondOptionalAlliedCardSelection,
   validateWorldsBeyondOptionalAlliedCardSelection
 } from "./optional-allied-card.js";
+import {
+  cardType,
+  currentAttack,
+  currentMaxDefenseIgnoringDamage
+} from "./runtime-card-state.js";
 import { baseText, section } from "./v5/battle-engine-v5-text.js";
 
 const EVOLVE = "evolve";
@@ -43,7 +49,7 @@ export function listWorldsBeyondEvolutionActions(session, playerIndex) {
 export function applyWorldsBeyondEvolutionAction(session, action) {
   const superEvolution = action?.type === SUPER_EVOLVE;
   if (!superEvolution && action?.type !== EVOLVE) throw new Error(`Unsupported evolution action: ${action?.type ?? "unknown"}`);
-  const playerIndex = assertMainActor(session, action.player);
+  const playerIndex = assertWorldsBeyondMainActor(session, action.player);
   const player = session.getPlayer(playerIndex);
   const follower = player.board.find(unit => unit.instanceId === action.followerInstanceId);
   if (!follower || cardType(follower) !== "follower") throw new Error("Evolution target is not an allied follower");
@@ -79,8 +85,8 @@ export function applyWorldsBeyondEvolutionAction(session, action) {
 
   const bonus = superEvolution ? 3 : 2;
   follower.attack = currentAttack(follower) + bonus;
-  follower.maxDefense = currentMaxDefense(follower) + bonus;
-  follower.defense = Number(follower.defense ?? currentMaxDefense(follower)) + bonus;
+  follower.maxDefense = currentMaxDefenseIgnoringDamage(follower) + bonus;
+  follower.defense = Number(follower.defense ?? currentMaxDefenseIgnoringDamage(follower)) + bonus;
   follower.evolved = true;
   follower.superEvolved = superEvolution;
   follower.imageOverride = follower.card?.evolved?.image ?? follower.imageOverride ?? null;
@@ -407,24 +413,4 @@ function modeView(mode) {
     selectedModeCount: Number(mode?.selectedModeCount ?? 0),
     selectedModeIndices: [...(mode?.selectedModeIndices ?? [])]
   };
-}
-
-function assertMainActor(session, playerIndex) {
-  if (session.phase !== "main") throw new Error(`Expected phase main, got ${session.phase}`);
-  if (session.winner != null) throw new Error("The match has ended");
-  if (playerIndex !== 0 && playerIndex !== 1) throw new Error(`Invalid player index: ${playerIndex}`);
-  if (session.activePlayer !== playerIndex) throw new Error(`It is not player ${playerIndex}'s turn`);
-  return playerIndex;
-}
-
-function currentAttack(instance) {
-  return Number(instance.attack ?? (Number(instance.card?.attack ?? 0) + Number(instance.attackBonus ?? 0)));
-}
-
-function currentMaxDefense(instance) {
-  return Number(instance.maxDefense ?? (Number(instance.card?.defense ?? 0) + Number(instance.defenseBonus ?? 0)));
-}
-
-function cardType(instance) {
-  return String(instance?.card?.type ?? instance?.type ?? "").trim().toLowerCase();
 }
