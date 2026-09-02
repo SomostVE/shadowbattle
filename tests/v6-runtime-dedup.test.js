@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
+import { assertWorldsBeyondMainActor } from "../src/core/rulesets/svwb/action-guards.js";
+import {
+  currentMaxDefense,
+  currentMaxDefenseIgnoringDamage
+} from "../src/core/rulesets/svwb/runtime-card-state.js";
 
 const root = new URL("../", import.meta.url);
 
@@ -43,15 +48,53 @@ test("V6 override-aware modules reuse effectiveCardType", async () => {
   }
 });
 
-test("shared live attack and defense helpers replace only identical fallbacks", async () => {
+test("shared live stat helpers replace only identical fallbacks", async () => {
   const crestEffects = await read("src/core/rulesets/svwb/crest-effects.js");
   const discardReactions = await read("src/core/rulesets/svwb/discard-reactions.js");
+  const evolutionActions = await read("src/core/rulesets/svwb/evolution-actions.js");
 
-  assert.match(crestEffects, /import \{ cardType, currentAttack \} from "\.\/runtime-card-state\.js"/);
+  assert.match(crestEffects, /from "\.\/runtime-card-state\.js"/);
   assert.doesNotMatch(crestEffects, /function\s+currentAttack\s*\(/);
 
-  assert.match(discardReactions, /import \{ cardType, currentAttack, currentDefense \} from "\.\/runtime-card-state\.js"/);
-  assert.doesNotMatch(discardReactions, /function\s+currentAttack\s*\(/);
+  for (const [path, source] of [
+    ["discard-reactions", discardReactions],
+    ["evolution-actions", evolutionActions]
+  ]) {
+    assert.match(source, /currentMaxDefenseIgnoringDamage/, path);
+    assert.match(source, /from "\.\/runtime-card-state\.js"/, path);
+    assert.doesNotMatch(source, /function\s+currentAttack\s*\(/, path);
+    assert.doesNotMatch(source, /function\s+currentMaxDefense\s*\(/, path);
+  }
   assert.doesNotMatch(discardReactions, /function\s+currentDefense\s*\(/);
-  assert.match(discardReactions, /function\s+currentMaxDefense\s*\(/);
+});
+
+test("max-defense helpers keep live-defense and undamaged fallbacks distinct", () => {
+  const damaged = {
+    defense: 2,
+    defenseBonus: 1,
+    card: { defense: 5 }
+  };
+  assert.equal(currentMaxDefense(damaged), 2);
+  assert.equal(currentMaxDefenseIgnoringDamage(damaged), 6);
+
+  damaged.maxDefense = 8;
+  assert.equal(currentMaxDefense(damaged), 8);
+  assert.equal(currentMaxDefenseIgnoringDamage(damaged), 8);
+});
+
+test("Fuse and natural evolution share the main-phase actor guard", async () => {
+  const fuse = await read("src/core/rulesets/svwb/fuse.js");
+  const evolutionActions = await read("src/core/rulesets/svwb/evolution-actions.js");
+
+  for (const [path, source] of [["fuse", fuse], ["evolution-actions", evolutionActions]]) {
+    assert.match(source, /assertWorldsBeyondMainActor/, path);
+    assert.match(source, /from "\.\/action-guards\.js"/, path);
+    assert.doesNotMatch(source, /function\s+assertMainActor\s*\(/, path);
+  }
+
+  const session = { phase: "main", winner: null, activePlayer: 1 };
+  assert.equal(assertWorldsBeyondMainActor(session, 1), 1);
+  assert.throws(() => assertWorldsBeyondMainActor(session, 0), /not player 0's turn/);
+  assert.throws(() => assertWorldsBeyondMainActor({ ...session, phase: "mulligan" }, 1), /Expected phase main/);
+  assert.throws(() => assertWorldsBeyondMainActor({ ...session, winner: 1 }, 1), /match has ended/);
 });
