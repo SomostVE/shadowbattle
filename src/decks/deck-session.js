@@ -56,11 +56,16 @@ async function init() {
 }
 
 function observeWorkingDeck() {
-  new MutationObserver(() => {
+  const queuePersist = () => {
     if (restoring) return;
     window.clearTimeout(persistTimer);
     persistTimer = window.setTimeout(persistDraft, 80);
-  }).observe(currentDeck, { childList: true, subtree: true, characterData: true });
+  };
+
+  // The deck renderer replaces the root children in one operation. Watching
+  // descendants and character data only multiplies mutation records without
+  // revealing any additional deck-state change.
+  new MutationObserver(queuePersist).observe(currentDeck, { childList: true });
 
   savedDecks.addEventListener("click", event => {
     const load = event.target.closest?.("[data-load-deck]");
@@ -68,11 +73,11 @@ function observeWorkingDeck() {
   }, true);
 
   document.getElementById("save-deck")?.addEventListener("click", () => {
-    window.setTimeout(() => {
+    queueMicrotask(() => {
       const library = readJson(LIBRARY_KEY);
       activeDeckId = library?.games?.[activeGameId()]?.activeDeckId ?? activeDeckId;
       persistDraft();
-    }, 0);
+    });
   });
 
   gameSwitch?.addEventListener("click", () => {
