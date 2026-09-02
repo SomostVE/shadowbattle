@@ -7,6 +7,7 @@ import {
 import { crestView, getWorldsBeyondCrests } from "./crests.js";
 import { destroyWorldsBeyondFollower } from "./effect-resolver.js";
 import { resolveWorldsBeyondSplitAllEnemiesDamage } from "./generic-effects.js";
+import { cardType, currentAttack } from "./runtime-card-state.js";
 import {
   createWorldsBeyondLeaderDamageCommand,
   createWorldsBeyondLeaderHealCommand
@@ -269,14 +270,6 @@ function emitCrestActivation(session, playerIndex, crest, action, detail = {}) {
     actor: playerIndex,
     payload: { action, crest: crestView(crest), ...detail }
   });
-}
-
-function currentAttack(instance) {
-  return Number(instance?.attack ?? (Number(instance?.card?.attack ?? 0) + Number(instance?.attackBonus ?? 0)));
-}
-
-function cardType(instance) {
-  return String(instance?.card?.type ?? instance?.type ?? "").trim().toLowerCase();
 }
 
 function normalize(value) {

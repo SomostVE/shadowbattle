@@ -1,3 +1,5 @@
+import { effectiveCardType } from "./runtime-card-state.js";
+
 const FOLLOWER_COUNT_X = /\bX is the number of followers on the field\s*\.?/i;
 const AREA_DAMAGE_X = /\bdeal X damage to all followers\b/i;
 
@@ -21,7 +23,7 @@ export function resolveWorldsBeyondAllFollowersCountDamage(session, {
   destroyFollower
 } = {}) {
   const targets = session.players.flatMap((player, owner) => player.board
-    .filter(unit => cardType(unit) === "follower")
+    .filter(unit => effectiveCardType(unit) === "follower")
     .map(unit => ({ owner, instanceId: unit.instanceId })));
   const amount = targets.length;
   if (!amount) return false;
@@ -47,8 +49,4 @@ export function resolveWorldsBeyondAllFollowersCountDamage(session, {
     });
   }
   return true;
-}
-
-function cardType(instance) {
-  return String(instance?.typeOverride ?? instance?.card?.type ?? instance?.type ?? "").trim().toLowerCase();
 }

@@ -1,4 +1,5 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
+import { cardType } from "./runtime-card-state.js";
 
 const ATTACK_ACTION = "attack";
 const KEYWORD_PATTERNS = new Map();
@@ -265,10 +266,6 @@ function withoutKeyword(values, wanted) {
 function keywordName(value) {
   if (!value || typeof value !== "object") return value;
   return value.name ?? value.keyword ?? value.label ?? "";
-}
-
-function cardType(instance) {
-  return String(instance?.card?.type ?? instance?.type ?? "").trim().toLowerCase();
 }
 
 function normalize(value) {

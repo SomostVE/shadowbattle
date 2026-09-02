@@ -1,4 +1,5 @@
 import { getWorldsBeyondCrests } from "./crests.js";
+import { cardType } from "./runtime-card-state.js";
 import { section } from "./v5/battle-engine-v5-text.js";
 
 const ADVANCE_COUNT = /\bAdvance this amulet(?:'s|’s) count by\s+(X|\d+)\b/i;
@@ -51,8 +52,4 @@ function stripEngageAmuletOperations(rawEffect, advanceMatch) {
     .replace(/^\s*[.;,:-]+\s*/g, "")
     .replace(/\s+/g, " ")
     .trim();
-}
-
-function cardType(instance) {
-  return String(instance?.card?.type ?? instance?.type ?? "").trim().toLowerCase();
 }
