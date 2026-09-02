@@ -1,0 +1,40 @@
+name: Temporary 0.5.76 guarded transform runner
+
+on:
+  push:
+    branches:
+      - maintenance-0.5.76-action-resolver-dedup
+
+permissions:
+  contents: write
+
+jobs:
+  transform:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: maintenance-0.5.76-action-resolver-dedup
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - name: Apply guarded transform
+        run: python .github/tmp-0.5.76-transform.py
+      - name: Check JavaScript syntax
+        run: |
+          for file in $(find src tests scripts -type f \( -name '*.js' -o -name '*.mjs' \) | sort); do
+            node --check "$file"
+          done
+          node --check sw.js
+      - name: Run tests
+        run: npm test
+      - name: Audit SVWB structural coverage
+        run: npm run audit:svwb
+      - name: Commit transformed sources
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/core/rulesets/svwb/action-resolver.js src/core/rulesets/svwb/class-conditions.js src/core/rulesets/svwb/generic-effects.js src/core/rulesets/svwb/effect-resolver.js tests/v6-runtime-dedup.test.js
+          git diff --cached --check
+          git commit -m "refactor: apply 0.5.76 V6 runtime dedup"
+          git push origin HEAD:maintenance-0.5.76-action-resolver-dedup
