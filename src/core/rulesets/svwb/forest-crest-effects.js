@@ -1,6 +1,7 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
 import { crestView } from "./crests.js";
 import { addWorldsBeyondGeneratedCard } from "./generated-cards.js";
+import { cardType } from "./runtime-card-state.js";
 
 export function resolveWorldsBeyondForestCrestTurnStart(session, playerIndex, crest) {
   if (!crest || session.phase !== "main") return false;
@@ -61,10 +62,6 @@ export function resolveWorldsBeyondForestCrestTurnEnd(session, playerIndex, cres
   }
 
   return false;
-}
-
-function cardType(instance) {
-  return String(instance?.card?.type ?? instance?.type ?? "").trim().toLowerCase();
 }
 
 function normalize(value) {
