@@ -2,6 +2,7 @@ import { BATTLE_EVENT } from "../../battle-events.js";
 import { grantWorldsBeyondKeyword } from "./combat-readiness.js";
 import { crestView, getWorldsBeyondCrests } from "./crests.js";
 import { resolveWorldsBeyondDiscardReaction } from "./discard-reactions.js";
+import { cardType } from "./runtime-card-state.js";
 
 const COMBAT_KEYWORDS = new Set(["storm", "rush", "ward", "bane", "drain"]);
 const MARINE_ENTRY_WARD = /\bWhenever an allied Marine follower enters the field, give it Ward\.?/i;
@@ -195,10 +196,6 @@ function rulesText(card) {
     .replace(/<hr\s*\/?\s*>/gi, "\n")
     .replace(/<br\s*\/?\s*>/gi, "\n")
     .replace(/<[^>]+>/g, "");
-}
-
-function cardType(instance) {
-  return String(instance?.card?.type ?? instance?.type ?? "").trim().toLowerCase();
 }
 
 function normalize(value) {
