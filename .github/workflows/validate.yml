@@ -15,9 +15,21 @@ jobs:
           node-version: 24
       - name: Check JavaScript syntax
         run: |
-          for file in $(find src tests -type f -name '*.js' | sort); do
+          for file in $(find src tests scripts -type f \( -name '*.js' -o -name '*.mjs' \) | sort); do
             node --check "$file"
           done
+          node --check sw.js
+      - name: Check version metadata
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          const publicVersion = JSON.parse(fs.readFileSync('version.json', 'utf8'));
+          if (pkg.version !== publicVersion.version) {
+            throw new Error(`Version mismatch: package.json=${pkg.version}, version.json=${publicVersion.version}`);
+          }
+          console.log(`Version metadata aligned at ${pkg.version}.`);
+          NODE
       - name: Check API JSON
         run: |
           node -e "const fs=require('fs');for(const file of require('child_process').execSync('find api -type f -name \"*.json\"').toString().trim().split(/\n+/).filter(Boolean)){JSON.parse(fs.readFileSync(file,'utf8'));console.log('OK '+file)}"
