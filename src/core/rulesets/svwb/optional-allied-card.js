@@ -1,4 +1,5 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
+import { effectiveCardType } from "./runtime-card-state.js";
 
 const OPTIONAL_ALLIED_CARD = /Select another allied card on the field\.\s*If you selected one,\s*destroy it and\s*(?:(deal)\s+(\d+)\s+damage to a random enemy follower|(draw)\s+(\d+)\s+cards?)\.?/i;
 
@@ -72,7 +73,7 @@ export function resolveWorldsBeyondOptionalAlliedCardSelection(session, {
 
   if (!target) return { applied: false, selected: false, target: null };
 
-  if (cardType(target) === "follower") {
+  if (effectiveCardType(target) === "follower") {
     destroyFollower?.(session, playerIndex, target.instanceId, {
       actor: playerIndex,
       source,
@@ -80,7 +81,7 @@ export function resolveWorldsBeyondOptionalAlliedCardSelection(session, {
       byAbility: true,
       abilityDestroy: true
     });
-  } else if (cardType(target) === "amulet") {
+  } else if (effectiveCardType(target) === "amulet") {
     destroyAmulet?.(session, playerIndex, target.instanceId, {
       actor: playerIndex,
       source,
@@ -110,7 +111,7 @@ export function stripWorldsBeyondOptionalAlliedCardText(textValue) {
 
 function damageRandomEnemyFollower(session, playerIndex, source, amount, destroyFollower) {
   const enemyIndex = 1 - playerIndex;
-  const followers = session.getPlayer(enemyIndex).board.filter(card => cardType(card) === "follower");
+  const followers = session.getPlayer(enemyIndex).board.filter(card => effectiveCardType(card) === "follower");
   if (!followers.length || amount <= 0) return false;
   const target = followers[Math.floor(session.rng() * followers.length)] ?? followers[0];
   session.damageFollower(enemyIndex, target.instanceId, amount, {
@@ -129,8 +130,4 @@ function damageRandomEnemyFollower(session, playerIndex, source, amount, destroy
     });
   }
   return true;
-}
-
-function cardType(instance) {
-  return String(instance?.typeOverride ?? instance?.card?.type ?? instance?.type ?? "").trim().toLowerCase();
 }
