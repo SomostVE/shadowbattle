@@ -28,6 +28,21 @@ test("batched events stay ordered with surrounding queued animations", async () 
   assert.deepEqual(seen, ["a", "b", "c", "d"]);
 });
 
+test("a failed animation rejects its job without poisoning later animations", async () => {
+  const seen = [];
+  const queue = new BattleAnimationQueue({ reducedMotion: true });
+  queue.register("broken", async () => {
+    throw new Error("animation failed");
+  });
+  queue.register("draw", async event => seen.push(event.sequence));
+
+  await assert.rejects(queue.enqueue({ sequence: 1, type: "broken" }), /animation failed/);
+  await queue.enqueue({ sequence: 2, type: "draw" });
+  await queue.flush();
+
+  assert.deepEqual(seen, [2]);
+});
+
 test("unhandled battle events do not add invisible animation delays", async () => {
   const queue = new BattleAnimationQueue({ timings: { idle: 1000 } });
   const result = await Promise.race([
