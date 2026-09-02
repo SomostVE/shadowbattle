@@ -16,6 +16,7 @@ const TYPE_NAMES = new Map([[1, "Follower"], [2, "Amulet"], [3, "Countdown Amule
 
 const cache = new Map();
 const referenceCache = new Map();
+const searchTextCache = new WeakMap();
 
 export async function loadDeckCatalog(gameId) {
   const url = CATALOG_URLS[gameId];
@@ -106,6 +107,16 @@ function compactReferenceCard(card, gameId, namespace) {
   };
 }
 
+export function catalogSearchText(card) {
+  if (!card || typeof card !== "object") return "";
+  const cached = searchTextCache.get(card);
+  if (cached !== undefined) return cached;
+
+  const text = `${card.name ?? ""} ${card.text ?? ""} ${card.evolvedText ?? ""} ${card.trait ?? ""} ${card.type ?? ""}`.toLowerCase();
+  searchTextCache.set(card, text);
+  return text;
+}
+
 export function filterCatalog(cards, { query = "", craft = "all", set = "all" } = {}) {
   const needle = String(query).trim().toLowerCase();
   const poolMode = getCardPoolMode();
@@ -115,9 +126,7 @@ export function filterCatalog(cards, { query = "", craft = "all", set = "all" } 
     if (poolMode === "class" && card.craft === "Neutral") return false;
     if (craft !== "all" && card.craft !== craft && card.craft !== "Neutral") return false;
     if (set !== "all" && String(card.setId) !== String(set)) return false;
-    if (!needle) return true;
-    const haystack = `${card.name} ${card.text ?? ""} ${card.evolvedText ?? ""} ${card.trait ?? ""} ${card.type ?? ""}`.toLowerCase();
-    return haystack.includes(needle);
+    return !needle || catalogSearchText(card).includes(needle);
   });
 }
 

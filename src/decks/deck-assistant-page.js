@@ -1,7 +1,8 @@
-import { loadDeckCatalog, loadDeckReferenceCards } from "./catalog.js";
+import { catalogSearchText, loadDeckCatalog, loadDeckReferenceCards } from "./catalog.js";
 import { cardTraits, cardKeywords, installCardAssistant, closeCardAssistant } from "./card-assistant.js";
 
 const CARD_POOL_MODE_KEY = "shadowbattle:card-pool-mode";
+const EMPTY_MAP = new Map();
 const catalogs = new Map();
 const maps = new Map();
 const selectedTraits = new Set();
@@ -16,11 +17,11 @@ const els = {
   set: document.getElementById("deck-set"),
   craft: document.getElementById("deck-craft"),
   game: document.getElementById("deck-game"),
-  reset: document.getElementById("reset-filters"),
-  craftButtons: document.getElementById("deck-craft-buttons")
+  reset: document.getElementById("reset-filters")
 };
 
 let refreshQueued = false;
+let assistantVisibleIds = null;
 
 init();
 
@@ -86,7 +87,7 @@ function bindFilters() {
   document.addEventListener("click", event => {
     if (event.target.closest("[data-game-select]")) handleContextChange(true);
     if (event.target.closest("[data-craft]")) handleContextChange(false);
-    if (event.target.closest("[data-rarity], [data-cost], [data-type], [data-neutral-pool]")) queueRefresh();
+    if (event.target.closest("[data-rarity], [data-cost], [data-type]")) queueRefresh();
   });
 
   window.addEventListener("storage", event => {
@@ -95,8 +96,15 @@ function bindFilters() {
 }
 
 function installGridObserver() {
-  new MutationObserver(() => queueRefresh()).observe(els.results, { childList: true, subtree: false });
-  if (els.craftButtons) new MutationObserver(() => queueRefresh()).observe(els.craftButtons, { childList: true, subtree: true, attributes: true });
+  new MutationObserver(mutations => {
+    const addedTiles = [];
+    for (const mutation of mutations) {
+      for (const node of mutation.addedNodes) {
+        if (node instanceof Element && node.matches(".db-card-tile[data-card-id]")) addedTiles.push(node);
+      }
+    }
+    if (addedTiles.length) applyAssistantVisibility(addedTiles, false);
+  }).observe(els.results, { childList: true });
 }
 
 async function handleContextChange(gameChanged) {
@@ -123,9 +131,36 @@ function queueRefresh() {
 
 function refreshAssistantFilters() {
   const base = baseCardsForAssistant();
-  renderFacet(els.traitFilter, facetCounts(base, cardTraits), selectedTraits, "trait");
-  renderFacet(els.keywordFilter, facetCounts(base, cardKeywords), selectedKeywords, "keyword");
+  const { traitCounts, keywordCounts, visibleIds } = summarizeAssistantCards(base);
+  assistantVisibleIds = visibleIds;
+  renderFacet(els.traitFilter, traitCounts, selectedTraits, "trait");
+  renderFacet(els.keywordFilter, keywordCounts, selectedKeywords, "keyword");
   applyAssistantVisibility();
+}
+
+function summarizeAssistantCards(cards) {
+  const traitCounts = new Map();
+  const keywordCounts = new Map();
+  const visibleIds = new Set();
+
+  for (const card of cards) {
+    const traits = cardTraits(card);
+    const keywords = cardKeywords(card);
+    for (const trait of traits) traitCounts.set(trait, (traitCounts.get(trait) ?? 0) + 1);
+    for (const keyword of keywords) keywordCounts.set(keyword, (keywordCounts.get(keyword) ?? 0) + 1);
+    if (matchesSelected(traits, selectedTraits) && matchesSelected(keywords, selectedKeywords)) {
+      visibleIds.add(Number(card.id));
+    }
+  }
+
+  return { traitCounts, keywordCounts, visibleIds };
+}
+
+function matchesSelected(values, selected) {
+  for (const value of selected) {
+    if (!values.includes(value)) return false;
+  }
+  return true;
 }
 
 function baseCardsForAssistant() {
@@ -148,33 +183,15 @@ function baseCardsForAssistant() {
     if (activeRarities.size && !activeRarities.has(card.rarity)) return false;
     if (activeCosts.size && !activeCosts.has(costKey(card))) return false;
     if (activeTypes.size && !activeTypes.has(typeKey(card))) return false;
-    if (needle) {
-      const haystack = `${card.name} ${card.text ?? ""} ${card.evolvedText ?? ""} ${card.trait ?? ""} ${card.type ?? ""}`.toLowerCase();
-      if (!haystack.includes(needle)) return false;
-    }
-    return true;
+    return !needle || catalogSearchText(card).includes(needle);
   });
 }
 
-function applyAssistantVisibility() {
-  const map = currentCardMap();
-  for (const tile of els.results.querySelectorAll(".db-card-tile[data-card-id]")) {
-    const card = map.get(Number(tile.dataset.cardId));
-    if (!card) continue;
-    const traits = new Set(cardTraits(card));
-    const keywords = new Set(cardKeywords(card));
-    const traitMatch = !selectedTraits.size || [...selectedTraits].every(value => traits.has(value));
-    const keywordMatch = !selectedKeywords.size || [...selectedKeywords].every(value => keywords.has(value));
-    tile.hidden = !(traitMatch && keywordMatch);
-  }
-
-  const visibleCount = baseCardsForAssistant().filter(card => {
-    const traits = new Set(cardTraits(card));
-    const keywords = new Set(cardKeywords(card));
-    return (!selectedTraits.size || [...selectedTraits].every(value => traits.has(value)))
-      && (!selectedKeywords.size || [...selectedKeywords].every(value => keywords.has(value)));
-  }).length;
-  if (els.resultCount) els.resultCount.textContent = `${visibleCount.toLocaleString()} cards`;
+function applyAssistantVisibility(tiles = null, syncCount = true) {
+  if (!assistantVisibleIds) return;
+  const visibleTiles = tiles ?? els.results.querySelectorAll(".db-card-tile[data-card-id]");
+  for (const tile of visibleTiles) tile.hidden = !assistantVisibleIds.has(Number(tile.dataset.cardId));
+  if (syncCount && els.resultCount) els.resultCount.textContent = `${assistantVisibleIds.size.toLocaleString()} cards`;
 }
 
 function renderFacet(root, counts, selected, dataName) {
@@ -185,14 +202,6 @@ function renderFacet(root, counts, selected, dataName) {
   root.innerHTML = rows.map(([value, count]) => `<button type="button" class="db-assistant-filter-chip${selected.has(value) ? " active" : ""}" data-${dataName}="${escapeAttr(value)}">
     <span>${escapeHtml(value)}</span><small>${count}</small>
   </button>`).join("") || `<span class="db-assistant-empty">None in this pool</span>`;
-}
-
-function facetCounts(cards, getter) {
-  const counts = new Map();
-  for (const card of cards) {
-    for (const value of getter(card)) counts.set(value, (counts.get(value) ?? 0) + 1);
-  }
-  return counts;
 }
 
 function relevantDeckCards(requestedGameId) {
@@ -207,7 +216,7 @@ async function ensureCatalog(gameId) {
   if (catalogs.has(gameId)) return catalogs.get(gameId);
   const payload = await loadDeckCatalog(gameId);
   catalogs.set(gameId, payload);
-  maps.set(gameId, new Map((payload.cards ?? []).map(card => [Number(card.id), { ...card, deckSelectable: true }])));
+  maps.set(gameId, new Map((payload.cards ?? []).map(card => [Number(card.id), card])));
   return payload;
 }
 
@@ -216,7 +225,7 @@ function currentCatalog() {
 }
 
 function currentCardMap() {
-  return maps.get(activeGameId()) ?? new Map();
+  return maps.get(activeGameId()) ?? EMPTY_MAP;
 }
 
 function activeGameId() {

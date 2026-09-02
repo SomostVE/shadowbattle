@@ -114,8 +114,12 @@ async function restoreEntries(draft) {
   restoring = true;
   const requestedCraft = String(draft.craft || "");
   if (requestedCraft && requestedCraft !== activeCraft()) {
-    craftButtons?.querySelector(`[data-craft="${cssEscape(requestedCraft)}"]`)?.click();
-    await wait(120);
+    const button = craftButtons?.querySelector(`[data-craft="${cssEscape(requestedCraft)}"]`);
+    if (button) {
+      const renderId = results.dataset.renderId;
+      button.click();
+      await waitForGridRender(renderId, 2000);
+    }
   }
 
   // First align quantities already present after loading a saved variant.
@@ -159,6 +163,7 @@ async function setPoolMode(mode) {
   const current = localStorage.getItem(POOL_KEY) === "neutral" ? "neutral" : "class";
   if (current === normalized) return;
 
+  const renderId = results.dataset.renderId;
   if (normalized === "neutral") {
     const neutral = craftButtons?.querySelector("[data-neutral-toggle]");
     if (neutral) neutral.click();
@@ -175,7 +180,7 @@ async function setPoolMode(mode) {
       document.getElementById("deck-search")?.dispatchEvent(new Event("input", { bubbles: true }));
     }
   }
-  await wait(100);
+  await waitFor(() => results.dataset.renderId !== renderId && results.dataset.cardPoolMode === normalized, 2000);
 }
 
 function requestedDeck() {
@@ -256,6 +261,10 @@ function cssEscape(value) {
 
 function wait(ms) {
   return new Promise(resolve => window.setTimeout(resolve, ms));
+}
+
+function waitForGridRender(renderId, timeout) {
+  return waitFor(() => results.dataset.renderId !== renderId, timeout);
 }
 
 async function waitFor(predicate, timeout = 3000) {
