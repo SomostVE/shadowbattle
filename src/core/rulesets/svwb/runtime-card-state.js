@@ -10,6 +10,10 @@ export function currentMaxDefense(instance) {
   return Number(instance?.maxDefense ?? currentDefense(instance));
 }
 
+export function currentMaxDefenseIgnoringDamage(instance) {
+  return Number(instance?.maxDefense ?? (Number(instance?.card?.defense ?? 0) + Number(instance?.defenseBonus ?? 0)));
+}
+
 export function cardType(instance) {
   return String(instance?.card?.type ?? instance?.type ?? "").trim().toLowerCase();
 }
