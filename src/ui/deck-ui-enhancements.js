@@ -28,8 +28,7 @@
   const BEYOND_CARD_SIZE_MODE_KEY = "svwb-card-size-mode";
   const CARD_POOL_MODE_KEY = "shadowbattle:card-pool-mode";
 
-  installNeutralControl();
-  upgradeOfficialCraftButtons();
+  installCraftControls();
   installDeferredCardArtLoader();
   installBeyondDecksSizing();
 
@@ -38,7 +37,7 @@
     return `${PORTAL_CLASS_ASSET}/${CRAFT_CLASS_IDS[craft]}/class_checkbox.png`;
   }
 
-  function installNeutralControl() {
+  function installCraftControls() {
     const root = document.getElementById("deck-craft-buttons");
     if (!root) return;
 
@@ -46,7 +45,7 @@
     const setMode = mode => localStorage.setItem(CARD_POOL_MODE_KEY, mode === "neutral" ? "neutral" : "class");
     const refreshCards = () => document.getElementById("deck-search")?.dispatchEvent(new Event("input", { bubbles: true }));
 
-    const sync = button => {
+    const syncNeutral = button => {
       const neutral = getMode() === "neutral";
       root.classList.toggle("neutral-mode", neutral);
       button.classList.toggle("active", neutral);
@@ -55,7 +54,7 @@
       button.setAttribute("aria-label", "Show Neutral cards");
     };
 
-    const ensure = () => {
+    const ensureNeutral = () => {
       let button = root.querySelector("[data-neutral-toggle]");
       if (!button) {
         button = document.createElement("button");
@@ -67,7 +66,39 @@
         button.textContent = FALLBACK_GLYPHS.Neutral;
         root.appendChild(button);
       }
-      sync(button);
+      syncNeutral(button);
+      return button;
+    };
+
+    const upgradeButton = button => {
+      if (!(button instanceof Element) || !button.matches("[data-craft], [data-neutral-toggle]")) return;
+      if (button.dataset.iconFallback === "true") return;
+
+      const craft = button.dataset.craft ?? button.dataset.craftVisual ?? "Neutral";
+      const src = officialCraftIcon(craft);
+      if (!src) return;
+
+      const existing = button.querySelector("img[data-official-class-icon]");
+      if (existing?.src === src) return;
+
+      const image = document.createElement("img");
+      image.dataset.officialClassIcon = "true";
+      image.src = src;
+      image.alt = "";
+      image.decoding = "async";
+      image.draggable = false;
+      image.referrerPolicy = "no-referrer";
+      image.addEventListener("error", () => {
+        button.dataset.iconFallback = "true";
+        button.textContent = FALLBACK_GLYPHS[craft] ?? craft.slice(0, 1);
+      }, { once: true });
+      button.replaceChildren(image);
+    };
+
+    const upgradeAddedNode = node => {
+      if (!(node instanceof Element)) return;
+      if (node.matches("[data-craft], [data-neutral-toggle]")) upgradeButton(node);
+      for (const button of node.querySelectorAll("[data-craft], [data-neutral-toggle]")) upgradeButton(button);
     };
 
     root.addEventListener("click", event => {
@@ -76,7 +107,7 @@
         event.preventDefault();
         event.stopPropagation();
         setMode("neutral");
-        sync(neutralButton);
+        syncNeutral(neutralButton);
         refreshCards();
         return;
       }
@@ -86,7 +117,7 @@
       if (getMode() !== "class") {
         setMode("class");
         const button = root.querySelector("[data-neutral-toggle]");
-        if (button) sync(button);
+        if (button) syncNeutral(button);
         // Clicking the already-selected craft while viewing Neutral would make
         // the main craft handler no-op. Refresh it here so class ↔ Neutral is
         // seamless in both directions.
@@ -94,42 +125,17 @@
       }
     }, true);
 
-    new MutationObserver(ensure).observe(root, { childList: true });
-    ensure();
-  }
+    const neutral = ensureNeutral();
+    for (const button of root.querySelectorAll("[data-craft], [data-neutral-toggle]")) upgradeButton(button);
+    upgradeButton(neutral);
 
-  function upgradeOfficialCraftButtons() {
-    const root = document.getElementById("deck-craft-buttons");
-    if (!root) return;
-
-    const renderIcons = () => {
-      for (const button of root.querySelectorAll("[data-craft], [data-neutral-toggle]")) {
-        if (button.dataset.iconFallback === "true") continue;
-
-        const craft = button.dataset.craft ?? button.dataset.craftVisual ?? "Neutral";
-        const src = officialCraftIcon(craft);
-        if (!src) continue;
-
-        const existing = button.querySelector("img[data-official-class-icon]");
-        if (existing?.src === src) continue;
-
-        const image = document.createElement("img");
-        image.dataset.officialClassIcon = "true";
-        image.src = src;
-        image.alt = "";
-        image.decoding = "async";
-        image.draggable = false;
-        image.referrerPolicy = "no-referrer";
-        image.addEventListener("error", () => {
-          button.dataset.iconFallback = "true";
-          button.textContent = FALLBACK_GLYPHS[craft] ?? craft.slice(0, 1);
-        }, { once: true });
-        button.replaceChildren(image);
+    new MutationObserver(mutations => {
+      for (const mutation of mutations) {
+        for (const node of mutation.addedNodes) upgradeAddedNode(node);
       }
-    };
-
-    new MutationObserver(renderIcons).observe(root, { childList: true });
-    renderIcons();
+      const neutralButton = ensureNeutral();
+      upgradeButton(neutralButton);
+    }).observe(root, { childList: true });
   }
 
   function installDeferredCardArtLoader() {
@@ -195,9 +201,19 @@
   function installAttributeHintsOnly() {
     const root = document.getElementById("deck-results");
     if (!root) return;
-    const apply = () => root.querySelectorAll("img[data-card-art]").forEach(image => applyImageHints(image, false));
-    new MutationObserver(apply).observe(root, { childList: true, subtree: true });
-    apply();
+
+    const applyNode = node => {
+      if (!(node instanceof Element)) return;
+      if (node.matches("img[data-card-art]")) applyImageHints(node, false);
+      for (const image of node.querySelectorAll("img[data-card-art]")) applyImageHints(image, false);
+    };
+
+    for (const image of root.querySelectorAll("img[data-card-art]")) applyImageHints(image, false);
+    new MutationObserver(mutations => {
+      for (const mutation of mutations) {
+        for (const node of mutation.addedNodes) applyNode(node);
+      }
+    }).observe(root, { childList: true });
   }
 
   function isCatalogArt(image) {
@@ -231,8 +247,9 @@
     slider.max = "190";
     slider.step = "2";
 
+    const presetButtons = [...presets.querySelectorAll("[data-card-size-preset]")];
     const fixedSizes = { S: 90, M: 118, L: 154 };
-    for (const button of presets.querySelectorAll("[data-card-size-preset]")) {
+    for (const button of presetButtons) {
       if (fixedSizes[button.textContent]) button.dataset.cardSizePreset = String(fixedSizes[button.textContent]);
     }
 
@@ -248,7 +265,7 @@
     const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
     const updatePresetState = (value, mode) => {
-      for (const button of presets.querySelectorAll("[data-card-size-preset]")) {
+      for (const button of presetButtons) {
         const isFit = button.dataset.cardSizePreset === "fit";
         const active = isFit
           ? mode === "fit"
@@ -290,6 +307,15 @@
       setFixed(Number(localStorage.getItem(CARD_SIZE_KEY)) || 118);
     };
 
+    let fitFrame = 0;
+    const scheduleFit = () => {
+      if (fitFrame || localStorage.getItem(CARD_SIZE_MODE_KEY) !== "fit") return;
+      fitFrame = requestAnimationFrame(() => {
+        fitFrame = 0;
+        applyFit();
+      });
+    };
+
     document.addEventListener("click", event => {
       const button = event.target instanceof Element ? event.target.closest("[data-card-size-preset]") : null;
       if (!button || !presets.contains(button)) return;
@@ -307,14 +333,10 @@
     }, true);
 
     if (typeof ResizeObserver === "function") {
-      const observer = new ResizeObserver(() => {
-        if (localStorage.getItem(CARD_SIZE_MODE_KEY) === "fit") requestAnimationFrame(applyFit);
-      });
+      const observer = new ResizeObserver(scheduleFit);
       observer.observe(content);
     } else {
-      window.addEventListener("resize", () => {
-        if (localStorage.getItem(CARD_SIZE_MODE_KEY) === "fit") applyFit();
-      }, { passive: true });
+      window.addEventListener("resize", scheduleFit, { passive: true });
     }
 
     window.addEventListener("load", () => requestAnimationFrame(applySaved), { once: true });
