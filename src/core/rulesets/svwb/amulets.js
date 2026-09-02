@@ -1,6 +1,7 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
 import { destroyBoardAmulet, restoreOriginalCardForm } from "../../zone-actions.js";
 import { gainWorldsBeyondShadows, resolveWorldsBeyondTrigger } from "./effect-resolver.js";
+import { effectiveCardType } from "./runtime-card-state.js";
 
 export function advanceWorldsBeyondAmuletCountdown(session, playerIndex, instanceId, amount = 1, {
   actor = playerIndex,
@@ -50,7 +51,7 @@ export function destroyWorldsBeyondAmulet(session, playerIndex, instanceId, {
 function getCountdownAdjustment(session, playerIndex, instanceId, amount) {
   const amulet = session.findBoardCard(playerIndex, instanceId);
   const value = Math.max(0, Number(amount) || 0);
-  if (!amulet || cardType(amulet) !== "amulet" || !hasFiniteCountdown(amulet)) return { amulet, value: 0 };
+  if (!amulet || effectiveCardType(amulet) !== "amulet" || !hasFiniteCountdown(amulet)) return { amulet, value: 0 };
   return { amulet, value };
 }
 
@@ -76,8 +77,4 @@ function emitCountdownAdjustment(session, amulet, {
 
 function hasFiniteCountdown(instance) {
   return instance?.countdown != null && Number.isFinite(Number(instance.countdown));
-}
-
-function cardType(instance) {
-  return String(instance?.typeOverride ?? instance?.card?.type ?? instance?.type ?? "").trim().toLowerCase();
 }
