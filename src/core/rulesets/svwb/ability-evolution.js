@@ -20,7 +20,7 @@ function evolveFollowerByAbility(session, playerIndex, source, superEvolution) {
   follower.evolved = true;
   follower.superEvolved = superEvolution;
   follower.imageOverride = follower.card?.evolved?.image ?? follower.imageOverride ?? null;
-  if (Number(follower.attacksRemaining ?? 0) > 0) follower.canAttackFollowers = true;
+  if (!follower.permanentAttackLock && Number(follower.attacksRemaining ?? 0) > 0) follower.canAttackFollowers = true;
 
   const player = session.getPlayer(playerIndex);
   session.emit(superEvolution ? BATTLE_EVENT.SUPER_EVOLVE : BATTLE_EVENT.EVOLVE, {
