@@ -12,6 +12,7 @@ import {
   resolveWorldsBeyondForestCrestTurnStart
 } from "./forest-crest-effects.js";
 import { resolveWorldsBeyondPortalCrestTurnEnd } from "./portal-crest-effects.js";
+import { cardType } from "./runtime-card-state.js";
 import { resolveWorldsBeyondSwordCrestTurnEnd } from "./sword-crest-effects.js";
 
 export function runWorldsBeyondTurnStart(session, playerIndex) {
@@ -105,8 +106,4 @@ function tickCountdownAmulets(session, playerIndex) {
     });
     if (session.phase !== "main") break;
   }
-}
-
-function cardType(instance) {
-  return String(instance?.card?.type ?? instance?.type ?? "").trim().toLowerCase();
 }
