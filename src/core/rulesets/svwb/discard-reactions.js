@@ -1,6 +1,11 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
 import { resolveEffectCommands } from "../../effect-commands.js";
-import { cardType, currentAttack, currentDefense } from "./runtime-card-state.js";
+import {
+  cardType,
+  currentAttack,
+  currentDefense,
+  currentMaxDefenseIgnoringDamage
+} from "./runtime-card-state.js";
 import {
   createWorldsBeyondLeaderDamageCommand,
   createWorldsBeyondLeaderHealCommand,
@@ -129,7 +134,7 @@ function resolveRandomBuffReaction(session, playerIndex, source, spec) {
   if (!target || (!spec.attack && !spec.defense)) return false;
 
   target.attack = currentAttack(target) + spec.attack;
-  target.maxDefense = currentMaxDefense(target) + spec.defense;
+  target.maxDefense = currentMaxDefenseIgnoringDamage(target) + spec.defense;
   target.defense = currentDefense(target) + spec.defense;
   session.emit(BATTLE_EVENT.FOLLOWER_BUFF, {
     actor: playerIndex,
@@ -170,10 +175,6 @@ function emitDiscardAbility(session, playerIndex, source, spec, {
 function discardReactionParagraph(textValue) {
   const match = String(textValue ?? "").match(DISCARD_PARAGRAPH);
   return match?.[1]?.trim().replace(/\s+/g, " ") ?? "";
-}
-
-function currentMaxDefense(instance) {
-  return Number(instance.maxDefense ?? (Number(instance.card?.defense ?? 0) + Number(instance.defenseBonus ?? 0)));
 }
 
 function normalize(value) {
