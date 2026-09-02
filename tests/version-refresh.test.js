@@ -46,12 +46,14 @@ test("version refresh snapshots only structurally valid deck data and never chan
   assert.match(deckSession, /loadSavedDeck/);
 });
 
-test("service worker rotates versioned same-origin caches", () => {
+test("service worker rotates versioned caches and refreshes mutable API JSON", () => {
   assert.match(serviceWorker, /shadowbattle-app-/);
   assert.match(serviceWorker, /skipWaiting/);
   assert.match(serviceWorker, /clients\.claim/);
   assert.match(serviceWorker, /networkFirst/);
   assert.match(serviceWorker, /cacheFirst/);
+  assert.match(serviceWorker, /mutableApiJson/);
+  assert.match(serviceWorker, /request\.cache\s*===\s*"no-store"/);
 });
 
 test("deck page uses official Portal class assets and staged card art loading", () => {
