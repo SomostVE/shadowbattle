@@ -34,22 +34,26 @@ test("all main pages load the automatic version guard", () => {
   assert.match(versionGuard, /\.hub-version/);
 });
 
-test("version refresh snapshots deck data and never changes the deck storage namespace", () => {
+test("version refresh snapshots only structurally valid deck data and never changes the deck storage namespace", () => {
   assert.match(versionGuard, /shadowbattle:decks:v1/);
   assert.match(versionGuard, /shadowbattle:decks:backup:v1/);
   assert.match(versionGuard, /snapshotDeckData/);
+  assert.match(versionGuard, /isValidDeckLibraryJson/);
+  assert.match(versionGuard, /schemaVersion\s*===\s*1/);
   assert.doesNotMatch(versionGuard, /removeItem\(DECK_KEY\)/);
   assert.match(deckSession, /shadowbattle:deck-drafts:v1/);
   assert.match(deckSession, /activeDeckId/);
   assert.match(deckSession, /loadSavedDeck/);
 });
 
-test("service worker rotates versioned same-origin caches", () => {
+test("service worker rotates versioned caches and refreshes mutable API JSON", () => {
   assert.match(serviceWorker, /shadowbattle-app-/);
   assert.match(serviceWorker, /skipWaiting/);
   assert.match(serviceWorker, /clients\.claim/);
   assert.match(serviceWorker, /networkFirst/);
   assert.match(serviceWorker, /cacheFirst/);
+  assert.match(serviceWorker, /mutableApiJson/);
+  assert.match(serviceWorker, /request\.cache\s*===\s*"no-store"/);
 });
 
 test("deck page uses official Portal class assets and staged card art loading", () => {

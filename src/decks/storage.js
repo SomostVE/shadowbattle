@@ -24,9 +24,9 @@ export function normalizeEntries(entries) {
   for (const entry of entries ?? []) {
     const tuple = Array.isArray(entry) ? entry : [entry?.id ?? entry?.cardId, entry?.quantity ?? entry?.count];
     const id = Number(tuple[0]);
-    const quantity = Number(tuple[1]);
+    const quantity = Math.floor(Number(tuple[1]));
     if (!Number.isFinite(id) || id <= 0 || !Number.isFinite(quantity) || quantity <= 0) continue;
-    merged.set(id, (merged.get(id) ?? 0) + Math.floor(quantity));
+    merged.set(id, (merged.get(id) ?? 0) + quantity);
   }
   return [...merged.entries()].sort((a, b) => a[0] - b[0]);
 }
@@ -89,25 +89,56 @@ export function normalizeDeckLibrary(value) {
 function parseLibrary(raw) {
   if (!raw) return null;
   try {
-    return normalizeDeckLibrary(JSON.parse(raw));
+    const value = JSON.parse(raw);
+    if (!isLibraryPayload(value)) return null;
+    return normalizeDeckLibrary(value);
   } catch {
     return null;
+  }
+}
+
+function isLibraryPayload(value) {
+  return Boolean(
+    value &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    value.schemaVersion === 1 &&
+    value.games &&
+    typeof value.games === "object" &&
+    !Array.isArray(value.games)
+  );
+}
+
+function readStorage(storage, key) {
+  try {
+    return storage?.getItem?.(key) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStorage(storage, key, value) {
+  try {
+    storage?.setItem?.(key, value);
+    return true;
+  } catch {
+    return false;
   }
 }
 
 export function loadDeckLibrary(storage = globalThis.localStorage) {
   if (!storage) return emptyDeckLibrary();
 
-  const primaryRaw = storage.getItem(SHADOWBATTLE_DECK_STORAGE_KEY);
+  const primaryRaw = readStorage(storage, SHADOWBATTLE_DECK_STORAGE_KEY);
   const primary = parseLibrary(primaryRaw);
   if (primary) return primary;
 
   // Recover only when the primary value is absent/corrupt. App version bumps
   // never intentionally clear or replace the user's deck storage key.
-  const backupRaw = storage.getItem(SHADOWBATTLE_DECK_BACKUP_KEY);
+  const backupRaw = readStorage(storage, SHADOWBATTLE_DECK_BACKUP_KEY);
   const backup = parseLibrary(backupRaw);
   if (backup) {
-    storage.setItem(SHADOWBATTLE_DECK_STORAGE_KEY, JSON.stringify(backup));
+    writeStorage(storage, SHADOWBATTLE_DECK_STORAGE_KEY, JSON.stringify(backup));
     return backup;
   }
 
@@ -120,9 +151,9 @@ export function saveDeckLibrary(library, storage = globalThis.localStorage) {
 
   // Keep the last valid library as a recovery point before replacing the
   // primary value. This is deliberately independent from ShadowBattle version.
-  const previous = storage.getItem(SHADOWBATTLE_DECK_STORAGE_KEY);
-  if (parseLibrary(previous)) storage.setItem(SHADOWBATTLE_DECK_BACKUP_KEY, previous);
-  storage.setItem(SHADOWBATTLE_DECK_STORAGE_KEY, JSON.stringify(normalized));
+  const previous = readStorage(storage, SHADOWBATTLE_DECK_STORAGE_KEY);
+  if (parseLibrary(previous)) writeStorage(storage, SHADOWBATTLE_DECK_BACKUP_KEY, previous);
+  writeStorage(storage, SHADOWBATTLE_DECK_STORAGE_KEY, JSON.stringify(normalized));
   return normalized;
 }
 

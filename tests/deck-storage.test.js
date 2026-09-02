@@ -8,6 +8,7 @@ import {
   emptyDeckLibrary,
   listDecks,
   loadDeckLibrary,
+  normalizeEntries,
   saveDeckLibrary,
   upsertDeck
 } from "../src/decks/storage.js";
@@ -66,6 +67,35 @@ test("a corrupt primary deck value recovers from the local backup", () => {
   const recovered = loadDeckLibrary(storage);
   assert.equal(recovered.games[GAME_IDS.CHAMPIONS_BATTLE].decks["recover-me"].entries[0][1], 3);
   assert.doesNotThrow(() => JSON.parse(storage.getItem(SHADOWBATTLE_DECK_STORAGE_KEY)));
+});
+
+test("a structurally invalid primary deck value does not suppress a valid backup", () => {
+  const storage = fakeStorage();
+  const library = upsertDeck(emptyDeckLibrary(), createDeckRecord({
+    id: "recover-structure",
+    gameId: GAME_IDS.SHADOWVERSE_CCG,
+    name: "Recovered",
+    craft: "Forestcraft",
+    entries: [[3001, 3]]
+  }));
+  storage.setItem(SHADOWBATTLE_DECK_BACKUP_KEY, JSON.stringify(library));
+  storage.setItem(SHADOWBATTLE_DECK_STORAGE_KEY, JSON.stringify({ unrelated: true }));
+
+  const recovered = loadDeckLibrary(storage);
+  assert.equal(recovered.games[GAME_IDS.SHADOWVERSE_CCG].decks["recover-structure"].name, "Recovered");
+});
+
+test("deck entry normalization removes non-positive integer quantities after flooring", () => {
+  assert.deepEqual(normalizeEntries([[1, 0.5], [2, 1.9], [3, -1], [4, "2"]]), [[2, 1], [4, 2]]);
+});
+
+test("storage access failures do not crash deck library recovery", () => {
+  const storage = {
+    getItem() { throw new Error("blocked"); },
+    setItem() { throw new Error("blocked"); }
+  };
+  assert.doesNotThrow(() => loadDeckLibrary(storage));
+  assert.doesNotThrow(() => saveDeckLibrary(emptyDeckLibrary(), storage));
 });
 
 test("OG and Champion's Battle use 40 cards and max three copies", () => {

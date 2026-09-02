@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
     paths:
+      - api/v1/shadowverse-ccg/cards.json
       - scripts/build-deck-catalogs.mjs
       - .github/workflows/build-deck-catalogs.yml
   workflow_dispatch:

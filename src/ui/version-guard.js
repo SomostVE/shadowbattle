@@ -66,33 +66,34 @@ function updateVersionLabels(version) {
 
 function snapshotDeckData() {
   const raw = localStorage.getItem(DECK_KEY);
-  if (!raw) return;
-  try {
-    JSON.parse(raw);
-    localStorage.setItem(DECK_BACKUP_KEY, raw);
-  } catch {
-    // Never replace a known-good backup with corrupt data.
-  }
+  if (!isValidDeckLibraryJson(raw)) return;
+  localStorage.setItem(DECK_BACKUP_KEY, raw);
 }
 
 function restoreDeckBackupIfNeeded() {
   const primary = localStorage.getItem(DECK_KEY);
-  if (primary) {
-    try {
-      JSON.parse(primary);
-      return;
-    } catch {
-      // Try the backup below.
-    }
-  }
+  if (isValidDeckLibraryJson(primary)) return;
 
   const backup = localStorage.getItem(DECK_BACKUP_KEY);
-  if (!backup) return;
+  if (!isValidDeckLibraryJson(backup)) return;
+  localStorage.setItem(DECK_KEY, backup);
+}
+
+function isValidDeckLibraryJson(raw) {
+  if (!raw) return false;
   try {
-    JSON.parse(backup);
-    localStorage.setItem(DECK_KEY, backup);
+    const value = JSON.parse(raw);
+    return Boolean(
+      value &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      value.schemaVersion === 1 &&
+      value.games &&
+      typeof value.games === "object" &&
+      !Array.isArray(value.games)
+    );
   } catch {
-    // Leave both values untouched if neither is valid JSON.
+    return false;
   }
 }
 
