@@ -1,5 +1,6 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
 import { resolveEffectCommands } from "../../effect-commands.js";
+import { cardType, currentAttack, currentDefense } from "./runtime-card-state.js";
 import {
   createWorldsBeyondLeaderDamageCommand,
   createWorldsBeyondLeaderHealCommand,
@@ -171,20 +172,8 @@ function discardReactionParagraph(textValue) {
   return match?.[1]?.trim().replace(/\s+/g, " ") ?? "";
 }
 
-function currentAttack(instance) {
-  return Number(instance.attack ?? (Number(instance.card?.attack ?? 0) + Number(instance.attackBonus ?? 0)));
-}
-
-function currentDefense(instance) {
-  return Number(instance.defense ?? (Number(instance.card?.defense ?? 0) + Number(instance.defenseBonus ?? 0)));
-}
-
 function currentMaxDefense(instance) {
   return Number(instance.maxDefense ?? (Number(instance.card?.defense ?? 0) + Number(instance.defenseBonus ?? 0)));
-}
-
-function cardType(instance) {
-  return String(instance?.card?.type ?? instance?.type ?? "").trim().toLowerCase();
 }
 
 function normalize(value) {
