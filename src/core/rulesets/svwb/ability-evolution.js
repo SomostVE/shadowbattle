@@ -1,4 +1,10 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
+import {
+  currentAttack,
+  currentDefense,
+  currentMaxDefense,
+  effectiveCardType
+} from "./runtime-card-state.js";
 
 export function evolveWorldsBeyondFollowerByAbility(session, playerIndex, source) {
   return evolveFollowerByAbility(session, playerIndex, source, false);
@@ -11,7 +17,7 @@ export function superEvolveWorldsBeyondFollowerByAbility(session, playerIndex, s
 function evolveFollowerByAbility(session, playerIndex, source, superEvolution) {
   if (!session || (playerIndex !== 0 && playerIndex !== 1) || !source?.instanceId) return false;
   const follower = session.findBoardCard(playerIndex, source.instanceId);
-  if (!follower || cardType(follower) !== "follower" || follower.evolved) return false;
+  if (!follower || effectiveCardType(follower) !== "follower" || follower.evolved) return false;
 
   const bonus = superEvolution ? 3 : 2;
   follower.attack = currentAttack(follower) + bonus;
@@ -34,20 +40,4 @@ function evolveFollowerByAbility(session, playerIndex, source, superEvolution) {
   });
 
   return true;
-}
-
-function currentAttack(instance) {
-  return Number(instance?.attack ?? (Number(instance?.card?.attack ?? 0) + Number(instance?.attackBonus ?? 0)));
-}
-
-function currentDefense(instance) {
-  return Number(instance?.defense ?? (Number(instance?.card?.defense ?? 0) + Number(instance?.defenseBonus ?? 0)));
-}
-
-function currentMaxDefense(instance) {
-  return Number(instance?.maxDefense ?? currentDefense(instance));
-}
-
-function cardType(instance) {
-  return String(instance?.typeOverride ?? instance?.card?.type ?? instance?.type ?? "").trim().toLowerCase();
 }

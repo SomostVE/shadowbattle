@@ -7,6 +7,7 @@ import {
   hasWorldsBeyondKeyword,
   refreshWorldsBeyondAttackReadiness
 } from "./combat-readiness.js";
+import { cardType, currentAttack } from "./runtime-card-state.js";
 
 const ATTACK_ACTION = "attack";
 
@@ -163,12 +164,4 @@ function healFromDrain(session, playerIndex, amount, source) {
       reason: "drain"
     }
   });
-}
-
-function currentAttack(instance) {
-  return Number(instance?.attack ?? (Number(instance?.card?.attack ?? 0) + Number(instance?.attackBonus ?? 0)));
-}
-
-function cardType(instance) {
-  return String(instance?.card?.type ?? instance?.type ?? "").trim().toLowerCase();
 }

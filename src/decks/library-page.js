@@ -36,6 +36,7 @@ const VIAL_COSTS_BY_GAME = Object.freeze({
   "champions-battle": Object.freeze({ Bronze: 50, Silver: 200, Gold: 800, Legendary: 3500 }),
   "worlds-beyond": Object.freeze({ Bronze: 50, Silver: 90, Gold: 750, Legendary: 3500 })
 });
+const VIAL_COST_FIELDS = Object.freeze(["vialCost", "craftVials", "createCost", "craftCost"]);
 const CLASS_ASSET = "https://shadowverse-portal.com/public/assets/image/cards/en/classes";
 const WB_CLASS_ASSETS = Object.freeze({
   Forestcraft: "https://shadowverse-wb.com/assets/images/common/common/class/class_elf.svg",
@@ -48,6 +49,8 @@ const WB_CLASS_ASSETS = Object.freeze({
   Neutral: "https://shadowverse-wb.com/assets/images/common/common/class/class_neutral.svg"
 });
 const BEYOND_DECKS_URL = "https://somostve.github.io/beyond_decks/";
+const DATE_FORMATTER = new Intl.DateTimeFormat(undefined, { year: "numeric", month: "short", day: "2-digit" });
+const VIAL_FORMATTER = new Intl.NumberFormat("en-US");
 
 const els = {
   game: document.getElementById("library-game-filter"),
@@ -64,10 +67,11 @@ const els = {
 
 let library = loadDeckLibrary();
 let gameFilter = "all";
-let catalogMaps = new Map();
+const catalogMaps = new Map();
 let beyondDecks = [];
 let cpuDecks = [];
 let models = [];
+let renderFrame = 0;
 
 init();
 
@@ -89,8 +93,9 @@ function bindEvents() {
     render();
   });
 
-  for (const control of [els.search, els.craft, els.legendary, els.vials, els.sort]) {
-    control.addEventListener(control === els.search ? "input" : "change", render);
+  els.search.addEventListener("input", scheduleRender);
+  for (const control of [els.craft, els.legendary, els.vials, els.sort]) {
+    control.addEventListener("change", render);
   }
 
   els.reset.addEventListener("click", resetFilters);
@@ -105,6 +110,12 @@ function bindEvents() {
     if (button.dataset.preset === "budget-40k") els.vials.value = "40000";
     render();
   });
+
+  els.grid.addEventListener("error", event => {
+    const image = event.target;
+    if (!image?.matches?.("img[data-library-art]")) return;
+    advanceLibraryImageArt(image);
+  }, true);
 
   els.grid.addEventListener("click", event => {
     const remove = event.target.closest("[data-delete-deck]");
@@ -129,19 +140,24 @@ function bindEvents() {
   });
 }
 
+function scheduleRender() {
+  if (renderFrame) return;
+  renderFrame = window.requestAnimationFrame(() => {
+    renderFrame = 0;
+    render();
+  });
+}
+
 async function loadGameCatalog(gameId) {
   try {
-    if (gameId === "worlds-beyond") {
-      const cards = await worldsBeyondProvider.loadCards();
-      catalogMaps.set(gameId, new Map(cards.map(card => {
-        const normalized = normalizeLibraryCard(card, gameId);
-        return [Number(normalized.id), normalized];
-      })));
-      return;
-    }
+    const cards = gameId === "worlds-beyond"
+      ? await worldsBeyondProvider.loadCards()
+      : (await loadDeckCatalog(gameId)).cards ?? [];
 
-    const payload = await loadDeckCatalog(gameId);
-    catalogMaps.set(gameId, new Map((payload.cards ?? []).map(card => [Number(card.id), normalizeLibraryCard(card, gameId)])));
+    catalogMaps.set(gameId, new Map(cards.map(card => {
+      const normalized = normalizeLibraryCard(card, gameId);
+      return [normalized.id, normalized];
+    })));
   } catch {
     catalogMaps.set(gameId, new Map());
   }
@@ -181,20 +197,30 @@ async function readCpuReferenceDecks() {
     const response = await fetch("../api/v1/worlds-beyond/bot-decks.json", { cache: "force-cache" });
     if (!response.ok) return [];
     const payload = await response.json();
-    return (payload.decks ?? []).map(deck => ({
-      schemaVersion: 1,
-      id: `cpu:${deck.id}`,
-      gameId: "worlds-beyond",
-      name: deck.name,
-      craft: deck.class ?? null,
-      format: deck.format ?? "Unlimited",
-      entries: (deck.cards ?? []).map(card => [Number(card.cardId), Number(card.qty) || 0]),
-      embeddedCards: (deck.cards ?? []).map(card => normalizeLibraryCard({ ...card, id: card.cardId, craft: deck.class }, "worlds-beyond")),
-      source: "shadowbattle-cpu-reference",
-      sourceUrl: deck.sourceUrl ?? null,
-      savedAt: payload.generatedAt ?? new Date(0).toISOString(),
-      origin: "cpu"
-    }));
+    return (payload.decks ?? []).map(deck => {
+      const entries = [];
+      const embeddedCards = [];
+      for (const card of deck.cards ?? []) {
+        const id = Number(card.cardId);
+        entries.push([id, Number(card.qty) || 0]);
+        embeddedCards.push(normalizeLibraryCard({ ...card, id, craft: deck.class }, "worlds-beyond"));
+      }
+
+      return {
+        schemaVersion: 1,
+        id: `cpu:${deck.id}`,
+        gameId: "worlds-beyond",
+        name: deck.name,
+        craft: deck.class ?? null,
+        format: deck.format ?? "Unlimited",
+        entries,
+        embeddedCards,
+        source: "shadowbattle-cpu-reference",
+        sourceUrl: deck.sourceUrl ?? null,
+        savedAt: payload.generatedAt ?? new Date(0).toISOString(),
+        origin: "cpu"
+      };
+    });
   } catch {
     return [];
   }
@@ -215,75 +241,83 @@ function rebuildModels() {
 function buildModel(deck, origin = "local") {
   const map = catalogMaps.get(deck.gameId) ?? new Map();
   const embedded = new Map((deck.embeddedCards ?? []).map(card => [Number(card.id), card]));
-  const cards = (deck.entries ?? []).map(([id, quantity]) => ({
-    card: map.get(Number(id)) ?? embedded.get(Number(id)),
-    quantity: Number(quantity) || 0
-  }));
   let size = 0;
   let legendary = 0;
   let vialCost = 0;
-  const uniqueCards = [];
+  let uniqueCardCount = 0;
+  const thumbs = [];
 
-  for (const { card, quantity } of cards) {
+  for (const [id, rawQuantity] of deck.entries ?? []) {
+    const quantity = Number(rawQuantity) || 0;
     if (!quantity) continue;
+    const cardId = Number(id);
+    const card = map.get(cardId) ?? embedded.get(cardId);
     size += quantity;
     if (card?.rarity === "Legendary") legendary += quantity;
-    if (card) {
-      vialCost += getVialCost(card, deck.gameId) * quantity;
-      uniqueCards.push(card);
-    }
+    if (!card) continue;
+
+    vialCost += getVialCost(card, deck.gameId) * quantity;
+    uniqueCardCount += 1;
+    if (thumbs.length < 5) thumbs.push(card);
   }
 
+  const name = String(deck.name ?? "");
   return {
     deck,
     origin,
     size,
     legendary,
     vialCost,
-    uniqueCards
+    thumbs,
+    extraCardCount: Math.max(0, uniqueCardCount - thumbs.length),
+    searchName: name.toLowerCase(),
+    sortName: name,
+    savedAtKey: String(deck.savedAt ?? "")
   };
 }
 
 function getVialCost(card, gameId) {
   if (!card) return 0;
-  const explicit = [card.vialCost, card.craftVials, card.createCost, card.craftCost]
-    .map(Number)
-    .find(value => Number.isFinite(value) && value >= 0);
-  if (explicit != null) return explicit;
+  for (const field of VIAL_COST_FIELDS) {
+    const value = Number(card[field]);
+    if (Number.isFinite(value) && value >= 0) return value;
+  }
 
   if (String(card.set ?? "").trim().toLowerCase() === "basic" || Number(card.setId) === 10000 || card.deckSelectable === false) return 0;
   return VIAL_COSTS_BY_GAME[gameId]?.[card.rarity] ?? 0;
 }
 
 function render() {
+  if (renderFrame) {
+    window.cancelAnimationFrame(renderFrame);
+    renderFrame = 0;
+  }
+
   const needle = els.search.value.trim().toLowerCase();
   const craft = els.craft.value;
   const legendaryMax = numberOrNull(els.legendary.value);
   const vialMax = numberOrNull(els.vials.value);
 
-  let filtered = models.filter(model => {
+  const filtered = models.filter(model => {
     if (gameFilter !== "all" && model.deck.gameId !== gameFilter) return false;
     if (craft !== "all" && model.deck.craft !== craft) return false;
-    if (needle && !String(model.deck.name).toLowerCase().includes(needle)) return false;
+    if (needle && !model.searchName.includes(needle)) return false;
     if (legendaryMax != null && model.legendary > legendaryMax) return false;
     if (vialMax != null && model.vialCost > vialMax) return false;
     return true;
   });
 
-  filtered = filtered.sort(modelComparator(els.sort.value));
+  filtered.sort(modelComparator(els.sort.value));
   els.count.textContent = String(filtered.length);
   els.empty.hidden = filtered.length !== 0;
   els.grid.innerHTML = filtered.map(renderDeckCard).join("");
-  hydrateCardArtwork();
 }
 
 function renderDeckCard(model) {
-  const { deck, origin, size, vialCost, legendary, uniqueCards } = model;
+  const { deck, origin, size, vialCost, legendary, thumbs, extraCardCount } = model;
   const craft = deck.craft || "Unknown";
   const icon = classIconFor(deck.gameId, craft);
   const rgb = CRAFT_RGB[craft] ?? "114,184,255";
-  const thumbs = uniqueCards.slice(0, 5);
-  const extra = Math.max(0, uniqueCards.length - thumbs.length);
   const saved = origin === "cpu" ? "CPU reference" : origin === "beyond-decks" ? "Beyond Decks" : formatDate(deck.savedAt);
 
   return `<article class="lib-deck-card" style="--craft-rgb:${rgb}">
@@ -303,14 +337,20 @@ function renderDeckCard(model) {
     </div>
 
     <div class="lib-thumbs" aria-label="Deck card artwork">
-      ${thumbs.map(card => `<img data-library-art="${card.id}" data-library-game="${escapeAttr(deck.gameId)}" alt="${escapeAttr(card.name)}" title="${escapeAttr(card.name)}" loading="lazy" referrerpolicy="no-referrer">`).join("")}
-      ${extra ? `<span class="lib-more">+${extra}</span>` : ""}
+      ${thumbs.map(card => renderCardThumb(card, deck.gameId)).join("")}
+      ${extraCardCount ? `<span class="lib-more">+${extraCardCount}</span>` : ""}
     </div>
 
     <div class="lib-deck-actions">
       ${renderDeckActions(model)}
     </div>
   </article>`;
+}
+
+function renderCardThumb(card, gameId) {
+  const firstSource = cardArtCandidates(card, gameId)[0];
+  const src = firstSource ? ` src="${escapeAttr(firstSource)}"` : "";
+  return `<img data-library-art="${card.id}" data-library-game="${escapeAttr(gameId)}" data-library-art-index="0"${src} alt="${escapeAttr(card.name)}" title="${escapeAttr(card.name)}" loading="lazy" referrerpolicy="no-referrer">`;
 }
 
 function renderDeckActions(model) {
@@ -332,12 +372,24 @@ function renderDeckActions(model) {
   return `${open}<button type="button" data-delete-deck="${escapeAttr(deck.id)}" data-game-id="${escapeAttr(deck.gameId)}">Delete</button>`;
 }
 
-function hydrateCardArtwork() {
-  els.grid.querySelectorAll("img[data-library-art]").forEach(image => {
-    const gameId = image.dataset.libraryGame;
-    const card = catalogMaps.get(gameId)?.get(Number(image.dataset.libraryArt));
-      if (card) setLibraryImageArt(image, card, gameId);
-  });
+function advanceLibraryImageArt(image) {
+  const gameId = image.dataset.libraryGame;
+  const card = catalogMaps.get(gameId)?.get(Number(image.dataset.libraryArt));
+  if (!card) return markLibraryArtMissing(image);
+
+  const candidates = cardArtCandidates(card, gameId);
+  const nextIndex = (Number(image.dataset.libraryArtIndex) || 0) + 1;
+  if (nextIndex < candidates.length) {
+    image.dataset.libraryArtIndex = String(nextIndex);
+    image.src = candidates[nextIndex];
+    return;
+  }
+  markLibraryArtMissing(image);
+}
+
+function markLibraryArtMissing(image) {
+  image.removeAttribute("src");
+  image.classList.add("art-missing");
 }
 
 function cardArtCandidates(card, gameId) {
@@ -363,23 +415,6 @@ function normalizeAssetUrl(value, gameId) {
   } catch {
     return null;
   }
-}
-
-function setLibraryImageArt(image, card, gameId) {
-  const candidates = cardArtCandidates(card, gameId);
-  let index = 0;
-  image.classList.remove("art-missing");
-  image.onerror = () => {
-    index += 1;
-    if (index < candidates.length) {
-      image.src = candidates[index];
-      return;
-    }
-    image.onerror = null;
-    image.removeAttribute("src");
-    image.classList.add("art-missing");
-  };
-  if (candidates[0]) image.src = candidates[0];
 }
 
 function classIconFor(gameId, craft) {
@@ -409,10 +444,10 @@ function resetFilters(renderAfter = true) {
 }
 
 function modelComparator(sort) {
-  if (sort === "name") return (a, b) => String(a.deck.name).localeCompare(String(b.deck.name));
-  if (sort === "legendary") return (a, b) => b.legendary - a.legendary || String(a.deck.name).localeCompare(String(b.deck.name));
-  if (sort === "vials") return (a, b) => a.vialCost - b.vialCost || String(a.deck.name).localeCompare(String(b.deck.name));
-  return (a, b) => String(b.deck.savedAt ?? "").localeCompare(String(a.deck.savedAt ?? ""));
+  if (sort === "name") return (a, b) => a.sortName.localeCompare(b.sortName);
+  if (sort === "legendary") return (a, b) => b.legendary - a.legendary || a.sortName.localeCompare(b.sortName);
+  if (sort === "vials") return (a, b) => a.vialCost - b.vialCost || a.sortName.localeCompare(b.sortName);
+  return (a, b) => b.savedAtKey.localeCompare(a.savedAtKey);
 }
 
 function deckSignature(deck) {
@@ -434,13 +469,13 @@ function numberOrNull(value) {
 }
 
 function formatVials(value) {
-  return Number(value || 0).toLocaleString("en-US");
+  return VIAL_FORMATTER.format(Number(value || 0));
 }
 
 function formatDate(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "Saved locally";
-  return new Intl.DateTimeFormat(undefined, { year: "numeric", month: "short", day: "2-digit" }).format(date);
+  return DATE_FORMATTER.format(date);
 }
 
 function escapeHtml(value) {
