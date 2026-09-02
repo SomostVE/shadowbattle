@@ -27,6 +27,9 @@ export async function loadDeckCatalog(gameId) {
     const payload = await response.json();
     if (!Array.isArray(payload.cards)) throw new Error(`${gameId} catalog is missing cards`);
     return payload;
+  }).catch(error => {
+    cache.delete(gameId);
+    throw error;
   });
   cache.set(gameId, promise);
   return promise;
@@ -60,6 +63,9 @@ export async function loadDeckReferenceCards(gameId) {
       .map(card => compactReferenceCard(card, gameId, namespace));
 
     return [...deckCards.map(card => ({ ...card, deckSelectable: true })), ...references];
+  }).catch(error => {
+    referenceCache.delete(gameId);
+    throw error;
   });
 
   referenceCache.set(gameId, promise);
