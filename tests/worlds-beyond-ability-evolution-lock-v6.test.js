@@ -77,3 +77,25 @@ test("ability Evo and Super Evo preserve a permanent Himeka-style attack lock", 
   assert.equal(superEvolved.canAttackLeader, false);
   assert.equal(superEvolved.permanentAttackLock, true);
 });
+
+test("manual Evo and Super Evo preserve a permanent Himeka-style attack lock", () => {
+  for (const [type, bonus, availabilityKey, pointsKey] of [
+    ["evolve", 2, "evolutionAvailable", "evolutionPoints"],
+    ["super-evolve", 3, "superEvolutionAvailable", "superEvolutionPoints"]
+  ]) {
+    const game = readyGame();
+    const follower = forceLockedFollower(game, `manual-${type}`);
+    const player = game.players[0];
+    player.resources[availabilityKey] = true;
+    player.resources[pointsKey] = 2;
+
+    game.dispatch({ type, player: 0, followerInstanceId: follower.instanceId });
+
+    assert.equal(follower.evolved, true);
+    assert.equal(follower.superEvolved, type === "super-evolve");
+    assert.equal(follower.attack, 2 + bonus);
+    assert.equal(follower.canAttackFollowers, false);
+    assert.equal(follower.canAttackLeader, false);
+    assert.equal(follower.permanentAttackLock, true);
+  }
+});
