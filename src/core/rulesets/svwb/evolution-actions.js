@@ -84,7 +84,7 @@ export function applyWorldsBeyondEvolutionAction(session, action) {
   follower.evolved = true;
   follower.superEvolved = superEvolution;
   follower.imageOverride = follower.card?.evolved?.image ?? follower.imageOverride ?? null;
-  if (Number(follower.attacksRemaining ?? 0) > 0) follower.canAttackFollowers = true;
+  if (!follower.permanentAttackLock && Number(follower.attacksRemaining ?? 0) > 0) follower.canAttackFollowers = true;
   player.resources[pointsKey] -= 1;
   player.evolutionActionUsed = true;
 
