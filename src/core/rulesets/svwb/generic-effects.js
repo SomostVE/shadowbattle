@@ -1,5 +1,6 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
 import { resolveEffectCommands } from "../../effect-commands.js";
+import { currentAttack, currentDefense, currentMaxDefense, effectiveCardType } from "./runtime-card-state.js";
 import {
   LIVE_ALL_FOLLOWER_COUNT_DAMAGE,
   resolveWorldsBeyondAllFollowersCountDamage
@@ -479,7 +480,7 @@ export function resolveWorldsBeyondRandomEnemyFollowerDamage(session, {
 } = {}) {
   const enemyIndex = 1 - playerIndex;
   const candidates = session.getPlayer(enemyIndex).board
-    .filter(unit => cardType(unit) === "follower")
+    .filter(unit => effectiveCardType(unit) === "follower")
     .map(unit => unit.instanceId);
   const targetIds = [];
   let remaining = Math.min(Math.max(0, Number(count) || 0), candidates.length);
@@ -523,7 +524,7 @@ export function resolveWorldsBeyondSplitEnemyFollowerDamage(session, {
   if (!remaining) return false;
   const enemyIndex = 1 - playerIndex;
   const targetIds = session.getPlayer(enemyIndex).board
-    .filter(unit => cardType(unit) === "follower")
+    .filter(unit => effectiveCardType(unit) === "follower")
     .map(unit => unit.instanceId);
   let applied = false;
 
@@ -566,7 +567,7 @@ export function resolveWorldsBeyondSplitAllEnemiesDamage(session, {
   let applied = false;
 
   while (remaining > 0 && session.phase !== "ended") {
-    const followers = session.getPlayer(enemyIndex).board.filter(unit => cardType(unit) === "follower");
+    const followers = session.getPlayer(enemyIndex).board.filter(unit => effectiveCardType(unit) === "follower");
     const pick = Math.floor(session.rng() * (followers.length + 1));
     if (pick >= followers.length) {
       session.damageLeader(enemyIndex, 1, { actor: playerIndex, source, reason });
@@ -599,7 +600,7 @@ function damageOpposingFollower(session, playerIndex, source, instanceId, amount
   if (!instanceId) return false;
   const enemyIndex = 1 - playerIndex;
   const target = session.findBoardCard(enemyIndex, instanceId);
-  if (!target || cardType(target) !== "follower") return false;
+  if (!target || effectiveCardType(target) !== "follower") return false;
   const damage = Math.max(0, Number(amount) || 0);
   session.damageFollower(enemyIndex, target.instanceId, damage, {
     actor: playerIndex,
@@ -623,7 +624,7 @@ function destroyDamagedOpposingFollower(session, playerIndex, source, instanceId
   if (!instanceId) return false;
   const enemyIndex = 1 - playerIndex;
   const target = session.findBoardCard(enemyIndex, instanceId);
-  if (!target || cardType(target) !== "follower") return false;
+  if (!target || effectiveCardType(target) !== "follower") return false;
   if (currentDefense(target) >= currentMaxDefense(target)) return false;
   return Boolean(destroyFollower?.(session, enemyIndex, target.instanceId, {
     actor: playerIndex,
@@ -638,7 +639,7 @@ function destroyOpposingFollower(session, playerIndex, source, instanceId, destr
   if (!instanceId) return false;
   const enemyIndex = 1 - playerIndex;
   const target = session.findBoardCard(enemyIndex, instanceId);
-  if (!target || cardType(target) !== "follower") return false;
+  if (!target || effectiveCardType(target) !== "follower") return false;
   return Boolean(destroyFollower?.(session, enemyIndex, target.instanceId, {
     actor: playerIndex,
     source,
@@ -655,7 +656,7 @@ function damageAllOtherFollowers(session, playerIndex, source, amount, destroyFo
   const targets = [];
   for (const owner of [0, 1]) {
     for (const unit of session.getPlayer(owner).board) {
-      if (cardType(unit) !== "follower" || unit.instanceId === sourceInstanceId) continue;
+      if (effectiveCardType(unit) !== "follower" || unit.instanceId === sourceInstanceId) continue;
       targets.push({ owner, instanceId: unit.instanceId });
     }
   }
@@ -688,11 +689,11 @@ function damageAllOtherFollowers(session, playerIndex, source, amount, destroyFo
 
 function damageEnemyFollowersByAlliedGolemCount(session, playerIndex, source, destroyFollower) {
   const alliedGolems = session.getPlayer(playerIndex).board.filter(unit =>
-    cardType(unit) === "follower" && hasCardTrait(unit, "Golem")
+    effectiveCardType(unit) === "follower" && hasCardTrait(unit, "Golem")
   ).length;
   const enemyIndex = 1 - playerIndex;
   const targetIds = session.getPlayer(enemyIndex).board
-    .filter(unit => cardType(unit) === "follower")
+    .filter(unit => effectiveCardType(unit) === "follower")
     .map(unit => unit.instanceId);
   let applied = false;
 
@@ -738,7 +739,7 @@ function healLeaderByLiveHandSize(session, playerIndex, source) {
 
 function evolveAllAlliedFollowersByAbility(session, playerIndex) {
   const instanceIds = session.getPlayer(playerIndex).board
-    .filter(unit => cardType(unit) === "follower" && !unit.evolved)
+    .filter(unit => effectiveCardType(unit) === "follower" && !unit.evolved)
     .map(unit => unit.instanceId);
   let applied = false;
   for (const instanceId of instanceIds) {
@@ -751,7 +752,7 @@ function evolveAllAlliedFollowersByAbility(session, playerIndex) {
 
 function evolveRandomAlliedFollowerByAbility(session, playerIndex, source, effect) {
   const candidates = session.getPlayer(playerIndex).board.filter(unit => {
-    if (cardType(unit) !== "follower" || unit.evolved) return false;
+    if (effectiveCardType(unit) !== "follower" || unit.evolved) return false;
     if (effect.excludeSource && unit.instanceId === source?.instanceId) return false;
     if (effect.requireWard && !hasWorldsBeyondKeyword(unit, "Ward")) return false;
     if (effect.minBaseCost != null && Number(unit.card?.cost ?? unit.cost ?? 0) < Number(effect.minBaseCost)) return false;
@@ -791,7 +792,7 @@ function evolveRandomAlliedFollowerByAbility(session, playerIndex, source, effec
 function buffRandomAlliedFollower(session, playerIndex, source, effect) {
   const requiredName = String(effect.requiredName ?? "").trim().toLowerCase();
   const candidates = session.getPlayer(playerIndex).board.filter(unit => {
-    if (cardType(unit) !== "follower") return false;
+    if (effectiveCardType(unit) !== "follower") return false;
     if (requiredName && cardName(unit) !== requiredName) return false;
     if (effect.requireSuperEvolved && !unit.superEvolved) return false;
     return true;
@@ -819,7 +820,7 @@ function buffRandomAlliedFollower(session, playerIndex, source, effect) {
 }
 
 function buffAlliedFollowers(session, playerIndex, source, effect) {
-  const followers = session.getPlayer(playerIndex).board.filter(unit => cardType(unit) === "follower");
+  const followers = session.getPlayer(playerIndex).board.filter(unit => effectiveCardType(unit) === "follower");
   let applied = false;
   for (const unit of followers) {
     if (effect.excludeSource && unit.instanceId === source?.instanceId) continue;
@@ -848,7 +849,7 @@ function buffAlliedFollowers(session, playerIndex, source, effect) {
 
 function grantAlliedKeyword(session, playerIndex, source, effect) {
   let applied = false;
-  for (const unit of session.getPlayer(playerIndex).board.filter(card => cardType(card) === "follower")) {
+  for (const unit of session.getPlayer(playerIndex).board.filter(card => effectiveCardType(card) === "follower")) {
     if (effect.excludeSource && unit.instanceId === source?.instanceId) continue;
     if (effect.requiredTrait && !hasCardTrait(unit, effect.requiredTrait)) continue;
     if (effect.requiredClass && cardClass(unit) !== String(effect.requiredClass).trim().toLowerCase()) continue;
@@ -865,14 +866,14 @@ function grantAlliedKeyword(session, playerIndex, source, effect) {
 
 function grantSelfAttackLimit(session, playerIndex, source, amount) {
   const follower = source?.instanceId ? session.findBoardCard(playerIndex, source.instanceId) : null;
-  if (!follower || cardType(follower) !== "follower") return false;
+  if (!follower || effectiveCardType(follower) !== "follower") return false;
   return grantWorldsBeyondAttackLimit(session, playerIndex, follower, amount);
 }
 
 function grantLeftmostAlliedAttackLimit(session, playerIndex, effect) {
   const wantedClass = String(effect.requiredClass ?? "").trim().toLowerCase();
   const follower = session.getPlayer(playerIndex).board.find(unit =>
-    cardType(unit) === "follower" && (!wantedClass || cardClass(unit) === wantedClass)
+    effectiveCardType(unit) === "follower" && (!wantedClass || cardClass(unit) === wantedClass)
   );
   if (!follower) return false;
   return grantWorldsBeyondAttackLimit(session, playerIndex, follower, effect.amount);
@@ -880,7 +881,7 @@ function grantLeftmostAlliedAttackLimit(session, playerIndex, effect) {
 
 function grantSelfBarrier(session, playerIndex, source) {
   const follower = source?.instanceId ? session.findBoardCard(playerIndex, source.instanceId) : null;
-  if (!follower || cardType(follower) !== "follower") return false;
+  if (!follower || effectiveCardType(follower) !== "follower") return false;
   const granted = grantWorldsBeyondKeyword(follower, "Barrier");
   if (!granted) return false;
   session.emit(BATTLE_EVENT.FOLLOWER_BUFF, {
@@ -938,7 +939,7 @@ function addGeneratedCardToHand(session, playerIndex, cardName) {
 function destroyRandomEnemyFollowers(session, playerIndex, source, count, destroyFollower) {
   const enemyIndex = 1 - playerIndex;
   const candidates = session.getPlayer(enemyIndex).board
-    .filter(unit => cardType(unit) === "follower")
+    .filter(unit => effectiveCardType(unit) === "follower")
     .map(unit => unit.instanceId);
   const targetIds = [];
   let remaining = Math.min(Math.max(0, Number(count) || 0), candidates.length);
@@ -1011,7 +1012,7 @@ function advanceNamedAlliedCountdowns(session, playerIndex, source, effect) {
   const amount = Math.max(0, Number(effect.amount) || 0);
   if (!wanted || !amount) return false;
   const targetIds = session.getPlayer(playerIndex).board
-    .filter(unit => cardName(unit) === wanted && cardType(unit) === "amulet" && unit.countdown != null && Number.isFinite(Number(unit.countdown)))
+    .filter(unit => cardName(unit) === wanted && effectiveCardType(unit) === "amulet" && unit.countdown != null && Number.isFinite(Number(unit.countdown)))
     .map(unit => unit.instanceId);
   let applied = false;
   for (const instanceId of targetIds) {
@@ -1027,7 +1028,7 @@ function delayRandomNamedAlliedCountdown(session, playerIndex, source, effect) {
   const amount = Math.max(0, Number(effect.amount) || 0);
   if (!wanted || !amount) return false;
   const candidates = session.getPlayer(playerIndex).board
-    .filter(unit => cardName(unit) === wanted && cardType(unit) === "amulet" && unit.countdown != null && Number.isFinite(Number(unit.countdown)));
+    .filter(unit => cardName(unit) === wanted && effectiveCardType(unit) === "amulet" && unit.countdown != null && Number.isFinite(Number(unit.countdown)));
   if (!candidates.length) return false;
   const target = candidates[Math.floor(session.rng() * candidates.length)] ?? candidates[0];
   const result = session.ruleset?.delayAmuletCountdown?.(session, { playerIndex, instanceId: target.instanceId, amount, source });
@@ -1036,7 +1037,7 @@ function delayRandomNamedAlliedCountdown(session, playerIndex, source, effect) {
 
 function delaySelfAmuletCountdown(session, playerIndex, source, amount) {
   const value = Math.max(0, Number(amount) || 0);
-  if (!source?.instanceId || cardType(source) !== "amulet" || !value) return false;
+  if (!source?.instanceId || effectiveCardType(source) !== "amulet" || !value) return false;
   const result = session.ruleset?.delayAmuletCountdown?.(session, { playerIndex, instanceId: source.instanceId, amount: value, source });
   return Boolean(result?.applied);
 }
@@ -1044,7 +1045,7 @@ function delaySelfAmuletCountdown(session, playerIndex, source, amount) {
 function destroyDamagedEnemyFollowers(session, playerIndex, source, destroyFollower) {
   const enemyIndex = 1 - playerIndex;
   const targetIds = session.getPlayer(enemyIndex).board
-    .filter(unit => cardType(unit) === "follower" && currentDefense(unit) < currentMaxDefense(unit))
+    .filter(unit => effectiveCardType(unit) === "follower" && currentDefense(unit) < currentMaxDefense(unit))
     .map(unit => unit.instanceId);
   let applied = false;
   for (const instanceId of targetIds) {
@@ -1064,7 +1065,7 @@ function destroyDamagedEnemyFollowers(session, playerIndex, source, destroyFollo
 
 function debuffEnemyFollowers(session, playerIndex, source, effect, destroyFollower) {
   const enemyIndex = 1 - playerIndex;
-  const targets = [...session.getPlayer(enemyIndex).board].filter(unit => cardType(unit) === "follower");
+  const targets = [...session.getPlayer(enemyIndex).board].filter(unit => effectiveCardType(unit) === "follower");
   if (!targets.length) return false;
 
   for (const unit of targets) {
@@ -1135,9 +1136,6 @@ function hasCardTrait(instance, traitName) {
   return (Array.isArray(traits) ? traits : [traits]).some(trait => String(trait ?? "").trim().toLowerCase() === target);
 }
 
-function cardType(instance) {
-  return String(instance?.typeOverride ?? instance?.card?.type ?? instance?.type ?? "").trim().toLowerCase();
-}
 
 function cardClass(instance) {
   return String(instance?.card?.class ?? instance?.class ?? "").trim().toLowerCase();
@@ -1147,17 +1145,8 @@ function cardName(instance) {
   return String(instance?.card?.name ?? instance?.name ?? "").trim().toLowerCase();
 }
 
-function currentAttack(instance) {
-  return Number(instance?.attack ?? (Number(instance?.card?.attack ?? 0) + Number(instance?.attackBonus ?? 0)));
-}
 
-function currentDefense(instance) {
-  return Number(instance?.defense ?? (Number(instance?.card?.defense ?? 0) + Number(instance?.defenseBonus ?? 0)));
-}
 
-function currentMaxDefense(instance) {
-  return Number(instance?.maxDefense ?? currentDefense(instance));
-}
 
 function numberWord(value) {
   if (/^\d+$/.test(String(value))) return Number(value);

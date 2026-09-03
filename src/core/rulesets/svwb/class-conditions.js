@@ -1,4 +1,5 @@
 import { hasWorldsBeyondKeyword } from "./combat-readiness.js";
+import { effectiveCardType } from "./runtime-card-state.js";
 import { countWorldsBeyondDifferentlyNamedArtifactEntries } from "./match-history.js";
 import { canUseClassMechanic } from "./v5/battle-class-mechanics.js";
 
@@ -359,13 +360,13 @@ function resolveStateCountVariable(text, player, source = null) {
       label: "Pixie followers in hand",
       pattern: /\bX is the number of Pixie followers in your hand\s*\.?/i,
       blocked: prefixMutatesHand,
-      count: () => (player?.hand ?? []).filter(item => cardType(item) === "follower" && hasCardTrait(item, "Pixie")).length
+      count: () => (player?.hand ?? []).filter(item => effectiveCardType(item) === "follower" && hasCardTrait(item, "Pixie")).length
     },
     {
       label: "amulets in hand",
       pattern: /\bX is the number of amulets in your hand\s*\.?/i,
       blocked: prefixMutatesHand,
-      count: () => (player?.hand ?? []).filter(item => cardType(item) === "amulet").length
+      count: () => (player?.hand ?? []).filter(item => effectiveCardType(item) === "amulet").length
     },
     {
       label: "cards in hand",
@@ -422,7 +423,7 @@ function prefixMutatesEarthSigils(prefix) {
 
 function countAlliedFollowers(player, predicate = null, excludeInstanceId = null) {
   return (player?.board ?? []).filter(item =>
-    cardType(item) === "follower"
+    effectiveCardType(item) === "follower"
     && item?.instanceId !== excludeInstanceId
     && (!predicate || predicate(item))
   ).length;
@@ -433,7 +434,7 @@ function baseCardCost(instance) {
 }
 
 function countAlliedAmulets(player) {
-  return (player?.board ?? []).filter(item => cardType(item) === "amulet").length;
+  return (player?.board ?? []).filter(item => effectiveCardType(item) === "amulet").length;
 }
 
 function deckHasNoDuplicates(player) {
@@ -461,9 +462,6 @@ function cardClass(instance) {
   return String(instance?.card?.class ?? instance?.card?.className ?? instance?.class ?? instance?.className ?? "").trim().toLowerCase();
 }
 
-function cardType(instance) {
-  return String(instance?.typeOverride ?? instance?.card?.type ?? instance?.type ?? "").trim().toLowerCase();
-}
 
 function setResource(player, key, value) {
   const next = Math.max(0, Number(value) || 0);

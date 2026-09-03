@@ -28,7 +28,10 @@ const sharedCardTypeModules = [
 const effectiveCardTypeModules = [
   "src/core/rulesets/svwb/amulets.js",
   "src/core/rulesets/svwb/optional-allied-card.js",
-  "src/core/rulesets/svwb/all-followers-count-x.js"
+  "src/core/rulesets/svwb/all-followers-count-x.js",
+  "src/core/rulesets/svwb/class-conditions.js",
+  "src/core/rulesets/svwb/generic-effects.js",
+  "src/core/rulesets/svwb/effect-resolver.js"
 ];
 
 test("V6 modules reuse shared printed card-type state instead of local copies", async () => {
@@ -69,6 +72,13 @@ test("shared live stat helpers replace only identical fallbacks", async () => {
     assert.doesNotMatch(source, /function\s+currentMaxDefense\s*\(/, path);
   }
   assert.doesNotMatch(discardReactions, /function\s+currentDefense\s*\(/);
+
+  const genericEffects = await read("src/core/rulesets/svwb/generic-effects.js");
+  for (const helper of ["currentAttack", "currentDefense", "currentMaxDefense"]) {
+    assert.match(genericEffects, new RegExp("\\b" + helper + "\\b"), helper);
+    assert.doesNotMatch(genericEffects, new RegExp("function\\s+" + helper + "\\s*\\("), helper);
+  }
+  assert.match(genericEffects, /from "\.\/runtime-card-state\.js"/);
 });
 
 test("max-defense helpers keep live-defense and undamaged fallbacks distinct", () => {
