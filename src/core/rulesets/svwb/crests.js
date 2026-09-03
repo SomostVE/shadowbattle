@@ -1,4 +1,5 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
+import { normalizeLookupValue } from "./lookup-normalization.js";
 
 export const WORLDS_BEYOND_CREST_LIMIT = 5;
 
@@ -50,12 +51,12 @@ export function getWorldsBeyondCrests(player) {
 }
 
 export function hasWorldsBeyondCrest(player, name) {
-  const wanted = normalize(name);
-  return getWorldsBeyondCrests(player).some(crest => normalize(crest.name) === wanted);
+  const wanted = normalizeLookupValue(name);
+  return getWorldsBeyondCrests(player).some(crest => normalizeLookupValue(crest.name) === wanted);
 }
 
 export function getWorldsBeyondCrestCountdown(name) {
-  return CREST_COUNTDOWNS[normalize(name)] ?? null;
+  return CREST_COUNTDOWNS[normalizeLookupValue(name)] ?? null;
 }
 
 export function gainWorldsBeyondCrest(session, playerIndex, name, card = null) {
@@ -182,10 +183,6 @@ function normalizeCountdownAmount(amount) {
 }
 
 function findCrest(player, name) {
-  const wanted = normalize(name);
-  return getWorldsBeyondCrests(player).find(crest => normalize(crest.name) === wanted) ?? null;
-}
-
-function normalize(value) {
-  return String(value ?? "").trim().toLowerCase();
+  const wanted = normalizeLookupValue(name);
+  return getWorldsBeyondCrests(player).find(crest => normalizeLookupValue(crest.name) === wanted) ?? null;
 }

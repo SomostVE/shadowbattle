@@ -7,6 +7,7 @@ import {
 import { crestView, getWorldsBeyondCrests } from "./crests.js";
 import { destroyWorldsBeyondFollower } from "./effect-resolver.js";
 import { resolveWorldsBeyondSplitAllEnemiesDamage } from "./generic-effects.js";
+import { normalizeLookupValue } from "./lookup-normalization.js";
 import { cardType, currentAttack } from "./runtime-card-state.js";
 import {
   createWorldsBeyondLeaderDamageCommand,
@@ -15,7 +16,7 @@ import {
 
 export function resolveWorldsBeyondCrestTurnStart(session, playerIndex, crest) {
   if (!crest || session.phase !== "main") return false;
-  const name = normalize(crest.name);
+  const name = normalizeLookupValue(crest.name);
   let selfDamage = 0;
 
   if (name === "burnite, anathema of ash") selfDamage = 2;
@@ -34,7 +35,7 @@ export function resolveWorldsBeyondCrestTurnEnd(session, playerIndex, crest) {
   const player = session.getPlayer(playerIndex);
   const enemyIndex = 1 - playerIndex;
   const enemy = session.getPlayer(enemyIndex);
-  const name = normalize(crest.name);
+  const name = normalizeLookupValue(crest.name);
   const followersAttackedThisTurn = didFollowerAttackThisTurn(session, playerIndex);
   let triggered = false;
   let detail = {};
@@ -99,7 +100,7 @@ export function resolveWorldsBeyondCrestTurnEnd(session, playerIndex, crest) {
     detail = { leaderHealing: healed };
   }
 
-  if (name === "himeka, heir to repose" && player.board.some(unit => cardType(unit) === "follower" && normalize(unit.card?.name) === name)) {
+  if (name === "himeka, heir to repose" && player.board.some(unit => cardType(unit) === "follower" && normalizeLookupValue(unit.card?.name) === name)) {
     const eligible = enemy.board.filter(unit => cardType(unit) === "follower" && currentAttack(unit) <= 4 && !unit.himekaBanishAtOwnTurnEnd);
     let count = Math.min(getWorldsBeyondCrests(player).length, eligible.length);
     const locked = [];
@@ -139,7 +140,7 @@ export function resolveWorldsBeyondCrestTurnEnd(session, playerIndex, crest) {
 
 export function resolveWorldsBeyondCrestLastWords(session, playerIndex, crest) {
   if (!crest || session.phase !== "main") return false;
-  const name = normalize(crest.name);
+  const name = normalizeLookupValue(crest.name);
 
   if (name === "maddening benison") {
     emitCrestActivation(session, playerIndex, crest, "last-words", { selfDamage: 10 });
@@ -270,8 +271,4 @@ function emitCrestActivation(session, playerIndex, crest, action, detail = {}) {
     actor: playerIndex,
     payload: { action, crest: crestView(crest), ...detail }
   });
-}
-
-function normalize(value) {
-  return String(value ?? "").trim().toLowerCase();
 }

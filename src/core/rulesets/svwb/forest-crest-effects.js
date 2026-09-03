@@ -1,11 +1,12 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
 import { crestView } from "./crests.js";
 import { addWorldsBeyondGeneratedCard } from "./generated-cards.js";
+import { normalizeLookupValue } from "./lookup-normalization.js";
 import { cardType } from "./runtime-card-state.js";
 
 export function resolveWorldsBeyondForestCrestTurnStart(session, playerIndex, crest) {
   if (!crest || session.phase !== "main") return false;
-  if (normalize(crest.name) !== "titania, queen of fairies") return false;
+  if (normalizeLookupValue(crest.name) !== "titania, queen of fairies") return false;
 
   const card = session.findCardDefinition({ name: "Fairy" });
   const result = card ? addWorldsBeyondGeneratedCard(session, playerIndex, card, { reason: "titania-crest" }) : null;
@@ -25,7 +26,7 @@ export function resolveWorldsBeyondForestCrestTurnEnd(session, playerIndex, cres
   if (!crest || session.phase !== "main") return false;
   const player = session.getPlayer(playerIndex);
   const combo = Math.max(0, Number(player.cardsPlayedThisTurn) || 0);
-  const name = normalize(crest.name);
+  const name = normalizeLookupValue(crest.name);
 
   if (name === "thestae, anathema of distortion" && combo >= 3) {
     for (const item of player.deck) {
@@ -62,8 +63,4 @@ export function resolveWorldsBeyondForestCrestTurnEnd(session, playerIndex, cres
   }
 
   return false;
-}
-
-function normalize(value) {
-  return String(value ?? "").trim().toLowerCase();
 }

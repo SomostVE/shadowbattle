@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import { assertWorldsBeyondMainActor } from "../src/core/rulesets/svwb/action-guards.js";
+import { normalizeLookupValue } from "../src/core/rulesets/svwb/lookup-normalization.js";
 import {
   cardHasTrait,
   currentMaxDefense,
@@ -75,6 +76,27 @@ test("shared V6 card trait lookup replaces Fuse-era duplicate helpers", async ()
   assert.equal(cardHasTrait({ traits: [" Artifact ", "Loot"] }, "loot"), true);
   assert.equal(cardHasTrait({ traits: ["Marine"] }, "Artifact"), false);
   assert.equal(cardHasTrait({}, "Artifact"), false);
+});
+
+test("Crest modules share exact lookup normalization instead of local copies", async () => {
+  const crestModules = [
+    "src/core/rulesets/svwb/crests.js",
+    "src/core/rulesets/svwb/crest-effects.js",
+    "src/core/rulesets/svwb/forest-crest-effects.js",
+    "src/core/rulesets/svwb/sword-crest-effects.js",
+    "src/core/rulesets/svwb/portal-crest-effects.js"
+  ];
+
+  for (const path of crestModules) {
+    const source = await read(path);
+    assert.match(source, /\bnormalizeLookupValue\b/, path);
+    assert.match(source, /from "\.\/lookup-normalization\.js"/, path);
+    assert.doesNotMatch(source, /function\s+normalize\s*\(/, path);
+  }
+
+  assert.equal(normalizeLookupValue("  Eudie, Maiden Reborn  "), "eudie, maiden reborn");
+  assert.equal(normalizeLookupValue(null), "");
+  assert.equal(normalizeLookupValue(42), "42");
 });
 
 test("shared live stat helpers replace only identical fallbacks", async () => {
