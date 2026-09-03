@@ -3,6 +3,7 @@ import { resolveEffectCommands } from "../../effect-commands.js";
 import { banishBoardCard, destroyBoardAmulet, restoreOriginalCardForm, returnBoardCardToHand } from "../../zone-actions.js";
 import { createWorldsBeyondExactCopyInstance } from "./generated-cards.js";
 import { evaluateWorldsBeyondClassCondition } from "./class-conditions.js";
+import { effectiveCardType } from "./runtime-card-state.js";
 import { grantWorldsBeyondKeyword, removeWorldsBeyondKeyword, refreshWorldsBeyondAttackReadiness } from "./combat-readiness.js";
 import { spellboostWorldsBeyondHand, worldsBeyondCardX } from "./spellboost.js";
 import { getWorldsBeyondEngageInfo } from "./engage.js";
@@ -289,8 +290,8 @@ export function destroyWorldsBeyondFollower(session, playerIndex, instanceId, op
 
 function destroyWorldsBeyondTargetCard(session, playerIndex, target, options = {}) {
   if (options.abilityDestroy && hasWorldsBeyondAbilityDestructionImmunity(target)) return null;
-  if (cardType(target) === "follower") return destroyWorldsBeyondFollower(session, playerIndex, target.instanceId, options);
-  if (cardType(target) !== "amulet") return null;
+  if (effectiveCardType(target) === "follower") return destroyWorldsBeyondFollower(session, playerIndex, target.instanceId, options);
+  if (effectiveCardType(target) !== "amulet") return null;
 
   const destroyed = destroyBoardAmulet(session, playerIndex, target.instanceId, options);
   if (!destroyed) return null;
@@ -397,8 +398,8 @@ function resolveWorldsBeyondVariables(textValue, source, { session = null, playe
 
   const boardDifferenceDefinition = /\bX is the number of enemy followers on the field minus the number of allied followers on the field\s*\.?/i;
   if (boardDifferenceDefinition.test(text) && /\bdestroy X random enemy followers\b/i.test(text) && session && (playerIndex === 0 || playerIndex === 1)) {
-    const alliedFollowers = session.getPlayer(playerIndex).board.filter(item => cardType(item) === "follower").length;
-    const enemyFollowers = session.getPlayer(1 - playerIndex).board.filter(item => cardType(item) === "follower").length;
+    const alliedFollowers = session.getPlayer(playerIndex).board.filter(item => effectiveCardType(item) === "follower").length;
+    const enemyFollowers = session.getPlayer(1 - playerIndex).board.filter(item => effectiveCardType(item) === "follower").length;
     const x = Math.max(0, enemyFollowers - alliedFollowers);
     text = text.replace(boardDifferenceDefinition, " ");
     return text
@@ -524,7 +525,7 @@ function targetOptionsForSpec(session, playerIndex, targetSpec) {
     ];
   }
   if (targetSpec?.targetSide === "allied") {
-    return filterTargetCandidates(session.getPlayer(playerIndex).board.filter(unit => cardType(unit) === "follower"), targetSpec);
+    return filterTargetCandidates(session.getPlayer(playerIndex).board.filter(unit => effectiveCardType(unit) === "follower"), targetSpec);
   }
   return filterTargetCandidates(targetableEnemyFollowers(session.getPlayer(1 - playerIndex).board), targetSpec);
 }
@@ -818,7 +819,7 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
   applied = postApplied || applied;
 
   for (const match of text.matchAll(/\bdestroy (?:a random|random) enemy follower with the highest attack\b/gi)) {
-    const followers = session.players[enemyIndex].board.filter(unit => cardType(unit) === "follower");
+    const followers = session.players[enemyIndex].board.filter(unit => effectiveCardType(unit) === "follower");
     const highest = maxValue(followers, unit => Number(unit.attack ?? unit.card?.attack ?? 0));
     const candidates = highest == null
       ? []
@@ -835,7 +836,7 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
   for (const match of text.matchAll(new RegExp(`\\bdeal\\s+${DAMAGE_NUMBER}\\s+damage to (?:all|each) followers? with the highest defense\\b`, "gi"))) {
     const amount = numberWord(match[1]);
     const allFollowers = session.players.flatMap((player, owner) => player.board
-      .filter(unit => cardType(unit) === "follower")
+      .filter(unit => effectiveCardType(unit) === "follower")
       .map(unit => ({ owner, unit })));
     const highest = maxValue(allFollowers, item => Number(item.unit.defense ?? item.unit.card?.defense ?? 0));
     const targets = highest == null
@@ -862,7 +863,7 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
   for (const match of text.matchAll(new RegExp(`\\bdeal\\s+${DAMAGE_NUMBER}\\s+damage to (?:all|each) enemy followers?\\b(?!\\s+with\\b)`, "gi"))) {
     const amount = numberWord(match[1]);
     const targets = session.players[enemyIndex].board
-      .filter(unit => cardType(unit) === "follower")
+      .filter(unit => effectiveCardType(unit) === "follower")
       .map(unit => ({ owner: enemyIndex, unit }));
     applied = resolveFollowerAreaDamage(session, targets, amount, { actor: playerIndex, source }) || applied;
   }
@@ -870,7 +871,7 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
   for (const match of text.matchAll(new RegExp(`\\bdeal\\s+${DAMAGE_NUMBER}\\s+damage to (?:all|each) followers?\\b(?!\\s+with\\b)`, "gi"))) {
     const amount = numberWord(match[1]);
     const targets = session.players.flatMap((player, owner) => player.board
-      .filter(unit => cardType(unit) === "follower")
+      .filter(unit => effectiveCardType(unit) === "follower")
       .map(unit => ({ owner, unit })));
     applied = resolveFollowerAreaDamage(session, targets, amount, { actor: playerIndex, source }) || applied;
   }
@@ -915,7 +916,7 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
   for (const match of text.matchAll(/\bgive them\s+(Storm|Rush|Ward|Bane|Drain)\b/gi)) {
     for (const instanceId of [...new Set(antecedentInstanceIds)]) {
       const unit = session.findBoardCard(playerIndex, instanceId);
-      if (!unit || cardType(unit) !== "follower") continue;
+      if (!unit || effectiveCardType(unit) !== "follower") continue;
       applied = grantWorldsBeyondKeyword(unit, match[1]) || applied;
       refreshWorldsBeyondAttackReadiness(session, playerIndex, unit);
     }
@@ -924,7 +925,7 @@ function executeSimpleEffects(session, { text, playerIndex, source, targetSpec =
   if (/\bbanish all enemy followers with\s+(\d+)\s+defense or less\b/i.test(text)) {
     const maxDefense = Number(text.match(/\bbanish all enemy followers with\s+(\d+)\s+defense or less\b/i)?.[1] ?? 0);
     const targetIds = session.getPlayer(enemyIndex).board
-      .filter(unit => cardType(unit) === "follower" && Number(unit.defense ?? unit.card?.defense ?? 0) <= maxDefense)
+      .filter(unit => effectiveCardType(unit) === "follower" && Number(unit.defense ?? unit.card?.defense ?? 0) <= maxDefense)
       .map(unit => unit.instanceId);
     for (const instanceId of targetIds) {
       applied = Boolean(banishBoardCard(session, enemyIndex, instanceId, { actor: playerIndex, source, reason: "ability" })) || applied;
@@ -984,7 +985,7 @@ function resolveLeadingFullDefenseRestore(session, { text, playerIndex, source }
   if (!compound && !standalone) return { applied: false, restored: 0, leaderHealed: 0 };
 
   const follower = source?.instanceId ? session.findBoardCard(playerIndex, source.instanceId) : null;
-  if (!follower || cardType(follower) !== "follower") return { applied: false, restored: 0, leaderHealed: 0 };
+  if (!follower || effectiveCardType(follower) !== "follower") return { applied: false, restored: 0, leaderHealed: 0 };
 
   const before = Math.max(0, Number(follower.defense ?? follower.card?.defense ?? 0));
   const maximum = Math.max(before, Number(follower.maxDefense ?? follower.card?.defense ?? before));
@@ -1017,7 +1018,7 @@ function resolveLeadingFullDefenseRestore(session, { text, playerIndex, source }
 
 function resolveAllEnemiesDamage(session, enemyIndex, amount, { actor, source } = {}) {
   const targets = session.getPlayer(enemyIndex).board
-    .filter(unit => cardType(unit) === "follower")
+    .filter(unit => effectiveCardType(unit) === "follower")
     .map(unit => ({ owner: enemyIndex, unit }));
   const damage = Math.max(0, Number(amount) || 0);
   if (!damage || session.phase === "ended") return false;
@@ -1116,22 +1117,19 @@ function worldsBeyondTargetView(session, target) {
 }
 
 function targetableEnemyCards(board) {
-  return board.filter(unit => cardType(unit) === "amulet" || (cardType(unit) === "follower" && !unit.aura && !unit.ambush));
+  return board.filter(unit => effectiveCardType(unit) === "amulet" || (effectiveCardType(unit) === "follower" && !unit.aura && !unit.ambush));
 }
 
 function targetableEnemyFollowers(board) {
-  return board.filter(unit => cardType(unit) === "follower" && !unit.aura && !unit.ambush);
+  return board.filter(unit => effectiveCardType(unit) === "follower" && !unit.aura && !unit.ambush);
 }
 
 function randomEnemyFollower(session, playerIndex) {
-  const targets = session.players[playerIndex].board.filter(unit => cardType(unit) === "follower");
+  const targets = session.players[playerIndex].board.filter(unit => effectiveCardType(unit) === "follower");
   if (!targets.length) return null;
   return targets[Math.floor(session.rng() * targets.length)] ?? targets[0];
 }
 
-function cardType(instance) {
-  return String(instance?.typeOverride ?? instance?.card?.type ?? instance?.type ?? "").trim().toLowerCase();
-}
 
 function numberWord(value) {
   if (/^\d+$/.test(String(value))) return Number(value);
