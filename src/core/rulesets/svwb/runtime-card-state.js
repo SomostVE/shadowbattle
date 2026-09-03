@@ -21,3 +21,8 @@ export function cardType(instance) {
 export function effectiveCardType(instance) {
   return String(instance?.typeOverride ?? instance?.card?.type ?? instance?.type ?? "").trim().toLowerCase();
 }
+
+export function cardHasTrait(card, trait) {
+  const wanted = String(trait ?? "").trim().toLowerCase();
+  return (card?.traits ?? []).some(value => String(value ?? "").trim().toLowerCase() === wanted);
+}
