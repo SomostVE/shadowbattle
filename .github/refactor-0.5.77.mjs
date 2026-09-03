@@ -62,7 +62,7 @@ migrateEffectiveType(
   const newList = `const effectiveCardTypeModules = [\n  "src/core/rulesets/svwb/amulets.js",\n  "src/core/rulesets/svwb/optional-allied-card.js",\n  "src/core/rulesets/svwb/all-followers-count-x.js",\n  "src/core/rulesets/svwb/class-conditions.js",\n  "src/core/rulesets/svwb/generic-effects.js",\n  "src/core/rulesets/svwb/effect-resolver.js"\n];`;
   text = replaceExact(text, oldList, newList, "effective card type inventory");
   const anchor = `  assert.doesNotMatch(discardReactions, /function\\s+currentDefense\\s*\\(/);\n});`;
-  const extended = `  assert.doesNotMatch(discardReactions, /function\\s+currentDefense\\s*\\(/);\n\n  const genericEffects = await read("src/core/rulesets/svwb/generic-effects.js");\n  for (const helper of ["currentAttack", "currentDefense", "currentMaxDefense"]) {\n    assert.match(genericEffects, new RegExp(\\`\\\\b\\${helper}\\\\b\\`), helper);\n    assert.doesNotMatch(genericEffects, new RegExp(\\`function\\\\s+\\${helper}\\\\s*\\\\(\\`), helper);\n  }\n  assert.match(genericEffects, /from "\\.\\/runtime-card-state\\.js"/);\n});`;
+  const extended = `  assert.doesNotMatch(discardReactions, /function\\s+currentDefense\\s*\\(/);\n\n  const genericEffects = await read("src/core/rulesets/svwb/generic-effects.js");\n  for (const helper of ["currentAttack", "currentDefense", "currentMaxDefense"]) {\n    assert.match(genericEffects, new RegExp("\\\\b" + helper + "\\\\b"), helper);\n    assert.doesNotMatch(genericEffects, new RegExp("function\\\\s+" + helper + "\\\\s*\\\\("), helper);\n  }\n  assert.match(genericEffects, /from "\\.\\/runtime-card-state\\.js"/);\n});`;
   text = replaceExact(text, anchor, extended, "generic runtime stat regression");
   write(path, text);
 }
