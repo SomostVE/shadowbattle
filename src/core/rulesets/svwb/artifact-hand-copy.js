@@ -1,7 +1,7 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
 import { hasWorldsBeyondKeyword } from "./combat-readiness.js";
 import { createWorldsBeyondExactCopyInstance } from "./generated-cards.js";
-import { cardType } from "./runtime-card-state.js";
+import { cardHasTrait, cardType } from "./runtime-card-state.js";
 import { costOf } from "./v5/battle-engine-v5-state.js";
 
 const CORE_SELECTION = /Select\s+(\d+)\s+Artifact followers in your hand that cost\s+(\d+)\s+or less(?:,\s*|\s+and\s+)summon an exact copy of each/i;
@@ -30,7 +30,7 @@ export function getWorldsBeyondArtifactHandCopyCandidates(player, source, spec) 
   return (player?.hand ?? []).filter(instance =>
     instance?.instanceId !== source?.instanceId
     && cardType(instance) === "follower"
-    && hasTrait(instance?.card, "Artifact")
+    && cardHasTrait(instance?.card, "Artifact")
     && costOf(instance) <= spec.maxCost
   );
 }
@@ -166,10 +166,6 @@ function prepareSummonedFollower(instance, turn) {
   instance.hasAttacked = false;
   instance.canAttackFollowers = hasWorldsBeyondKeyword(instance, "Rush") || hasWorldsBeyondKeyword(instance, "Storm");
   instance.canAttackLeader = hasWorldsBeyondKeyword(instance, "Storm");
-}
-
-function hasTrait(card, trait) {
-  return (card?.traits ?? []).some(value => normalize(value) === normalize(trait));
 }
 
 function normalize(value) {
