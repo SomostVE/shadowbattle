@@ -1,5 +1,5 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
-import { hasWorldsBeyondTrait } from "./fuse.js";
+import { cardHasTrait } from "./runtime-card-state.js";
 
 export function accountWorldsBeyondFollowerEntryHistory(session, event) {
   if (!session || event?.type !== BATTLE_EVENT.FOLLOWER_ENTER) return false;
@@ -9,7 +9,7 @@ export function accountWorldsBeyondFollowerEntryHistory(session, event) {
   const view = event.payload?.card ?? {};
   const definition = session.findCardDefinition({ id: view.cardId ?? null })
     ?? session.findCardDefinition({ name: view.name ?? null });
-  if (!definition || normalize(definition.type) !== "follower" || !hasWorldsBeyondTrait(definition, "Artifact")) return false;
+  if (!definition || normalize(definition.type) !== "follower" || !cardHasTrait(definition, "Artifact")) return false;
 
   const name = String(definition.name ?? view.name ?? "").trim();
   if (!name) return false;

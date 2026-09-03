@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import { assertWorldsBeyondMainActor } from "../src/core/rulesets/svwb/action-guards.js";
 import {
+  cardHasTrait,
   currentMaxDefense,
   currentMaxDefenseIgnoringDamage
 } from "../src/core/rulesets/svwb/runtime-card-state.js";
@@ -50,6 +51,30 @@ test("V6 override-aware modules reuse effectiveCardType", async () => {
     assert.match(source, /from "\.\/runtime-card-state\.js"/i, path);
     assert.doesNotMatch(source, /function\s+cardType\s*\(/, path);
   }
+});
+
+test("shared V6 card trait lookup replaces Fuse-era duplicate helpers", async () => {
+  const fuse = await read("src/core/rulesets/svwb/fuse.js");
+  const artifactHandCopy = await read("src/core/rulesets/svwb/artifact-hand-copy.js");
+  const matchHistory = await read("src/core/rulesets/svwb/match-history.js");
+
+  for (const [path, source] of [
+    ["fuse", fuse],
+    ["artifact-hand-copy", artifactHandCopy],
+    ["match-history", matchHistory]
+  ]) {
+    assert.match(source, /\bcardHasTrait\b/, path);
+    assert.match(source, /from "\.\/runtime-card-state\.js"/, path);
+  }
+  assert.doesNotMatch(fuse, /function\s+hasTrait\s*\(/);
+  assert.doesNotMatch(artifactHandCopy, /function\s+hasTrait\s*\(/);
+  assert.doesNotMatch(matchHistory, /from "\.\/fuse\.js"/);
+  assert.match(fuse, /export function hasWorldsBeyondTrait\s*\(/);
+
+  assert.equal(cardHasTrait({ traits: [" Artifact ", "Loot"] }, "artifact"), true);
+  assert.equal(cardHasTrait({ traits: [" Artifact ", "Loot"] }, "loot"), true);
+  assert.equal(cardHasTrait({ traits: ["Marine"] }, "Artifact"), false);
+  assert.equal(cardHasTrait({}, "Artifact"), false);
 });
 
 test("shared live stat helpers replace only identical fallbacks", async () => {

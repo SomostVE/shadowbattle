@@ -1,5 +1,6 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
 import { assertWorldsBeyondMainActor } from "./action-guards.js";
+import { cardHasTrait } from "./runtime-card-state.js";
 
 const MAX_FUSE_MATERIALS = 4;
 
@@ -113,9 +114,9 @@ export function isWorldsBeyondFuseMaterial(target, material) {
   const card = material.card;
   if (!requirement || !card) return false;
   if (requirement === "forestcraft cards") return normalize(card.class) === "forestcraft";
-  if (requirement === "artifact amulets") return normalize(card.type) === "amulet" && hasTrait(card, "Artifact");
-  if (requirement === "artifact cards") return hasTrait(card, "Artifact");
-  if (requirement === "loot cards") return hasTrait(card, "Loot");
+  if (requirement === "artifact amulets") return normalize(card.type) === "amulet" && cardHasTrait(card, "Artifact");
+  if (requirement === "artifact cards") return cardHasTrait(card, "Artifact");
+  if (requirement === "loot cards") return cardHasTrait(card, "Loot");
   if (requirement.includes("ominous artifact β") || requirement.includes("ominous artifact γ")) {
     const name = normalize(card.name);
     return name === "ominous artifact β" || name === "ominous artifact γ";
@@ -160,7 +161,7 @@ export function preprocessWorldsBeyondFuseText(source, textValue) {
 }
 
 export function hasWorldsBeyondTrait(card, trait) {
-  return hasTrait(card, trait);
+  return cardHasTrait(card, trait);
 }
 
 function candidateMaterialSets(target, eligible) {
@@ -249,11 +250,6 @@ function sameMaterialSet(left, right) {
 function initialX(card) {
   const match = String(card?.text ?? "").match(/X starts at\s*(-?\d+)/i);
   return match ? Number(match[1]) : 0;
-}
-
-function hasTrait(card, trait) {
-  const wanted = normalize(trait);
-  return (card?.traits ?? []).some(value => normalize(value) === wanted);
 }
 
 function normalize(value) {
