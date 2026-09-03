@@ -1,8 +1,9 @@
 import { BATTLE_EVENT } from "../../battle-events.js";
 import { crestView } from "./crests.js";
+import { normalizeLookupValue } from "./lookup-normalization.js";
 
 export function resolveWorldsBeyondPortalCrestTurnEnd(session, playerIndex, crest) {
-  if (!crest || session.phase !== "main" || normalize(crest.name) !== "eudie, maiden reborn") return false;
+  if (!crest || session.phase !== "main" || normalizeLookupValue(crest.name) !== "eudie, maiden reborn") return false;
   const player = session.getPlayer(playerIndex);
 
   if (player.hand.length <= 5) {
@@ -30,8 +31,4 @@ export function resolveWorldsBeyondPortalCrestTurnEnd(session, playerIndex, cres
     });
   }
   return true;
-}
-
-function normalize(value) {
-  return String(value ?? "").trim().toLowerCase();
 }
